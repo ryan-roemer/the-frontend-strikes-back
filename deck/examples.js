@@ -1,32 +1,32 @@
 /* global fetch:false */
 /**
  * Get all examples as source.
+ *
+ * Code samples live as real, lintable files in `examples/` and are fetched at
+ * runtime so the deck stays build-free while the snippets stay honest.
  */
 
 const EXAMPLES_PATHS = {
-  task: {
-    code: "./examples/TASK.md",
-  },
-  human: {
-    code: "./examples/human/index.js",
-  },
-  copilot: {
-    code: "./examples/copilot/index.js",
-  },
-  cursor: {
-    code: "./examples/cursor/index.js",
-  },
+  registerTool: { code: "./examples/register-tool.js" },
+  toolSchema: { code: "./examples/tool-schema.js" },
+  toolHandler: { code: "./examples/tool-handler.js" },
+};
+
+const getExample = async (name, path) => {
+  const res = await fetch(path);
+  if (!res.ok) {
+    throw new Error(`Example "${name}" failed: ${path} (${res.status})`);
+  }
+
+  return { name, code: await res.text() };
 };
 
 export const getExamples = async () => {
-  const examples = {};
+  const examples = await Promise.all(
+    Object.entries(EXAMPLES_PATHS).map(([name, { code }]) =>
+      getExample(name, code),
+    ),
+  );
 
-  for (const [key, { code }] of Object.entries(EXAMPLES_PATHS)) {
-    examples[key] = {
-      name: key,
-      code: await fetch(code).then((res) => res.text()),
-    };
-  }
-
-  return examples;
+  return Object.fromEntries(examples.map((example) => [example.name, example]));
 };

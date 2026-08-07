@@ -130,18 +130,27 @@ export const TopicSlide = ({
 `;
 
 // Code editor component
-export const CodeEditor = ({ code }) => html`
+//
+// Set `noInline` for imperative snippets (e.g. registering a WebMCP tool).
+// Without it, react-live requires the last expression to be renderable.
+export const CodeEditor = ({
+  code,
+  noInline = false,
+  editorHeight = "400px",
+  previewHeight = "50px",
+}) => html`
   <${LiveProvider}
     code=${code}
     language="javascript"
     theme=${themes.vsDark}
+    noInline=${noInline}
   >
     <div className="code-editor-container">
       <${LiveEditor}
         className="react-live-editor"
         style=${{
-          minHeight: "400px",
-          maxHeight: "400px",
+          minHeight: editorHeight,
+          maxHeight: editorHeight,
         }}
       />
       <${LiveError}
@@ -150,8 +159,8 @@ export const CodeEditor = ({ code }) => html`
       <${LivePreview}
         className="react-live-preview"
         style=${{
-          minHeight: "50px",
-          maxHeight: "50px",
+          minHeight: previewHeight,
+          maxHeight: previewHeight,
         }}
       />
     </div>
@@ -166,8 +175,9 @@ export const BOX_STYLES = {
   alignItems: "center",
 };
 
-// Case slide component
-export const CaseSlide = ({ title, sections = [], notes }) => {
+// Rows slide component: a grid of labelled rows, each with a row of items.
+// `sections` is `[{ title, items: [string | { text, icon, color }] }]`.
+export const RowsSlide = ({ title, sections = [], notes }) => {
   // Calculate grid layout based on sections
   const maxItems = Math.max(
     ...sections.map((section) => Math.max(section.items.length, 1)),
@@ -232,7 +242,7 @@ export const CaseSlide = ({ title, sections = [], notes }) => {
                           </${Box}>
                         </${FlexBox}>
                       </${Text}>
-                    </${Box}>
+                    </${FlexBox}>
                   `;
                 })}
 

@@ -1,7 +1,7 @@
 {
-  "name": "ai-vs-the-law",
+  "name": "the-frontend-strikes-back",
   "version": "0.0.1",
-  "description": "2025 talk on 'AI vs. The Law'",
+  "description": "2026 talk on 'The Frontend Strikes Back: WebMCP and The Agent-Ready Browser'",
   "type": "module",
   "scripts": {
     "dev": "npx serve",

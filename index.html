@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta
+      name="description"
+      content="WebMCP and the agent-ready browser: registering frontend tools that AI agents can actually call."
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -40,7 +44,7 @@
         font-size: 18px !important;
       }
     </style>
-    <title>AI vs. The Law</title>
+    <title>The Frontend Strikes Back</title>
   </head>
   <body>
     <div id="root"></div>
@@ -86,50 +90,35 @@
       }
     </script>
     <script type="module">
-      import { Fragment, createElement } from "react";
+      import { createElement } from "react";
       import { createRoot } from "react-dom/client";
-      import { renderToString } from "react-dom/server";
       import htm from "htm";
       import {
         FlexBox,
         Heading,
-        UnorderedList,
-        CodeSpan,
-        OrderedList,
-        ListItem,
         Slide,
         Deck,
         Text,
         Link,
-        FitText,
         Grid,
-        Box,
         Image,
-        CodePane,
         Markdown,
-        MarkdownSlide,
         MarkdownSlideSet,
         Notes,
-        SlideLayout,
         SpectacleLogo,
       } from "spectacle";
-      import { themes } from "prism-react-renderer";
       import { theme, colors } from "./deck/theme.js";
-      import { logos, logosHtm, backgrounds, images } from "./deck/media.js";
+      import { logosHtm, backgrounds, images } from "./deck/media.js";
       import { getExamples } from "./deck/examples.js";
       import {
         icon,
-        iconArrow,
         Icon,
-        IconLink,
-        IconArrow,
         em,
-        Em,
         Template,
         JsSlide,
         TopicSlide,
         CodeEditor,
-        CaseSlide,
+        RowsSlide,
         AppearComponent,
         animateListItems,
         BOX_STYLES,
@@ -137,26 +126,26 @@
       const html = htm.bind(createElement);
 
       const examples = await getExamples();
-      const TASK_SLIDE = 40; // TODO: Programmatically find this???
-      const deckUrl = (key, val) => {
-        const url = new URL(window.location.href);
-        url.search = "";
-        url.searchParams.set(key, val);
-        return url.toString();
-      };
-      const TASK_SLIDE_URL = deckUrl("slideIndex", TASK_SLIDE);
+
+      const qrCodeImg = `<img src="${images.qrCode}" width="200px" style="margin: 0 40px; margin-top: calc(25vh); border: 5px solid #fff;" />`;
 
       // The presentation deck.
       const Presentation =
         () => html`<${Deck} theme=${theme} template=${Template}>
+          <!-- ============================================================ -->
+          <!-- Intro                                                        -->
+          <!-- ============================================================ -->
           <${Slide}>
             <${FlexBox} height="100%" flexDirection="column">
-              <${Heading} fontSize="140px" style=${{ margin: "0" }}>
-                AI vs. THE LAW
+              <${Heading} fontSize="110px" style=${{ margin: "0" }}>
+                THE FRONTEND STRIKES BACK
               </${Heading}>
               <hr style=${{ width: "80%", margin: "20px 0" }} />
-              <${Heading} fontSize="h2" color="h2">
-                ${logosHtm.js} JSConf 2025
+              <${Heading} fontSize="h2" color="primary" style=${{ margin: "0" }}>
+                WebMCP and The Agent-Ready Browser
+              </${Heading}>
+              <${Heading} fontSize="h3" color="h2">
+                ${logosHtm.conf} AgntCon + MCPCon NA
               </${Heading}>
             </${FlexBox}>
             <${Image}
@@ -171,23 +160,23 @@
                 zIndex: 1000,
               }}
             />
-           ${
-             "" /*
-            ...in case you're dreading the thought of just hearing about the law for the next 30 minutes...
-            * I do have a quick coding exercise that you can start now.
-            * Hit the QR code to go to the live slides,
-            * And navigate to [slide ${TASK_SLIDE}](${TASK_SLIDE_URL}).
-            */
-           }
+            <${Notes}>
+              <${Markdown} className="notes">
+                ${`
+                  TODO: Cold open.
+                  * ${em("Agents are already using your app")} -- just badly.
+                `}
+              </${Markdown}>
+            </${Notes}>
           </${Slide}>
           <${Slide}
-            backgroundImage="url(${backgrounds.chesapeakeBay})"
+            backgroundImage="url(${backgrounds.venue})"
             backgroundOpacity=${0.6}
             backgroundColor="${colors.basics.black}"
           >
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center">
               <${Heading} fontSize="150px" color="primary">
-                <${Icon} name="heart" /> JSConf
+                <${Icon} name="heart" /> AgntCon
               </${Heading}>
             </${FlexBox}>
           </${Slide}>
@@ -208,10 +197,18 @@
               </${AppearComponent}>
               <${AppearComponent}>
                 <${Text} fontSize="h3">
-                  <${Icon} name="eyeglasses" /> I'm normally a geek...
+                  <${Icon} name="eyeglasses" /> I've been building for the web a long time...
                 </${Text}>
               </${AppearComponent}>
             </${FlexBox}>
+            <${Notes}>
+              <${Markdown} className="notes">
+                ${`
+                  TODO: Personal framing.
+                  * Why the ${em("frontend")} is where this fight happens.
+                `}
+              </${Markdown}>
+            </${Notes}>
           </${Slide}>
           <${Slide} backgroundImage="url(${images.spectacle})">
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center">
@@ -232,49 +229,10 @@
               <${Markdown} className="notes">
                 ${`
                   * ${em("Spectacle")} is a presentation library for React.
+                  * This deck runs on it: no build step, all in the browser.
                   * If you come find me later:
                     * I've got ${em("stickers")} for Spectacle and our other open source projects.
                     * ...and some ${em("t-shirts")}.
-                `}
-              </${Markdown}>
-            </${Notes}>
-          </${Slide}>
-          <${Slide} ...${animateListItems}>
-            <${FlexBox} flexDirection="column" alignSelf="center" justifyContent="left" alignItems="left">
-              <${Heading} fontSize="h1" color="secondary">
-                ... but today
-              </${Heading}>
-              <${AppearComponent}>
-                <${Text} fontSize="h3">
-                  <${Icon} name="scales" /> Former IP & patent attorney
-                </${Text}>
-              </${AppearComponent}>
-              <${AppearComponent}>
-                <${Text} fontSize="h3">
-                  ${logosHtm.mofo} I was a <${Link} href="https://mofo.com" fontSize="h3">MoFo</${Link}> lawyer
-                  <${AppearComponent} tagName="span">
-                    ${" "}<${IconArrow} /> <img src=${images.mofo} height="55px" />
-                  </${AppearComponent}>
-                </${Text}>
-              </${AppearComponent}>
-              <${AppearComponent}>
-                <${Text} fontSize="h3">
-                  <${Icon} name="fire" /> Keep an eye on <${Em}>code<//> vs. <${Em}>law<//>...
-                </${Text}>
-              </${AppearComponent}>
-            </${FlexBox}>
-            <${Notes}>
-              <${Markdown} className="notes">
-                ${`
-                  MoFo
-                  * A totally real law firm.
-                  * That really is at \`mofo.com\`.
-                  * MoFo respresents Anthropic (Bartz), OpenAI (In re OpenAI).
-
-                  My interests:
-                  * ${em("Open source")}, IP and code.
-                  * As well as ${em("legal tech")}, especially in the AI space.
-                  * Would love to talk with folks after about any of this area!
                 `}
               </${Markdown}>
             </${Notes}>
@@ -285,20 +243,20 @@
               <${Grid} gridTemplateColumns="1fr 1fr" gridTemplateRows="1fr 1fr" gridGap="30px">
                 ${[
                   {
-                    title: "Copyright",
-                    icon: "copyright",
+                    title: "Agents Today",
+                    icon: "robot",
                   },
                   {
-                    title: "Inputs",
-                    icon: "sign-in",
+                    title: "WebMCP",
+                    icon: "plugs-connected",
                   },
                   {
-                    title: "Outputs",
-                    icon: "sign-out",
+                    title: "Live Demo",
+                    icon: "monitor-play",
                   },
                   {
-                    title: "Future",
-                    icon: "rocket",
+                    title: "In-Browser AI",
+                    icon: "browser",
                   },
                 ].map(
                   ({ title, icon }, i) => html`
@@ -312,535 +270,298 @@
               </${Grid}>
             </${FlexBox}>
           </${Slide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
-            ${`
-              ---
-              # Admonitions & disclaimers
-
-              * ${em("IAAL")} but ${em("IANYL")} (and even there, ${em("IAAIL")})
-              * Raise awareness, ${em("not")} provide answers or advice
-              * We'll talk about ${em("US")} law and computer ${em("code")}
-              * Talk to your own legal team
-            `}
-          </${MarkdownSlideSet}>
-          <${TopicSlide} backgroundUrl=${backgrounds.gavelBook}>
-            Law stuff
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
-            ${`
-              ---
-              # Copyright law
-
-              A valid copyright protects the ${em("original")} (creative) expression of a work.
-
-              Provides exclusive rights to: ${em("reproduction")},  ${em("distribution")}, preparation of "${em("derivative works")}"
-
-              <!--
-              * Reproduce: direct evidence or access + striking similarity.
-              * Prepare "derivative works": must still incorporate the underlying original expression.
-              -->
-
-              ---
-              ## Fair use
-
-              A **defense** to copyright infringment. ([17 U.S. Code § 107](https://www.law.cornell.edu/uscode/text/17/107))
-
-              1. the ${em("purpose")} and ${em("character")} of the use
-              2. the ${em("nature")} of the copyrighted work
-              3. the ${em("amount")} and substantiality of the portion used
-              4. the effect of the use upon the ${em("market value")} of the copyrighted work
-
-              Notes: \
-                1. Purpose: Commercial? Educational? Transformative?           \
-                2. Nature: Factual? Creative?
-
-            `}
-          </${MarkdownSlideSet}>
-          <${TopicSlide} backgroundUrl=${backgrounds.bookStacks}>
-            Inputs
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
-            ${`
-              ---
-              # Inputs
-
-              * What are you allowed to input into an AI system?
-              * How about for ${em("scraping")}?
-
-            `}
-          </${MarkdownSlideSet}>
-          <${TopicSlide} backgroundUrl=${backgrounds.networkCables}>
-            Training data
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
-            ${`
-
-              ---
-              ## Training data
-
-              What materials are you allowed to train on?
-              * ${em("Public domain")} works?
-              * ${em("Open source")} works?
-              * Private ${em("copyrighted")} works?
-              * Does ${em("how")} you collect the data matter?
-
-              ---
-              ## Training data
-
-              Why this matters:
-              * Which ${em("models")} and ${em("tools")} you will be allowed to use.
-              * How you will be able to ${em("gather")} and ${em("use")} data for your own ML/AI projects.
-
-              ---
-              ## Training data litigation
-
-              * _Thomson Reuters v. ROSS Intelligence_ (D Del)
-              * _In re OpenAI Litigation_ ${iconArrow} OpenAI, MSFT.
-              * _Bartz v. Anthropic_ (ND Cal) ${iconArrow} Claude
-              * _Kadrey v. Meta Platforms_ (ND Cal) ${iconArrow} Llama
-
-              <!--
-              Articles
-              * https://www.skadden.com/insights/publications/2025/07/fair-use-and-ai-training
-              * https://www.mckoolsmith.com/newsroom-ailitigation-12
-              -->
-
-            `}
-          </${MarkdownSlideSet}>
-          <${CaseSlide}
-            title="Thomson Reuters v. ROSS (D Del)"
-            sections=${[
-              {
-                title: "Facts",
-                items: [
-                  {
-                    icon: "prohibit",
-                    text: "Unauthorized metadata",
-                  },
-                ],
-              },
-              {
-                title: "Holdings",
-                items: [
-                  {
-                    icon: "gavel",
-                    color: colors.red.base,
-                    text: "Infringement",
-                  },
-                  {
-                    icon: "x-circle",
-                    color: colors.red.base,
-                    text: "No fair use",
-                  },
-                ],
-              },
-            ]}
-            notes=${`
-              * ROSS used Westlaw headnotes to train its AI legal search engine
-              * Holding - 2025: Infringement and no fair use
-                * (1) Commercial, not transformative
-                * (4) Directly harmed Westlaw's market
-              * Status: In appeals
-            `}
-          />
-          <${CaseSlide}
-            title="In re OpenAI Litigation"
-            sections=${[
-              {
-                title: "Parties",
-                items: [
-                  {
-                    icon: "sword",
-                    text: "Plaintiffs: News companies, authors, etc.",
-                  },
-                  {
-                    icon: "shield",
-                    text: "Defendants: OpenAI, MSFT",
-                  },
-                ],
-              },
-              {
-                title: "Status",
-                items: [
-                  {
-                    icon: "hourglass",
-                    text: "Ongoing",
-                  },
-                ],
-              },
-            ]}
-            notes=${`
-              * Plaintiffs: News companies, authors, etc.
-              * Defendants: OpenAI, MSFT.
-              * Various in flight developments.
-              * George RR Martin, Sarah Silverman, Michael Chabon, John Grisham, Scott Turow, etc.
-              * https://www.bakerlaw.com/in-re-openai-inc-copyright-infringement-litigation/
-            `}
-          />
-
-          <${CaseSlide}
-            title="Bartz v. Anthropic (ND Cal)"
-            sections=${[
-              {
-                title: "Facts",
-                items: [
-                  {
-                    icon: "browser",
-                    text: "Online sources",
-                  },
-                  {
-                    icon: "book",
-                    text: "Scanned books",
-                  },
-                  {
-                    icon: "prohibit",
-                    text: "Pirated books",
-                  },
-                ],
-              },
-              {
-                title: "Holdings",
-                items: [
-                  {
-                    icon: "x-circle",
-                    color: colors.red.base,
-                    text: "Pirated = Infringing",
-                  },
-                  {
-                    icon: "check-circle",
-                    color: colors.green.base,
-                    text: html`Non-pirated + online =${" "}<span
-                        style=${{ whiteSpace: "nowrap" }}
-                        >fair use</span
-                      >`,
-                  },
-
-                  {
-                    icon: "money",
-                    color: colors.green.base,
-                    text: "Settlement",
-                  },
-                ],
-              },
-            ]}
-            notes=${`
-              * Claude training data gathered from (1) allowed online sources, (2) pirated sources, and (3) buying and scanning books.
-              * June 23: District court ruling:
-                * Non-pirated sources are fair use. Exceedingly "transformative" use. (1)
-                * Pirated sources are not fair use. Market harm. (4)
-              * Sept. 25: $1.5 billion settlement with [preliminary approval](https://www.dailyjournal.com/articles/387788-judge-grants-preliminary-approval-of-1-5b-anthropic-ai-copyright-case)
-            `}
-          />
-
-          <${CaseSlide}
-            title="Kadrey v. Meta (ND Cal)"
-            sections=${[
-              {
-                title: "Facts",
-                items: [
-                  {
-                    icon: "browser",
-                    text: "Permitted sources",
-                  },
-                  {
-                    icon: "prohibit",
-                    text: "Pirated books",
-                  },
-                ],
-              },
-              {
-                title: "Holdings",
-                items: [
-                  {
-                    icon: "check-circle",
-                    color: colors.green.base,
-                    text: html`All${" "}<span style=${{ whiteSpace: "nowrap" }}
-                        >fair use</span
-                      >`,
-                  },
-                  {
-                    icon: "treasure-chest",
-                    color: colors.green.base,
-                    text: "Even pirated!",
-                  },
-                ],
-              },
-            ]}
-            notes=${`
-              * Llama training data. Pirated sources.
-              * June 25: Fair use.
-                * (1) Transformative
-                * (4) No market harm (insufficient evidence)
-              * Limited to specific plaintiffs. Nod to _Bartz_
-              * https://www.bakerlaw.com/kadrey-v-meta/
-            `}
-          />
-          <${TopicSlide} backgroundUrl=${backgrounds.cuttingBoard}>
-            Scraping
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
-            ${`
-              ---
-              # Scraping
-
-              * _Reddit vs. Anthropic_ (ND Cal) ${iconArrow} non-copyright claims, licensing path
-              * CloudFlare's AI [bot protections](https://blog.cloudflare.com/declaring-your-aindependence-block-ai-bots-scrapers-and-crawlers-with-a-single-click/)
-              * [Really Simple Licensing (RSL)](https://rslstandard.org/): Reddit, Stack Overflow,
-                [Fastly](https://www.fastly.com/blog/control-and-monetize-your-content-with-the-rsl-standard), etc.
-            `}
-          </${MarkdownSlideSet}>
-          <${TopicSlide} backgroundUrl=${backgrounds.notebook}>
-            Inputs Takeaways
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
-            ${`
-              ---
-              # Inputs: Takeaways
-
-              * The courts are ${em("split")} on fair use and this is all going to evolve.
-              * You don't need necessarily need permission.
-              * The cautious course is to gather data ${em("without pirating")}.
-              * Be wary of using data from a ${em("direct competitor")}.
-              * We're seeing more ${em("business")} and ${em("licensing")} solutions.
-            `}
-          </${MarkdownSlideSet}>
-          <${TopicSlide} backgroundUrl=${backgrounds.oldComputer}>
-            Outputs
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
-            ${`
-              ---
-              # Outputs
-
-              * What happens when AI produces copyrighted content/code?
-              * Can AI-generated content be protected by copyright?
-            `}
-          </${MarkdownSlideSet}>
+          <!-- ============================================================ -->
+          <!-- 1. Agents are already here                                   -->
+          <!-- ============================================================ -->
           <${TopicSlide} backgroundUrl=${backgrounds.danger}>
-            Infringement
+            Agents are already here
           </${TopicSlide}>
           <${MarkdownSlideSet} ...${animateListItems}>
             ${`
               ---
-              # Infringing AI outputs
+              # TODO: They already use your app
 
-              * A big concern in the early days of GitHub Copilot.
-                  * _Doe(s) v. GitHub Inc._ (ND Cal)
-                  * Now has [features](https://resources.github.com/learn/pathways/copilot/essentials/how-github-copilot-handles-data/) to try and prevent.
-              * Separate tools for auditing and prevention. ([Socket](https://socket.dev/blog/socket-license-analysis), [Black Duck](https://www.blackduck.com/software-composition-analysis-tools/open-source-scanning.html), etc.)
+              * TODO: ${em("Screen-scraping")} the DOM
+              * TODO: ${em("Playwright MCP")} clicking through human-shaped UIs
+              * TODO: Brittle, slow, expensive, unaccountable
 
-              <!--
-              * https://www.bakerlaw.com/the-copilot-litigation/
-              * https://www.legal.io/articles/5516216/Judge-Throws-Out-Majority-of-Claims-in-GitHub-Copilot-Lawsuit
-              -->
+              Notes: TODO: Open with a concrete example of the bad path.
 
               ---
-              # Infringement: Takeaways
+              # TODO: Why it goes badly
 
-              * You do need to be careful with AI-generated code outputs.
-              * But there are guardrails at various levels.
+              * TODO: Your UI is an interface for ${em("eyes")}, not for tools
+              * TODO: No schema, no contract, no ${em("discoverability")}
+              * TODO: Every redesign is a breaking change
+
+              Notes: TODO
             `}
           </${MarkdownSlideSet}>
-          <${TopicSlide} backgroundUrl=${backgrounds.keys}>
-            Ownership
+          <!-- ============================================================ -->
+          <!-- 2. WebMCP                                                    -->
+          <!-- ============================================================ -->
+          <${TopicSlide} backgroundUrl=${backgrounds.networkCables}>
+            WebMCP
           </${TopicSlide}>
           <${MarkdownSlideSet} ...${animateListItems}>
             ${`
               ---
-              # Ownership of AI outputs
+              # TODO: What is WebMCP?
 
-              Is the code you create with AI assistance protected by copyright?
-              * If you use tab completions, inline chat?
-              * How about a full IDE chat or CLI tool?
+              * TODO: ${em("MCP")}, but in the page
+              * TODO: The app ${em("registers")} tools; the agent discovers and calls them
+              * TODO: \`navigator.modelContext\`
+
+              Notes: TODO
 
               ---
-              # Ownership of AI outputs
+              # TODO: A rising W3C standard
 
-              Why this matters:
-              * You might care about copyright ownership (OSS protections, etc.)
-              * Your ${em("company")} probably cares about it.
+              * TODO: Where the spec lives and who's driving it
+              * TODO: Current status, browser support, polyfills
+              * TODO: How to follow along
 
-              Notes: \
-                We'll discuss two developments: \
-                Thaler v. Perlmutter (D DC), US Copyright Office second report.
+              Notes: TODO
+
+              ---
+              # TODO: The contract changes
+
+              * TODO: Reuse your existing ${em("auth")} -- the user is already signed in
+              * TODO: Reuse ${em("personalization")} and app state
+              * TODO: Reuse the ${em("business logic")} you already shipped
+              * TODO: Much faster than standing up a separate MCP server
+
+              Notes: TODO
             `}
           </${MarkdownSlideSet}>
-          <${CaseSlide}
-            title="Thaler v. Perlmutter (D DC)"
-            sections=${[
-              {
-                title: "Facts",
-                items: [
-                  {
-                    icon: "wrench",
-                    text: "AI image tool",
-                  },
-                  {
-                    icon: "robot",
-                    text: 'AI is the "author"',
-                  },
-                ],
-              },
-              {
-                title: "Holdings",
-                items: [
-                  {
-                    icon: "copyright",
-                    color: colors.red.base,
-                    text: "No copyright",
-                  },
-                  {
-                    icon: "x-circle",
-                    color: colors.red.base,
-                    text: "Only human authorship is protected",
-                  },
-                ],
-              },
-            ]}
+          <!-- ============================================================ -->
+          <!-- 3. The basics                                                -->
+          <!-- ============================================================ -->
+          <${TopicSlide} backgroundUrl=${backgrounds.greenCode}>
+            The basics
+          </${TopicSlide}>
+          <${MarkdownSlideSet} ...${animateListItems}>
+            ${`
+              ---
+              # TODO: Making a function agent-callable
+
+              1. TODO: ${em("Name")} and describe it
+              2. TODO: Define an input ${em("schema")}
+              3. TODO: ${em("Register")} it
+              4. TODO: Return content the agent can use
+
+              Notes: TODO: Set up the next three code slides.
+            `}
+          </${MarkdownSlideSet}>
+          <${JsSlide} title="Registering a tool" code=${examples.registerTool.code}
             notes=${`
-              * Image copyright registration
-              * With an AI as the "author"
-              * Thaler is the inventor.
-              * Holding (2025): US Copyright Act requires human authorship.
+              ## TODO: Registering a tool
+              * TODO: Walk the four fields.
+              * TODO: Point out that 'execute' just calls existing app code.
+            `}
+          />
+          <${JsSlide} title="Defining the schema" code=${examples.toolSchema.code}
+            notes=${`
+              ## TODO: Defining the schema
+              * TODO: Descriptions are prompt engineering.
+              * TODO: Enums and bounds keep the agent on rails.
+            `}
+          />
+          <${JsSlide} title="The handler" code=${examples.toolHandler.code}
+            notes=${`
+              ## TODO: The handler
+              * TODO: Auth, preferences, and search already exist.
+              * TODO: Keep the UI in sync so the human can watch.
             `}
           />
           <${Slide}>
-            <${FlexBox} height="100%" flexDirection="column" justifyContent="top" alignItems="center">
-              <${Heading} fontSize="h1" color="secondary">
-                US Copyright Office - <a
-                  href="https://www.copyright.gov/ai/Copyright-and-Artificial-Intelligence-Part-2-Copyrightability-Report.pdf"
-                  style=${{ color: theme.colors.quaternary }}
-                >
-                  2nd report
-                </a>
-              </${Heading}>
-              <${Markdown}>
-                ${`
-                  * ${em("Purely AI-generated content")} is not protected
-                  * ${em("Prompts & instructions")} alone are not sufficient
-                  * ${em("Human control")} of "selection and placement" of the "creative elements" may be
-                `}
-              </${Markdown}>
-            </${FlexBox}>
-            <${Notes}>
-              <${Markdown} className="notes">
-                ${`
-                  Prompts and instructions alone:
-                    * "prompts may reflect a user's mental conception or idea, but they do not control the way that idea is expressed"
-                    * "Repeatedly revising prompts does not change this analysis or provide a sufficient basis for claiming copyright in the output"
+            <${Heading} fontSize="h3" style=${{ margin: "0" }}>
+              TODO: Live edit
+            </${Heading}>
+            <${CodeEditor}
+              noInline=${true}
+              editorHeight="380px"
+              previewHeight="140px"
+              code=${`
+                // TODO: Live-edit me during the talk.
+                const tools = [];
+                const registerTool = (tool) => tools.push(tool);
 
-                  Human control:
-                    * But _only_ the human contributions.
-                `}
-              </${Markdown}>
-            </${Notes}>
+                registerTool({
+                  name: "search_documents",
+                  description: "Search the user's documents.",
+                });
+
+                const Tools = () => (
+                  <ul>
+                    {tools.map((tool) => (
+                      <li key={tool.name}>
+                        <b>{tool.name}</b> - {tool.description}
+                      </li>
+                    ))}
+                  </ul>
+                );
+
+                render(<Tools />);
+              `
+                .replace(/\n                /g, "\n")
+                .trim()}
+            />
           </${Slide}>
-          <${TopicSlide} backgroundUrl=${backgrounds.typing}>
-            A coding break
-            <${Notes}>
-              OK, enough boring law. Let's take a break and an do something more familiar.
-            </${Notes}>
+          <!-- ============================================================ -->
+          <!-- 4. Demo: Claude Desktop                                      -->
+          <!-- ============================================================ -->
+          <${TopicSlide} backgroundUrl=${backgrounds.oldComputer} fontSize="6em">
+            Demo: Claude Desktop
           </${TopicSlide}>
           <${MarkdownSlideSet} ...${animateListItems}>
             ${`
               ---
-              # High level
+              # TODO: A frontend-only document app
 
-              > Write a JS CLI tool to translate a \`package.json\` license field to a full license name.
+              * TODO: What the app does for a human
+              * TODO: The tools it exposes to an agent
+              * TODO: ${em("No server")}, no MCP process, no deploy
 
-              Full SPDX JSON data is available [on GitHub](https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/json/licenses.json).
+              Notes: TODO: SWITCH TO LIVE DEMO HERE.
 
-              Detailed task description on [slide ${TASK_SLIDE}](${TASK_SLIDE_URL}).
+              ---
+              # TODO: What the agent sees
 
+              * TODO: Tool ${em("discovery")}
+              * TODO: A ${em("call")}, start to finish
+              * TODO: The human watching it happen in the UI
+
+              Notes: TODO
             `}
           </${MarkdownSlideSet}>
-          <${JsSlide} title="Example 1" code=${examples.cursor.code}
+          <${RowsSlide}
+            title="TODO: Server vs. WebMCP"
+            sections=${[
+              {
+                title: "TODO",
+                items: [
+                  { text: "TODO: MCP server", icon: "hard-drives" },
+                  { text: "TODO: WebMCP", icon: "browser" },
+                ],
+              },
+              {
+                title: "TODO",
+                items: [
+                  { text: "TODO", icon: "lock" },
+                  { text: "TODO", icon: "lock-open" },
+                ],
+              },
+              {
+                title: "TODO",
+                items: [
+                  { text: "TODO", icon: "clock" },
+                  { text: "TODO", icon: "lightning" },
+                ],
+              },
+            ]}
             notes=${`
-              ## Example 1 (Cursor)
-              * Pretty straightforward.
-              * We read the package.json file.
-              * We fetch SPDX data.
-              * We do a simple find.
-              * Use a ternary in lines 11-13 to display our outpu.
+              ## TODO: Comparison
+              * TODO: Auth, deploy, business logic, time to ship.
             `}
           />
-          <${JsSlide} title="Example 2" code=${examples.human.code}
-            notes=${`
-              ## Example 2 (Human)
-              * Pretty close to previous example.
-              * Uses optional chaining throughout.
-              * Mixes a '.then()' promise with async/await in lines 6-8.
-              * Uses an if/then to do console output in lines 11-15.
-            `}
-          />
-          <${JsSlide} title="Example 3" code=${examples.copilot.code}
-            notes=${`
-              ## Example 3 (Copilot)
-              * Again, very similar to the other examples.
-              * A mix of the two previous examples really.
-            `}
-          />
-          <${MarkdownSlideSet} ...${animateListItems}>
-            ${`
-              --- { "layout": "center" }
-              # So why did we do this?
-
-              Notes: Some of these examples are AI-generated.
-
-              ---
-              # Task description
-
-              \`\`\`markdown
-              ${examples.task.code.split("\n").join("\n              ")}
-              \`\`\`
-
-              ---
-              # Human vs. AI code
-
-              * What are the ${em("differences")} between these?
-              * Extrapolate to ${em("larger")} pieces of code?
-
-              ---
-              # Spec-driven development?
-
-              > We're moving from “code is the source of truth” to “intent is the source of truth.” \
-                With AI the specification becomes the source of truth and determines what gets built. \
-                <a \
-                  href="https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/" \
-                  style="text-decoration: none;" \
-                >${icon({ name: "link", fill: false })}</a>
-
-              <br />
-              <hr width="50%" />
-              <br />
-
-              \`\`\`javascript
-              // GENERATED FROM SPEC - DO NOT EDIT
-              // @generated with <TOOL> v0.22.1 from ../web-app/backend-api.spec.md
-              // (spec:b499c242) (code:ab3f180f)
-              \`\`\`
-
-              Notes: Here, we're told to not edit the code at all!
-
-              ---
-              # Ownership: Takeaways
-
-              * ${em("Collision")} between the lawyer and the engineering worlds
-              * The cautious approach is to favor as much ${em("human")} involvement as possible
-              * Assess if it's OK to have some of your code ${em("lack")} copyright protection
-            `}
-          </${MarkdownSlideSet}>
-          <${TopicSlide} backgroundUrl=${backgrounds.mopop}>
-            The future
+          <!-- ============================================================ -->
+          <!-- 5. All in the browser                                        -->
+          <!-- ============================================================ -->
+          <${TopicSlide} backgroundUrl=${backgrounds.bookStacks}>
+            All in the browser
           </${TopicSlide}>
           <${MarkdownSlideSet} ...${animateListItems}>
             ${`
               ---
-              # Just the beginning
+              # TODO: A research assistant, fully in-browser
 
-              * Open ${em("source")} vs. open ${em("weights")}
-              * AI beyond ${em("code")} (images, video, etc.)
-              * AI in ${em("other IP")} areas (patents, trademarks, etc.)
+              * TODO: What it does
+              * TODO: What ${em("never leaves the device")}
+              * TODO: Architecture at a glance
+
+              Notes: TODO
+
+              ---
+              # TODO: Multi-agent coordination
+
+              * TODO: How the agents divide the work
+              * TODO: Who calls whom
+              * TODO: What coordination costs
+
+              Notes: TODO
+
+              ---
+              # TODO: Semantic search in the page
+
+              * TODO: ${em("Embeddings")} -- generated where?
+              * TODO: Where the vectors live
+              * TODO: How fast is it, really
+
+              Notes: TODO
+
+              ---
+              # TODO: On-device models
+
+              * TODO: Which models, which runtime
+              * TODO: Download size and cold start
+              * TODO: What's good enough ${em("locally")} vs. what isn't
+
+              Notes: TODO
+            `}
+          </${MarkdownSlideSet}>
+          <!-- ============================================================ -->
+          <!-- 6. Stumbling blocks                                          -->
+          <!-- ============================================================ -->
+          <${TopicSlide} backgroundUrl=${backgrounds.cuttingBoard} fontSize="6em">
+            Stumbling blocks & hacks
+          </${TopicSlide}>
+          <${MarkdownSlideSet} ...${animateListItems}>
+            ${`
+              ---
+              # TODO: What broke
+
+              * TODO
+              * TODO
+              * TODO
+
+              Notes: TODO
+
+              ---
+              # TODO: What we hacked around it
+
+              * TODO
+              * TODO
+              * TODO
+
+              Notes: TODO
+            `}
+          </${MarkdownSlideSet}>
+          <!-- ============================================================ -->
+          <!-- 7. Wrap up                                                   -->
+          <!-- ============================================================ -->
+          <${TopicSlide} backgroundUrl=${backgrounds.mopop} fontSize="6em">
+            Start building today
+          </${TopicSlide}>
+          <${MarkdownSlideSet} ...${animateListItems}>
+            ${`
+              ---
+              # TODO: The frontend-for-agents landscape
+
+              * TODO: Specs and proposals to watch
+              * TODO: Libraries and polyfills
+              * TODO: Who's shipping this already
+
+              Notes: TODO
+
+              ---
+              # TODO: Next steps
+
+              * TODO: Pick ${em("one")} function in your app and register it
+              * TODO: Drive it from a real agent
+              * TODO: Where to read more
+
+              Notes: TODO
 
               --- { "layout" : "columns" }
 
@@ -849,14 +570,14 @@
               # This deck!
 
               ${icon("browser")} See the deck at:
-              [ryan-roemer.github.io/ai-vs-the-law](https://ryan-roemer.github.io/ai-vs-the-law/)
+              [ryan-roemer.github.io/the-frontend-strikes-back](https://ryan-roemer.github.io/the-frontend-strikes-back/)
 
               ${icon("github-logo")} ...and check out the code at:
-              [ryan-roemer/ai-vs-the-law](https://github.com/ryan-roemer/ai-vs-the-law)
+              [ryan-roemer/the-frontend-strikes-back](https://github.com/ryan-roemer/the-frontend-strikes-back)
 
               ::section
 
-              <img src=${images.qrCode} width="200px" style="margin: 0 40px; margin-top: calc(25vh); border: 5px solid #fff;" />
+              ${qrCodeImg}
 
               --- { "layout": "columns" }
 
@@ -869,16 +590,12 @@
               ${icon("butterfly")} [@ryan-roemer.bsky.social](https://bsky.app/profile/ryan-roemer.bsky.social)
               ${icon("envelope")} [ryan.roemer@nearform.com](mailto:ryan.roemer@nearform.com)
 
-              <!--
-              ${icon("twitter-logo")} [@ryan_roemer](https://x.com/ryan_roemer)
-              -->
-
               ::section
 
-              <img src=${images.qrCode} width="200px" style="margin: 0 40px; margin-top: calc(25vh); border: 5px solid #fff;" />
+              ${qrCodeImg}
 
               Notes: \
-                Find me in the hall! Love to talk law, AI, code, and more. Stickers and t-shirts.
+                Find me in the hall! Love to talk agents, the web platform, and code. Stickers and t-shirts.
             `}
           </${MarkdownSlideSet}>
         </${Deck}>
@@ -889,33 +606,3 @@
     </script>
   </body>
 </html>
-
-<!-- TODO: REMOVE (PARKING LOT)
-
-          <${Slide}>
-            <${Heading} fontSize="h3" style=${{ margin: "0" }}>
-              TODO: CODE
-            </${Heading}>
-            <${CodeEditor}
-              code=${`
-                function TODO() {
-                  const pkgUrl = "https://raw.githubusercontent.com/ryan-roemer/ai-vs-the-law/refs/heads/main/package.json";
-                  const spdxUrl = "https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/json/licenses.json";
-                  // const [pkg, setPkg] = React.useState(null);
-                  // const [spdx, setSpdx] = React.useState(null);
-
-                  // React.useEffect(async () => {
-                  //   setPkg(await (await fetch(pkgUrl).catch(()=>{})).json());
-                  //   setSpdx(await (await fetch(spdxUrl)).json());
-                  // }, []);
-
-                  // const licName = spdx?.licenses.find((l) => l.licenseId === pkg?.license)?.name;
-                  // return licName ? \`Found \${pkg.license}. Full name: \${licName}\` : "Could not find license.";
-                }
-              `
-                .replace(/\n                /g, "\n")
-                .trim()}
-            />
-          </${Slide}>
-
--->
