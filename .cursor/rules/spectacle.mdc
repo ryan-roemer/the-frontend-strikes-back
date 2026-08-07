@@ -1,0 +1,560 @@
+---
+description: Spectacle presentation component guidelines and styling rules
+globs: **/*.js,**/*.html,**/*.css
+alwaysApply: false
+---
+
+# Spectacle Component Rules
+
+## CRITICAL: No Extra Styling Rule
+
+**NEVER add `style` attributes, extra styling props, or unnecessary CSS unless specifically required for unique slide behavior that cannot be achieved with Spectacle's built-in theming and component props.**
+
+Spectacle provides comprehensive theming and styling through its component props. Default to using these built-in capabilities rather than adding custom styles.
+
+## General Guidelines
+
+### Use htm, not JSX
+
+- Always use `htm` template literals instead of JSX syntax
+- Import and bind htm: `import htm from "htm"; const html = htm.bind(createElement);`
+- Use template literal syntax: `html\`<ComponentName prop=${value} />\``
+- For components with children: `html\`<ComponentName>${children}</ComponentName>\``
+
+### Component Import Pattern
+
+Here is a list of many components and import style:
+
+```javascript
+import {
+  Deck,
+  Slide,
+  Text,
+  Heading,
+  UnorderedList,
+  ListItem,
+  FlexBox,
+  Box,
+  Grid,
+  Image,
+  CodePane,
+  Appear,
+  Stepper,
+  Link,
+  Quote,
+  OrderedList,
+  CodeSpan,
+  DefaultTemplate,
+  MarkdownSlide,
+  MarkdownSlideSet,
+  Notes,
+  Progress,
+  AnimatedProgress,
+  FullScreen,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "spectacle";
+```
+
+Note -- only import variables we actually use.
+
+## Main Components
+
+### Deck Component
+
+- Wraps the entire presentation
+- Key props: `theme`, `template`, `transition`, `backgroundImage`
+- Example:
+
+```javascript
+html\`<${Deck} theme=${theme} template=${html\`<${DefaultTemplate} />\`}>
+  ${slides}
+</${Deck}>\`
+```
+
+### Slide Component
+
+- Wraps individual slides
+- Key props: `backgroundColor`, `backgroundImage`, `textColor`, `transition`, `template`
+- Example:
+
+```javascript
+html\`<${Slide} backgroundColor="primary" textColor="secondary">
+  <${Heading}>Title</${Heading}>
+  <${Text}>Content</${Text}>
+</${Slide}>\`
+```
+
+## Typography Components
+
+### Heading
+
+- For slide titles and section headers
+- Props: `color`, `fontSize`, `fontWeight`, `textAlign`, `margin`
+- **Use theme colors**: `color="primary"`, `color="secondary"`, etc.
+- **Use standard font sizes**: `fontSize="24px"`, `fontSize="32px"`, etc.
+- **NO inline styles**: Avoid `style` attributes for basic formatting
+- Example: `html\`<${Heading} color="secondary" fontSize="32px">Slide Title</${Heading}>\``
+
+### Text
+
+- For body text content
+- Props: `color`, `fontSize`, `textAlign`, `margin`
+- **Use theme colors**: `color="primary"`, `color="secondary"`, etc.
+- **NO inline styles**: Avoid `style` attributes for text formatting
+- Example: `html\`<${Text} color="primary">Body content</${Text}>\``
+
+### FitText
+
+- Auto-sizes text to fit container
+- Example: `html\`<${FitText}>Large fitting text</${FitText}>\``
+
+### Lists
+
+- `UnorderedList` and `OrderedList` for bullet/numbered lists
+- `ListItem` for individual list items
+- Example:
+
+```javascript
+html\`<${UnorderedList}>
+  <${ListItem}>First item</${ListItem}>
+  <${ListItem}>Second item</${ListItem}>
+</${UnorderedList}>\`
+```
+
+### Link
+
+- For clickable links
+- Props: `href`, `color`, `textDecoration`
+- Example: `html\`<${Link} href="https://example.com">Click here</${Link}>\``
+
+### Quote
+
+- For quotations with left border styling
+- Example: `html\`<${Quote}>This is a quote</${Quote}>\``
+
+### CodeSpan
+
+- For inline code snippets
+- Example: `html\`<${CodeSpan}>const x = 42</${CodeSpan}>\``
+
+## Layout Components
+
+### FlexBox
+
+- Flexbox container with Spectacle styling
+- Props: Standard flexbox properties (`justifyContent`, `alignItems`, `flexDirection`, etc.)
+- **Use minimal props**: Only specify necessary layout properties
+- **NO extra styling**: Avoid redundant padding, margins, or positioning unless required
+- Example: `html\`<${FlexBox} justifyContent="center" alignItems="center">${content}</${FlexBox}>\``
+
+### Box
+
+- General container component
+- Props: Standard layout properties (`padding`, `margin`, `backgroundColor`, etc.)
+- **Use defaults when possible**: Only add props when specifically needed
+- **NO unnecessary styling**: Avoid extra padding, colors, or borders unless required
+- Example: `html\`<${Box}>${content}</${Box}>\``
+
+### Grid
+
+- CSS Grid container
+- Props: Grid properties plus layout props
+- Example: `html\`<${Grid} gridTemplateColumns="1fr 1fr">${items}</${Grid}>\``
+
+## Advanced Components
+
+### CodePane
+
+- Syntax-highlighted code blocks
+- Props: `language`, `theme`, `highlightRanges`, `showLineNumbers`
+- Import themes: `import { codePaneThemes } from "spectacle"`
+- Example:
+
+```javascript
+html\`<${CodePane}
+  language="javascript"
+  theme=${codePaneThemes.vsDark}
+  highlightRanges=${[[1, 3], [6, 8]]}
+>{\`const example = "code";\`}</${CodePane}>\`
+```
+
+### Image
+
+- Display images in slides
+- Props: `src`, plus layout and position props
+- Example: `html\`<${Image} src=${imageUrl} width="400px" />\``
+
+### Appear
+
+- Animate content appearance on slide steps
+- Props: `activeStyle`, `inactiveStyle`, `tagName`, `priority`
+- Example: `html\`<${Appear}><${Text}>This appears on step</${Text}></${Appear}>\``
+
+### Stepper
+
+- Multi-step animations with values
+- Props: `values`, `render`, `activeStyle`, `inactiveStyle`, `alwaysVisible`
+- Example:
+
+```javascript
+html\`<${Stepper} values=${['first', 'second', 'third']}>
+  \${(value, step, isActive) => html\`<${Text}>\${value}</${Text}>\`}
+</${Stepper}>\`
+```
+
+## Table Components
+
+- `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableCell`
+- Example:
+
+```javascript
+html\`<${Table}>
+  <${TableHeader}>
+    <${TableRow}>
+      <${TableCell}>Header 1</${TableCell}>
+      <${TableCell}>Header 2</${TableCell}>
+    </${TableRow}>
+  </${TableHeader}>
+  <${TableBody}>
+    <${TableRow}>
+      <${TableCell}>Data 1</${TableCell}>
+      <${TableCell}>Data 2</${TableCell}>
+    </${TableRow}>
+  </${TableBody}>
+</${Table}>\`
+```
+
+## Markdown Components
+
+### MarkdownSlide
+
+- Single slide authored in Markdown
+- Props: `componentProps`, `animateListItems`
+- Example:
+
+```javascript
+html\`<${MarkdownSlide} animateListItems>\${markdownContent}</${MarkdownSlide}>\`
+```
+
+### MarkdownSlideSet
+
+- Multiple slides from Markdown (use `---` to separate)
+- Example:
+
+```javascript
+html\`<${MarkdownSlideSet}>\${multiSlideMarkdown}</${MarkdownSlideSet}>\`
+```
+
+## Utility Components
+
+### Notes
+
+- Presenter notes (only visible in presenter mode)
+- Example: `html\`<${Notes}>These are presenter notes</${Notes}>\``
+
+### Progress
+
+- Slide progress indicators
+- Props: `size`, `color`
+- Example: `html\`<${Progress} size={30} color="primary" />\``
+
+### AnimatedProgress
+
+- Progress with Pacman animation
+- Props: `size`, `color`, `pacmanColor`
+- Example: `html\`<${AnimatedProgress} pacmanColor="yellow" />\``
+
+### FullScreen
+
+- Fullscreen toggle button
+- Props: `size`, `color`
+- Example: `html\`<${FullScreen} size={25} color="white" />\``
+
+## Templates
+
+### DefaultTemplate
+
+- Built-in template with progress and fullscreen controls
+- Props: `color`
+- Example: `html\`<${DefaultTemplate} color="purple" />\``
+
+### Custom Templates
+
+- Create custom templates with `slideNumber` and `numberOfSlides` props
+- Example:
+
+```javascript
+const CustomTemplate = ({ slideNumber, numberOfSlides }) =>
+  html\`<${Box} position="absolute" bottom="20px" right="20px">
+    <${Text}>\${slideNumber + 1} / \${numberOfSlides}</${Text}>
+  </${Box}>\`
+```
+
+## Common Patterns
+
+### Slide with Appear Steps
+
+```javascript
+html\`<${Slide}>
+  <${Heading}>Title</${Heading}>
+  <${Appear}><${Text}>First point</${Text}></${Appear}>
+  <${Appear}><${Text}>Second point</${Text}></${Appear}>
+  <${Appear}><${Text}>Third point</${Text}></${Appear}>
+</${Slide}>\`
+```
+
+### Code Demo Slide
+
+```javascript
+html\`<${Slide}>
+  <${Heading}>Code Example</${Heading}>
+  <${CodePane} language="javascript" theme=${codePaneThemes.vsDark}>
+    {\`const demo = "Hello World";\`}
+  </${CodePane}>
+</${Slide}>\`
+```
+
+### Two-Column Layout
+
+```javascript
+html\`<${Slide}>
+  <${FlexBox} width="100%" height="100%">
+    <${Box} flex="1" padding="20px">
+      <${Heading}>Left Column</${Heading}>
+      <${Text}>Left content</${Text}>
+    </${Box}>
+    <${Box} flex="1" padding="20px">
+      <${Heading}>Right Column</${Heading}>
+      <${Text}>Right content</${Text}>
+    </${Box}>
+  </${FlexBox}>
+</${Slide}>\`
+```
+
+## Background Images from Unsplash
+
+### Searching for Slide Backgrounds
+
+When selecting background images for slides from Unsplash (https://unsplash.com/), follow these guidelines:
+
+#### Search Strategy
+
+1. **Use specific, relevant keywords** related to your slide content
+   - For tech presentations: "technology", "coding", "computer", "digital", "abstract"
+   - For business slides: "business", "office", "meeting", "teamwork", "corporate"
+   - For creative content: "creative", "design", "art", "inspiration"
+
+2. **Consider presentation context**
+   - Conference presentations: Professional, clean backgrounds
+   - Internal meetings: More casual, branded imagery
+   - Educational content: Clear, non-distracting patterns
+
+3. **Filter for quality**
+   - Use high-resolution images (1920x1080 minimum for presentations)
+   - Look for images with good contrast for text overlay
+   - Avoid overly busy or distracting compositions
+
+#### Technical Requirements
+
+1. **Image dimensions**: Prefer landscape orientation (16:9 ratio)
+2. **File format**: JPG or PNG, under 2MB for performance
+3. **Color considerations**:
+   - Light backgrounds work well with dark text
+   - Dark backgrounds need light text colors
+   - Consider your theme's color palette
+
+#### Avoiding Premium/Paid Images
+
+1. **Check image URLs carefully**:
+   - Free images use: `images.unsplash.com/photo-XXXXX`
+   - Premium images use: `plus.unsplash.com/premium_photo-XXXXX`
+   - Always avoid `plus.unsplash.com` URLs as they require Unsplash+ subscription
+
+2. **Verify license status**:
+   - Look for "Free to use under the Unsplash License" on the image page
+   - Avoid images marked as "Licensed under the Unsplash+ License"
+   - When in doubt, search for alternative free images
+
+3. **Test image accessibility**:
+   - Always verify images load properly before committing
+   - Premium images may show watermarks or fail to load for users without subscriptions
+
+4. **Media organization**:
+   - Store all image URLs in dedicated media files (e.g., `deck/media.js`)
+   - Use structured objects like `backgrounds.imageName` for easy maintenance
+   - Group related images logically (backgrounds, logos, illustrations)
+
+#### Implementation in Spectacle
+
+```javascript
+// 1. First, organize images in deck/media.js
+export const backgrounds = {
+  seattle: "https://images.unsplash.com/photo-1589481169991-40ee02888551...",
+  vintageComputer:
+    "https://images.unsplash.com/photo-1711346105258-bbb9136592d7...",
+  // Always use images.unsplash.com, never plus.unsplash.com
+};
+
+// 2. Import in your presentation file
+import { backgrounds } from "./deck/media.js";
+
+// 3. Use in slides
+// Deck-level background (applies to all slides)
+html`<${Deck}
+  theme=${theme}
+  backgroundImage="url(${backgrounds.seattle})"
+>
+  ${slides}
+</${Deck}>`;
+
+// Individual slide background
+html`<${Slide}
+  backgroundImage="url(${backgrounds.vintageComputer})"
+  backgroundOpacity=${0.3}
+>
+  <${Heading}>
+    Title with Background
+  </${Heading}>
+</${Slide}>`;
+```
+
+#### Attribution Best Practices
+
+1. **Always credit photographers** when using Unsplash images
+2. **Add attribution in presenter notes** or final slide
+3. **Use format**: "Photo by [Photographer Name] on Unsplash"
+4. **Include link**: Direct link to the specific photo on Unsplash
+
+#### Recommended Search Terms by Topic
+
+- **Technology**: "circuit board", "code screen", "data visualization", "network", "servers"
+- **Business**: "handshake", "meeting room", "city skyline", "graphs", "teamwork"
+- **Abstract**: "geometric patterns", "gradients", "minimal", "textures", "lines"
+- **Nature/Metaphors**: "mountain peak", "ocean waves", "forest path", "sunrise"
+
+#### Accessibility Considerations
+
+1. **Ensure sufficient contrast** between background and text (WCAG AA: 4.5:1 ratio)
+2. **Test readability** with your chosen text colors
+3. **Avoid motion-inducing patterns** for users with vestibular disorders
+4. **Provide alternative text descriptions** in presenter notes if images convey meaning
+
+## Styling Rules - NO EXTRA STYLES
+
+### Critical: Avoid Inline Styles and Unnecessary Styling
+
+**DO NOT add `style` attributes or custom styling unless specifically required for unique slide behavior that cannot be achieved with Spectacle's built-in props.**
+
+#### ❌ AVOID These Styling Patterns:
+
+```javascript
+// DON'T use inline styles for basic styling
+html`<${Heading} style=${{ textTransform: "uppercase", margin: "0" }}>Title</${Heading}>`;
+html`<${Heading} style=${{ textAlign: "center", margin: "0" }}>Title</${Heading}>`;
+html`<span style=${{ color: theme.colors.primary }}>Text</span>`;
+html`<a style=${{ color, textDecoration: "none" }}>Link</a>`;
+
+// DON'T add unnecessary styling props when defaults work
+html`<${Text} fontSize="24px" margin="20px">Content</${Text}>`;
+html`<${Box} padding="20px" backgroundColor="tertiary">Content</${Box}>`;
+```
+
+#### ✅ USE These Spectacle-First Approaches:
+
+```javascript
+// Use component props that map to theme values
+html`<${Heading} color="secondary">Title</${Heading}>`;
+html`<${Heading} fontSize="32px">Title</${Heading}>`;
+html`<${Text} color="primary">Content</${Text}>`;
+
+// Use Link component instead of styled anchors
+html`<${Link} href="https://example.com" color="quaternary">Click here</${Link}>`;
+
+// Use semantic Spectacle components instead of spans with styles
+html`<${Text} color="secondary">Highlighted text</${Text}>`;
+
+// Let Spectacle handle layout with minimal props
+html`<${FlexBox} justifyContent="center" alignItems="center">${content}</${FlexBox}>`;
+html`<${Box}>${content}</${Box}>`; // Use defaults when possible
+```
+
+#### When Styling IS Acceptable:
+
+Only add custom styles when:
+
+1. **Unique slide requirements** that cannot be met with Spectacle's built-in props
+2. **Animation effects** that require specific CSS properties
+3. **Complex layouts** where Spectacle components alone are insufficient
+4. **Third-party component integration** that requires style coordination
+
+#### Preferred Styling Hierarchy:
+
+1. **First**: Use Spectacle component props (`color`, `fontSize`, `textAlign`, etc.)
+2. **Second**: Use theme values through props (`color="primary"`, `fontSize="32px"`)
+3. **Third**: Use FlexBox/Box/Grid layout components with minimal props
+4. **Last Resort**: Custom styles only when absolutely necessary for specific functionality
+
+### Theme-First Approach
+
+Always prefer theme-defined values:
+
+```javascript
+// ✅ Good - Uses theme colors
+html`<${Heading} color="secondary">Title</${Heading}>`;
+html`<${Text} color="primary">Body text</${Text}>`;
+html`<${Link} color="quaternary">Link text</${Link}>`;
+
+// ❌ Avoid - Inline color styles
+html`<span style=${{ color: theme.colors.secondary }}>Title</span>`;
+```
+
+### Layout Without Extra Styles
+
+```javascript
+// ✅ Good - Minimal, semantic layout
+html`<${FlexBox} height="100%" flexDirection="column">
+  <${Heading}>Title</${Heading}>
+  <${Text}>Content</${Text}>
+</${FlexBox}>`;
+
+// ❌ Avoid - Unnecessary styling
+html`<${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center" style=${{ margin: 0 }}>
+  <${Heading} style=${{ textAlign: "center", margin: "0" }}>Title</${Heading}>
+</${FlexBox}>`;
+```
+
+## Best Practices
+
+1. **Always use htm template literals** - Never use JSX syntax
+2. **Import components explicitly** - Don't use namespace imports
+3. **Use semantic component names** - `Heading` for titles, `Text` for body content
+4. **NO extra styles unless required** - Rely on Spectacle's built-in styling and theme
+5. **Theme-first approach** - Use theme colors and typography through component props
+6. **Leverage Appear/Stepper** - For progressive content revelation
+7. **Use consistent theming** - Apply theme objects to Deck component
+8. **Minimal layout props** - Use only necessary FlexBox/Box props, avoid redundant styling
+9. **Include presenter notes** - Use `Notes` component for additional context
+10. **Test in presenter mode** - Verify notes and transitions work correctly
+11. **Use templates** - Apply consistent layout with `DefaultTemplate` or custom templates
+12. **Choose appropriate backgrounds** - Follow Unsplash guidelines for professional, accessible imagery
+
+## Reference Links
+
+- Official docs: https://nearform.com/open-source/spectacle/docs/
+- API reference: https://nearform.com/open-source/spectacle/docs/api-reference
+- GitHub: https://github.com/FormidableLabs/spectacle
+- Props documentation: https://github.com/FormidableLabs/spectacle/blob/main/docs/props.md
+
+## Verification Status
+
+This documentation has been verified against the official Spectacle documentation as of 2024. Key verified components and props:
+
+- ✅ `color` prop exists for `Text`, `Heading`, `Link`, `Quote`, `CodeSpan`, and table components
+- ✅ `backgroundColor`/`bg` props exist for the same components
+- ✅ Basic component structure and imports are accurate
+- ⚠️ Some advanced component props (Appear, Stepper, CodePane) may need additional verification
+- ⚠️ Layout component prop categories (Space, Color, Layout, Position, Border) need further verification

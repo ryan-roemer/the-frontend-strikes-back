@@ -1,0 +1,101 @@
+---
+description: Guidelines for maintaining a build-free development experience
+globs: **/*.js,**/*.html,**/*.css
+alwaysApply: true
+---
+
+# No-Builds Development Guidelines
+
+## Core Philosophy
+
+This project demonstrates modern web development without build tools. All code should run directly in the browser using native ES modules and modern JavaScript features.
+
+## ES Modules
+
+### Import/Export Usage
+- Use ES6 `import`/`export` syntax exclusively
+- Use relative paths for local modules: `./deck/theme.js`
+- Use absolute paths for external CDN modules: `https://unpkg.com/...`
+- Avoid bundling or transpilation
+
+### Module Organization
+- One module per file
+- Export named exports for utilities and components
+- Use default exports for main functionality
+- Keep modules focused and cohesive
+
+## Browser Compatibility
+
+### Modern JavaScript Features
+- Use native ES6+ features (arrow functions, destructuring, template literals)
+- Use `const`/`let` instead of `var`
+- Use async/await for asynchronous operations
+- Use native fetch API for HTTP requests
+
+### CSS and HTML
+- Use modern CSS features (Grid, Flexbox, custom properties)
+- Use semantic HTML5 elements
+- Leverage native browser APIs
+- Avoid polyfills when possible
+
+## CDN Dependencies
+
+### External Libraries
+- Use CDN links for external dependencies
+- Prefer ESM-compatible versions when available
+- Use specific versions to ensure stability
+- Document all external dependencies
+
+### Example CDN Usage
+```javascript
+import htm from 'https://unpkg.com/htm@3.1.1/dist/htm.module.js';
+import { createElement } from 'https://unpkg.com/react@18.2.0/index.js';
+```
+
+## File Structure
+
+### Organization
+- Keep examples in `/examples` directory
+- Separate concerns: `/deck` for presentation logic
+- Use descriptive file names
+- Group related functionality together
+
+### Asset Management
+- Use relative paths for local assets
+- Optimize images for web delivery
+- Use appropriate file formats (WebP when supported)
+- Keep assets organized in logical directories
+
+## Development Workflow
+
+### Local Development
+- Use a local HTTP server (not file:// protocol)
+- Test in multiple browsers
+- Use browser dev tools for debugging
+- Validate HTML and CSS
+
+### Performance
+- Minimize HTTP requests
+- Use efficient algorithms
+- Optimize images and assets
+- Leverage browser caching
+
+## Best Practices
+
+### Code Quality
+- Write clean, readable code
+- Use meaningful variable names
+- Add comments for complex logic
+- Follow consistent formatting
+
+### User Experience
+- Ensure fast loading times
+- Provide fallbacks for older browsers
+- Use progressive enhancement
+- Test on various devices and screen sizes
+
+### Maintenance
+- Keep dependencies up to date
+- Document breaking changes
+- Use semantic versioning for releases
+- Maintain backward compatibility when possible

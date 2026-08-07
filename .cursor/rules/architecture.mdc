@@ -1,0 +1,66 @@
+---
+description: Project architecture and file organization guidelines
+globs: **/*.js,**/*.html,**/*.css
+alwaysApply: false
+---
+
+# Project Architecture Guidelines
+
+## File Organization
+
+### Directory Structure
+- Keep related files together in logical directories
+- Use descriptive directory names that reflect their purpose
+- Separate concerns (presentation, data, utilities)
+- Group by feature when appropriate
+
+### File Naming
+- Use kebab-case for file and directory names
+- Use descriptive names that indicate purpose
+- Include file type in name when helpful (e.g., `theme.js`, `media.js`)
+- Use consistent naming patterns across the project
+
+## Module Organization
+
+### Imports and Exports
+- Use ES6 `import`/`export` syntax exclusively
+- Use named exports for multiple exports from a module
+- Use default exports for single-purpose modules
+- Group imports: external CDN modules first, then internal modules
+- Use relative paths for local modules: `./deck/theme.js`
+- Use absolute CDN paths for external modules: `https://unpkg.com/...`
+
+### Dependencies
+- Minimize external dependencies
+- Use CDN links for external dependencies
+- Prefer ESM-compatible versions when available
+- Use specific versions to ensure stability
+- Document all external dependencies and their CDN sources
+
+## Component Architecture
+
+### Separation of Concerns
+- Separate presentation logic from business logic
+- Keep components focused on a single responsibility
+- Use composition over inheritance
+- Extract reusable logic into utility functions
+
+### Data Flow
+- Use props for parent-to-child communication
+- Use callbacks for child-to-parent communication
+- Keep state as close to where it's used as possible
+- Use context for deeply nested data sharing
+
+## Documentation
+
+### Code Documentation
+- Document complex algorithms and business logic
+- Include usage examples for utility functions
+- Keep README files up to date
+- Document API changes and breaking changes
+
+### Project Documentation
+- Maintain clear project structure documentation
+- Document setup and development processes
+- Include troubleshooting guides
+- Keep architecture decisions documented

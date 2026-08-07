@@ -1,0 +1,18 @@
+{
+  "name": "ai-vs-the-law",
+  "version": "0.0.1",
+  "description": "2025 talk on 'AI vs. The Law'",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve",
+    "lint": "eslint . --fix",
+    "pretty": "prettier . --write",
+    "format": "npm run lint && npm run pretty"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^9.30.0",
+    "eslint-config-prettier": "^10.1.5",
+    "prettier": "^3.6.2"
+  }
+}

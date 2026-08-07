@@ -1,0 +1,69 @@
+---
+description: General code style and formatting guidelines
+globs: **/*.js,**/*.html,**/*.css
+alwaysApply: true
+---
+
+# Code Style Guidelines
+
+## General Principles
+
+- **Consistency**: Follow existing patterns in the codebase
+- **Readability**: Write code that is self-documenting and easy to understand
+- **Simplicity**: Prefer simple, clear solutions over complex ones
+
+## JavaScript/TypeScript
+
+### Formatting
+- Use 2 spaces for indentation
+- Use double quotes for strings unless interpolation is needed
+- Use semicolons consistently
+- Use trailing commas in objects and arrays
+- Maximum line length: 100 characters
+
+### Naming Conventions
+- Use camelCase for variables and functions
+- Use PascalCase for classes and components
+- Use UPPER_SNAKE_CASE for constants
+- Use descriptive names that explain intent
+
+### Function Guidelines
+- Keep functions small and focused (ideally < 20 lines)
+- Use pure functions when possible
+- Prefer const over let, avoid var
+- Use arrow functions for short, simple functions
+
+## HTML
+
+### Structure
+- Use semantic HTML elements
+- Include proper DOCTYPE and meta tags
+- Use meaningful class names
+- Ensure proper nesting and indentation
+
+### Accessibility
+- Include alt text for images
+- Use proper heading hierarchy (h1, h2, h3...)
+- Ensure keyboard navigation works
+- Use ARIA labels when needed
+
+## CSS
+
+### Organization
+- Use consistent naming conventions (BEM or similar)
+- Group related styles together
+- Use CSS custom properties for theming
+- Avoid deep nesting (max 3 levels)
+
+### Performance
+- Minimize use of expensive selectors
+- Use transform and opacity for animations
+- Avoid inline styles when possible
+- Use CSS Grid and Flexbox for layouts
+
+## Comments
+
+- Write comments that explain "why" not "what"
+- Update comments when code changes
+- Use JSDoc for function documentation
+- Remove commented-out code before committing
