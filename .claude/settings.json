@@ -1,5 +1,20 @@
 {
   "permissions": {
-    "allow": ["Bash(echo \"--- exit: $? ---\")", "Bash(npm install *)"]
+    "allow": [
+      "Bash(echo \"--- exit: $? ---\")",
+      "Bash(npm install *)",
+      "Read(//Users/rye/.cache/**)",
+      "Read(//Users/rye/Library/Caches/ms-playwright/**)",
+      "Read(//Applications/Google Chrome.app/**)",
+      "Bash(node cdp-check.mjs)",
+      "Bash(node cdp-editor.mjs)",
+      "Bash(node cdp-probe.mjs)",
+      "Bash(curl -sL \"https://esm.sh/react-live@4.1.8/X-ZXJlYWN0LHJlYWN0LWRvbQ/es2022/react-live.mjs\" -o rl.mjs)",
+      "Bash(grep -oE 'contentEditable[^,;\\)]{0,40}' rl.mjs)",
+      "Bash(grep -oE 'disabled[^,;\\)]{0,30}' rl.mjs)",
+      "Bash(grep -oE 'readOnly[^,;\\)]{0,30}' rl.mjs)",
+      "Bash(node cdp-typing.mjs)",
+      "Bash(node cdp-typing2.mjs)"
+    ]
   }
 }
