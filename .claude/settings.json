@@ -112,7 +112,18 @@
       "Read(//Users/rye/Desktop/**)",
       "Bash(node /private/tmp/claude-501/-Users-rye-scm-os-the-frontend-strikes-back/90e6b22e-6599-4e66-bb36-039d9d6331d7/scratchpad/bbox.mjs)",
       "Bash(cd /Users/rye/scm/os/the-frontend-strikes-back-design && sed -n '1,80p' README.md | grep -n -A14 -i 'param\\\\|url')",
-      "Bash(qlmanage -t -s 600 -o . preview.svg)"
+      "Bash(qlmanage -t -s 600 -o . preview.svg)",
+      "Bash(awk '{print $2, $11, $13}')",
+      "Bash(awk '{print $2}')",
+      "Bash(mkdir -p r7)",
+      "Bash(timeout 60 \"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --hide-scrollbars --screenshot=r7/md.png --window-size=1366,768 --virtual-time-budget=12000 --user-data-dir=/tmp/fresh-a \"http://localhost:4399/?slideIndex=6&animate=false\")",
+      "Bash(timeout 60 \"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --no-sandbox --screenshot=r7/md.png --window-size=1366,768 --virtual-time-budget=10000 --user-data-dir=/tmp/fresh-b \"http://localhost:4399/?slideIndex=6&animate=false\")",
+      "Bash(\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --hide-scrollbars --screenshot=r7/md.png --window-size=1366,768 --virtual-time-budget=10000 --user-data-dir=/tmp/fresh-c \"http://localhost:4399/?slideIndex=6&animate=false\")",
+      "Bash(node cruft2.mjs)",
+      "Bash([ -s \"$D/md.png\" ])",
+      "Bash(grep -oE 'monospace[^,;}]{0,60}' /private/tmp/claude-501/-Users-rye-scm-os-the-frontend-strikes-back/ccb768ce-06e9-4aa1-96b0-9206f853c2fb/scratchpad/sp1023.mjs)",
+      "Bash(git merge-tree *)",
+      "Bash(sed -n '/\"imports\"/,/\"scopes\"/p' index.html)"
     ],
     "additionalDirectories": [
       "/Users/rye/scm/os/the-frontend-strikes-back-design/deck",

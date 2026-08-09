@@ -339,6 +339,17 @@ esm.sh dev builds to get real messages and component stacks:
 You also need exact-URL entries redirecting each baked-in `…/react@<v>/+esm` to the dev build,
 or you will end up with two Reacts and a different error than the one you are chasing.
 
+**Never target styled-components generated class names.** Selectors like `.sc-iHGNWf` or
+`.enpNOd` are hashed from component order and the library version. They change on any
+styled-components bump and fail **silently** — the CSS simply stops matching, with no error
+anywhere. The v5 → v6 move in this repo killed two such overrides exactly that way, and the
+code panes quietly rendered at the wrong size until someone diffed the computed styles.
+
+Reach for a theme value first (`theme.fontSizes.monospace` sets `CodePane`'s size, which is
+what one of those hacks was hand-rolling), then a class you own on a wrapper element. If you
+ever truly cannot avoid it, add an assertion for the _computed style_ — not for the selector —
+so the failure is loud.
+
 **Failure signatures**, collected the hard way:
 
 | Symptom                                              | Cause                                                                    |
@@ -349,6 +360,7 @@ or you will end up with two Reacts and a different error than the one you are ch
 | ``Cannot `stringify` without `Compiler` ``           | `unified` plugin protocol mismatch (v9 `Compiler` vs v11 `compiler`)     |
 | `does not provide an export named 'default'`         | A remap cascaded into packages expecting the old major                   |
 | Lowercase junk attributes on DOM nodes               | styled-components v6 without the `shouldForwardProp` bridge              |
+| A style override silently stops applying             | It targeted a generated `.sc-*` class that the version bump rehashed     |
 
 **Pin exact versions.** jsDelivr resolves ranges at build time and caches aggressively; a
 range in the map means the graph can shift under you between rehearsal and stage.

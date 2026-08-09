@@ -1,11 +1,6 @@
 /* The Frontend Strikes Back - Custom Styles */
 /* Using Nearform theme colors for consistency */
 
-/* Code syntax highlighting overrides */
-.enpNOd > code {
-  color: #d9d9d9; /* grey[30] - better contrast */
-}
-
 /* React Live Editor Styling */
 .react-live-editor {
   background: rgb(30, 30, 30); /* match PRR theme */

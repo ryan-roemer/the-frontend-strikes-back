@@ -30,6 +30,8 @@ export const createElement = (...args) => {
   return element;
 };
 
+// Required: Spectacle default-imports React alongside its named imports, so omitting this
+// fails module linking with "does not provide an export named 'default'".
 export default new Proxy(React.default, {
   get: (target, prop) =>
     prop === "createElement" ? createElement : target[prop],

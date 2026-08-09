@@ -61,4 +61,9 @@ export const theme = {
     header: "'Inter', sans-serif;",
     text: "'Inter', sans-serif;",
   },
+  // Spectacle's CodePane reads this (defaults to 20px). Deep-merged with the default
+  // theme, so h1/h2/h3/text sizes are untouched.
+  fontSizes: {
+    monospace: "18px",
+  },
 };
