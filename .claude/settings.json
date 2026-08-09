@@ -14,7 +14,35 @@
       "Bash(grep -oE 'disabled[^,;\\)]{0,30}' rl.mjs)",
       "Bash(grep -oE 'readOnly[^,;\\)]{0,30}' rl.mjs)",
       "Bash(node cdp-typing.mjs)",
-      "Bash(node cdp-typing2.mjs)"
+      "Bash(node cdp-typing2.mjs)",
+      "Read(//Users/rye/scm/nf/joyce/node_modules/.bin/**)",
+      "Bash(npx --no-install playwright --version)",
+      "Bash(npx --yes serve -l 4321 .)",
+      "Bash(curl -sS -o /dev/null -w \"server http=%{http_code}\\\\n\" http://localhost:4321/)",
+      "Bash(node verify.mjs)",
+      "Bash(node probe.mjs)",
+      "Bash(node probe2.mjs)",
+      "Bash(node final.mjs)",
+      "Bash(sed -i '' 's|`1 style tag, ${sc.rules} rules, h1 ${sc.headingColor}`|`1 style tag, ${sc.rules} rules, <${sc.headingTag}> ${sc.headingColor}`|' final.mjs)",
+      "Bash(python3 -)",
+      "Bash(pkill -f \"serve -l 4321\")",
+      "Bash(curl -sS -m 2 -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:4321/)",
+      "Read(//Users/rye/scm/os/the-frontend-strikes-back-design/**)",
+      "Bash(curl -sS \"https://cdn.jsdelivr.net/npm/spectacle@10.2.3/+esm\" -o sp1023.mjs)",
+      "Bash(grep -oE 'import[^;]{0,120}from\"/npm/react-syntax-highlighter[^\"]*\"' sp1023.mjs)",
+      "Bash(grep -oE 'import[^;]{0,80}from\"/npm/use-resize-observer[^\"]*\"' sp1023.mjs)",
+      "Bash(grep -c 'MarkdownSlideSet} ...${animateListItems} className' index.html)",
+      "Bash(echo \"worktree markdownset className: $\\(grep -c 'MarkdownSlideSet} ...${animateListItems} className' index.html\\)\")",
+      "Bash(curl -sS \"https://cdn.jsdelivr.net/npm/react-spring@10.0.4/+esm\")",
+      "Bash(curl -sS \"https://cdn.jsdelivr.net/npm/react-spring@9.7.5/+esm\")",
+      "Bash(curl -sS \"https://cdn.jsdelivr.net/npm/@react-spring/web@10.1.2/+esm\")",
+      "Bash(grep -E '^\\(animated|useSpring\\)$')",
+      "Bash(curl -sS \"https://cdn.jsdelivr.net/npm/react-syntax-highlighter@16.1.1/dist/cjs/styles/prism/vs-dark.js/+esm\")",
+      "Bash(curl -sS \"https://cdn.jsdelivr.net/npm/use-resize-observer@10.0.0/+esm\")"
+    ],
+    "additionalDirectories": [
+      "/Users/rye/scm/os/the-frontend-strikes-back-design/deck",
+      "/Users/rye/scm/os/the-frontend-strikes-back-design"
     ]
   }
 }
