@@ -54,37 +54,77 @@
         `/npm/<pkg>@<ver>/+esm` URLs baked into the bundle, so only the specifiers the deck
         imports directly need a bare entry here. Spectacle's own deps (styled-components,
         kbar, unified, react-syntax-highlighter, ...) resolve themselves.
-      - The trailing-slash entries are prefix remaps that collapse the five React versions
-        the graph drags in down to a single copy. React must be a singleton or hooks blow up
-        with "invalid hook call".
-      - Pinned to React 18: spectacle 10.2.1 uses `defaultProps` on function components and
-        styled-components v5, both of which React 19 breaks.
-      - jsDelivr also advertises those un-deduped versions in `Link: rel=modulepreload` response
-        headers. Preloads are URL fetches, so they skip the import map and you'll see
-        react@19.1.0 / 18.2.0 / 17.0.2 in the network tab. They're downloaded but never
-        instantiated -- ~60KB of wasted preload, not a second React. Verify with:
-        `(await import("https://cdn.jsdelivr.net/npm/react@19.1.0/+esm")).default ===
-         (await import("react")).default`
+      - The trailing-slash entries are prefix remaps: they rewrite those baked-in URLs, which
+        is the only lever we have over transitive versions with no build step. Two jobs:
+        (a) collapse every React copy in the graph onto one -- React must be a singleton or
+            hooks blow up with "invalid hook call";
+        (b) drag spectacle's pinned deps forward onto React 19-compatible releases.
+      - spectacle 10.2.3 (not 10.2.1) is required for React 19: 10.2.1 sets `defaultProps` on
+        function components in 19 places, which React 19 removed support for.
+      - use-resize-observer stays on 9.x on purpose. v10 dropped its default export and
+        spectacle imports it as `import useResizeObserver from "use-resize-observer"`.
+      - styled-system has no update to make -- 5.1.5 is the latest release (Feb 2020) and it
+        has no React dependency at all, so it is unaffected by the React 19 move.
+      - "scopes" hands ./deck/react-compat.js to spectacle and nothing else -- see that file
+        for why React 19 breaks spectacle's Markdown. A scope key matches on the *importer's*
+        URL, and spectacle is the module that imports `createElement` and passes it into
+        rehype-react. Scoping the offenders themselves would do nothing: neither
+        rehype-react nor hast-to-hyperscript imports react at all, they just call the
+        factory spectacle handed them.
+        The scoped key is exact (no trailing slash) so `react@19.2.0/jsx-runtime/+esm` still
+        falls through to the prefix remap below and gets the real jsx-runtime.
+        COMPAT REQUIREMENT: "react" must keep pointing at the CDN, not at react-compat.js,
+        or that shim would import itself. Everything else here is a bare specifier.
+      - jsDelivr also advertises the un-deduped versions in `Link: rel=modulepreload` response
+        headers. Preloads are URL fetches, so they skip the import map and you'll see the old
+        react@18.x / 17.x in the network tab. They're downloaded but never instantiated --
+        wasted preload, not a second React. Verify the dedupe by hook identity (compare
+        `useState`, not the module default -- react-compat.js exports a Proxy):
+        `(await import("https://cdn.jsdelivr.net/npm/react@18.3.1/+esm")).useState ===
+         (await import("react")).useState`
     -->
     <script type="importmap">
       {
         "imports": {
           "htm": "https://cdn.jsdelivr.net/npm/htm@3.1.1/+esm",
           "prism-react-renderer": "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.1/+esm",
-          "react": "https://cdn.jsdelivr.net/npm/react@18.3.1/+esm",
-          "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@18.3.1/jsx-runtime/+esm",
-          "react-dom": "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/+esm",
-          "react-dom/client": "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm",
+          "react": "https://cdn.jsdelivr.net/npm/react@19.2.8/+esm",
+          "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@19.2.8/jsx-runtime/+esm",
+          "react-dom": "https://cdn.jsdelivr.net/npm/react-dom@19.2.8/+esm",
+          "react-dom/client": "https://cdn.jsdelivr.net/npm/react-dom@19.2.8/client/+esm",
           "react-live": "https://cdn.jsdelivr.net/npm/react-live@4.1.8/+esm",
-          "spectacle": "https://cdn.jsdelivr.net/npm/spectacle@10.2.1/+esm",
+          "spectacle": "https://cdn.jsdelivr.net/npm/spectacle@10.2.3/+esm",
+          "styled-components": "https://cdn.jsdelivr.net/npm/styled-components@6.5.1/+esm",
+          "@emotion/is-prop-valid": "https://cdn.jsdelivr.net/npm/@emotion/is-prop-valid@1.4.0/+esm",
 
-          "https://cdn.jsdelivr.net/npm/react@17.0.2/": "https://cdn.jsdelivr.net/npm/react@18.3.1/",
-          "https://cdn.jsdelivr.net/npm/react@18.2.0/": "https://cdn.jsdelivr.net/npm/react@18.3.1/",
-          "https://cdn.jsdelivr.net/npm/react@19.0.0/": "https://cdn.jsdelivr.net/npm/react@18.3.1/",
-          "https://cdn.jsdelivr.net/npm/react@19.1.0/": "https://cdn.jsdelivr.net/npm/react@18.3.1/",
-          "https://cdn.jsdelivr.net/npm/react-dom@18.2.0/": "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/",
-          "https://cdn.jsdelivr.net/npm/react-dom@19.1.0/": "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/",
+          "https://cdn.jsdelivr.net/npm/react@17.0.2/": "https://cdn.jsdelivr.net/npm/react@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react@18.2.0/": "https://cdn.jsdelivr.net/npm/react@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react@18.3.1/": "https://cdn.jsdelivr.net/npm/react@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react@19.0.0/": "https://cdn.jsdelivr.net/npm/react@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react@19.1.0/": "https://cdn.jsdelivr.net/npm/react@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react@19.1.1/": "https://cdn.jsdelivr.net/npm/react@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react@19.2.0/": "https://cdn.jsdelivr.net/npm/react@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react@19.2.4/": "https://cdn.jsdelivr.net/npm/react@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react@19.2.7/": "https://cdn.jsdelivr.net/npm/react@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react-dom@18.2.0/": "https://cdn.jsdelivr.net/npm/react-dom@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/": "https://cdn.jsdelivr.net/npm/react-dom@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react-dom@19.1.0/": "https://cdn.jsdelivr.net/npm/react-dom@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react-dom@19.2.0/": "https://cdn.jsdelivr.net/npm/react-dom@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react-dom@19.2.7/": "https://cdn.jsdelivr.net/npm/react-dom@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react-is@16.12.0/": "https://cdn.jsdelivr.net/npm/react-is@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react-is@18.2.0/": "https://cdn.jsdelivr.net/npm/react-is@19.2.8/",
+          "https://cdn.jsdelivr.net/npm/react-is@18.3.1/": "https://cdn.jsdelivr.net/npm/react-is@19.2.8/",
+
+          "https://cdn.jsdelivr.net/npm/styled-components@5.3.11/": "https://cdn.jsdelivr.net/npm/styled-components@6.5.1/",
+          "https://cdn.jsdelivr.net/npm/react-spring@9.7.5/": "https://cdn.jsdelivr.net/npm/react-spring@10.0.4/",
+          "https://cdn.jsdelivr.net/npm/kbar@0.1.0-beta.40/": "https://cdn.jsdelivr.net/npm/kbar@0.1.0-beta.48/",
+          "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@15.6.6/": "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@16.1.1/",
           "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.0/": "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.1/"
+        },
+        "scopes": {
+          "https://cdn.jsdelivr.net/npm/spectacle@10.2.3/": {
+            "https://cdn.jsdelivr.net/npm/react@19.2.0/+esm": "./deck/react-compat.js"
+          }
         }
       }
     </script>
@@ -106,6 +146,8 @@
         Notes,
         SpectacleLogo,
       } from "spectacle";
+      import { StyleSheetManager } from "styled-components";
+      import isPropValid from "@emotion/is-prop-valid";
       import { theme, colors } from "./deck/theme.js";
       import { logosHtm, backgrounds, images } from "./deck/media.js";
       import { getExamples } from "./deck/examples.js";
@@ -600,8 +642,21 @@
         </${Deck}>
       `;
 
+      // styled-components v5 filtered non-HTML props out with @emotion/is-prop-valid before
+      // they reached the DOM. v6 dropped that and expects transient ($-prefixed) props
+      // instead -- but Spectacle is written against v5, so without this every styled-system
+      // prop it uses (padding, margin, textAlign, justifyContent, ...) lands on the element
+      // as a bogus HTML attribute. This is the v6 migration bridge from their own docs, and
+      // it only applies to host elements so custom components still receive everything.
+      const shouldForwardProp = (prop, target) =>
+        typeof target === "string" ? isPropValid(prop) : true;
+
       const root = createRoot(document.getElementById("root"));
-      root.render(html`<${Presentation} />`);
+      root.render(
+        html`<${StyleSheetManager} shouldForwardProp=${shouldForwardProp}>
+          <${Presentation} />
+        </${StyleSheetManager}>`,
+      );
     </script>
   </body>
 </html>
