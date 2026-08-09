@@ -28,3 +28,6 @@ coverage
 .env
 .env.*
 !.env.example
+
+# AI
+.claude/settings.local.json
