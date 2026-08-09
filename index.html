@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300..900&display=swap"
       rel="stylesheet"
     />
     <link
@@ -30,6 +30,7 @@
     />
     <link rel="stylesheet" type="text/css" href="./deck/styles.css" />
     <style>
+      /* Presenter notes are a dense reading pane, not part of the deck design. */
       .notes * {
         padding: 0 !important;
         line-height: 1 !important;
@@ -104,9 +105,15 @@
       } from "spectacle";
       import { StyleSheetManager } from "styled-components";
       import isPropValid from "@emotion/is-prop-valid";
-      import { theme, colors } from "./deck/theme.js";
+      import { theme, DECK_BACKGROUND, photoBackground } from "./deck/theme.js";
       import { logosHtm, backgrounds, images } from "./deck/media.js";
       import { getExamples } from "./deck/examples.js";
+      import {
+        chapter,
+        chapterClass,
+        chapterNumber,
+        applyChapterStyles,
+      } from "./deck/chapters.js";
       import {
         icon,
         Icon,
@@ -116,47 +123,74 @@
         TopicSlide,
         CodeEditor,
         RowsSlide,
+        Eyebrow,
+        AccentRule,
         AppearComponent,
-        animateListItems,
-        BOX_STYLES,
+        mdSlideProps,
+        deckTransition,
+        CARD_PROPS,
       } from "./deck/components.js";
       const html = htm.bind(createElement);
 
       const examples = await getExamples();
 
-      const qrCodeImg = `<img src="${images.qrCode}" width="200px" style="margin: 0 40px; margin-top: calc(25vh); border: 5px solid #fff;" />`;
+      // Emits the per-chapter `--chapter-accent` rules that the divider slides
+      // and every slide inside a chapter read from.
+      applyChapterStyles();
+
+      const qrCodeImg = `<img class="qr-card" src="${images.qrCode}" width="200px" style="margin-top: calc(22vh);" />`;
 
       // The presentation deck.
-      const Presentation =
-        () => html`<${Deck} theme=${theme} template=${Template}>
+      //
+      // `backgroundImage` on the Deck is inherited by every slide that does not
+      // set its own -- including the markdown sets, which never see a per-slide
+      // prop -- so the layered background reaches every slide from here.
+      const Presentation = () => html`<${Deck}
+          theme=${theme}
+          template=${Template}
+          transition=${deckTransition}
+          backgroundImage=${DECK_BACKGROUND}
+        >
           <!-- ============================================================ -->
           <!-- Intro                                                        -->
           <!-- ============================================================ -->
           <${Slide}>
-            <${FlexBox} height="100%" flexDirection="column">
-              <${Heading} fontSize="110px" style=${{ margin: "0" }}>
-                THE FRONTEND STRIKES BACK
-              </${Heading}>
-              <hr style=${{ width: "80%", margin: "20px 0" }} />
-              <${Heading} fontSize="h2" color="primary" style=${{ margin: "0" }}>
-                WebMCP and The Agent-Ready Browser
-              </${Heading}>
-              <${Heading} fontSize="h3" color="h2">
+            <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
+              <${Eyebrow}>
                 ${logosHtm.conf} AgntCon + MCPCon NA
+              </${Eyebrow}>
+              <${Heading}
+                className="title-display"
+                fontSize="118px"
+                textAlign="left"
+                margin="24px 0 0"
+              >
+                THE FRONTEND<br />STRIKES BACK
+              </${Heading}>
+              <${AccentRule} />
+              <${Heading}
+                className="title-subtitle"
+                fontSize="h2"
+                color="primary"
+                textAlign="left"
+                margin="32px 0 0"
+              >
+                WebMCP and the agent-ready browser
               </${Heading}>
             </${FlexBox}>
-            <${Image}
-              src=${images.qrCode}
-              width="150px"
-              height="150px"
-              style=${{
-                position: "absolute",
-                bottom: "20px",
-                right: "20px",
-                border: "5px solid #fff",
-                zIndex: 1000,
-              }}
-            />
+            <${FlexBox}
+              className="title-qr"
+              flexDirection="column"
+              alignItems="center"
+              position="absolute"
+              bottom="46px"
+              right="46px"
+            >
+              <${Image} className="qr-card" src=${images.qrCode} width="150px" height="150px" />
+              <${Text} className="qr-caption" fontSize="18px" margin="12px 0 0">
+                Scan for slides
+              </${Text}>
+            <//>
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
@@ -166,20 +200,16 @@
               </${Markdown}>
             </${Notes}>
           </${Slide}>
-          <${Slide}
-            backgroundImage="url(${backgrounds.venue})"
-            backgroundOpacity=${0.6}
-            backgroundColor="${colors.basics.black}"
-          >
+          <${Slide} ...${photoBackground(backgrounds.venue)}>
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center">
-              <${Heading} fontSize="150px" color="primary">
+              <${Heading} className="slide-title" fontSize="150px" color="primary">
                 <${Icon} name="heart" /> AgntCon
               </${Heading}>
             </${FlexBox}>
           </${Slide}>
           <${Slide}>
             <${FlexBox} flexDirection="column" alignSelf="center" justifyContent="left" alignItems="left">
-              <${Heading} fontSize="h1" color="secondary">
+              <${Heading} className="slide-title" fontSize="h1" color="secondary">
                 Hi!
               </${Heading}>
               <${AppearComponent}>
@@ -235,31 +265,33 @@
             </${Notes}>
           </${Slide}>
           <${Slide}>
-            <${Heading}>Roadmap</${Heading}>
-            <${FlexBox} justifyContent="center" alignItems="center" height="70%">
-              <${Grid} gridTemplateColumns="1fr 1fr" gridTemplateRows="1fr 1fr" gridGap="30px">
+            <${Heading} className="slide-title" textAlign="left" margin="0 0 28px">Roadmap</${Heading}>
+            <${FlexBox} justifyContent="center" alignItems="center" height="68%">
+              <${Grid} gridTemplateColumns="1fr 1fr" gridTemplateRows="1fr 1fr" gridGap="24px" width="100%">
                 ${[
-                  {
-                    title: "Agents Today",
-                    icon: "robot",
-                  },
-                  {
-                    title: "WebMCP",
-                    icon: "plugs-connected",
-                  },
-                  {
-                    title: "Live Demo",
-                    icon: "monitor-play",
-                  },
-                  {
-                    title: "In-Browser AI",
-                    icon: "browser",
-                  },
+                  // `chapter` ties each cell to the divider it introduces, so
+                  // the roadmap previews the accent colors of the talk ahead.
+                  { title: "Agents Today", icon: "robot", chapter: 1 },
+                  { title: "WebMCP", icon: "plugs-connected", chapter: 2 },
+                  { title: "Live Demo", icon: "monitor-play", chapter: 4 },
+                  { title: "In-Browser AI", icon: "browser", chapter: 5 },
                 ].map(
-                  ({ title, icon }, i) => html`
-                    <${FlexBox} key=${i} ...${BOX_STYLES} padding="30px">
-                      <${Text} color="secondary" fontSize="3em" textAlign="left">
-                        <${Icon} name=${icon} fill=${true} color=${theme.colors.primary} /> ${title}
+                  ({ title, icon, chapter }, i) => html`
+                    <${FlexBox}
+                      key=${i}
+                      ...${CARD_PROPS}
+                      className=${`card ${chapterClass(chapter)}`}
+                      flexDirection="column"
+                      alignItems="start"
+                      justifyContent="center"
+                      padding="34px"
+                    >
+                      <${Icon} name=${icon} className="roadmap__icon" />
+                      <${Text} className="roadmap__index" fontSize="20px" margin="14px 0 6px">
+                        ${chapterNumber(chapter)}
+                      </${Text}>
+                      <${Text} className="roadmap__title" fontSize="34px" margin="0">
+                        ${title}
                       </${Text}>
                     </${FlexBox}>
                   `,
@@ -270,10 +302,8 @@
           <!-- ============================================================ -->
           <!-- 1. Agents are already here                                   -->
           <!-- ============================================================ -->
-          <${TopicSlide} backgroundUrl=${backgrounds.danger}>
-            Agents are already here
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
+          <${TopicSlide} chapter=${chapter(1)} />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(1)}`}>
             ${`
               ---
               # TODO: They already use your app
@@ -297,10 +327,8 @@
           <!-- ============================================================ -->
           <!-- 2. WebMCP                                                    -->
           <!-- ============================================================ -->
-          <${TopicSlide} backgroundUrl=${backgrounds.networkCables}>
-            WebMCP
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
+          <${TopicSlide} chapter=${chapter(2)} />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(2)}`}>
             ${`
               ---
               # TODO: What is WebMCP?
@@ -334,10 +362,8 @@
           <!-- ============================================================ -->
           <!-- 3. The basics                                                -->
           <!-- ============================================================ -->
-          <${TopicSlide} backgroundUrl=${backgrounds.greenCode}>
-            The basics
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
+          <${TopicSlide} chapter=${chapter(3)} />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(3)}`}>
             ${`
               ---
               # TODO: Making a function agent-callable
@@ -350,29 +376,32 @@
               Notes: TODO: Set up the next three code slides.
             `}
           </${MarkdownSlideSet}>
-          <${JsSlide} title="Registering a tool" code=${examples.registerTool.code}
+          <${JsSlide} chapter=${3} title="Registering a tool"
+            filename=${examples.registerTool.file} code=${examples.registerTool.code}
             notes=${`
               ## TODO: Registering a tool
               * TODO: Walk the four fields.
               * TODO: Point out that 'execute' just calls existing app code.
             `}
           />
-          <${JsSlide} title="Defining the schema" code=${examples.toolSchema.code}
+          <${JsSlide} chapter=${3} title="Defining the schema"
+            filename=${examples.toolSchema.file} code=${examples.toolSchema.code}
             notes=${`
               ## TODO: Defining the schema
               * TODO: Descriptions are prompt engineering.
               * TODO: Enums and bounds keep the agent on rails.
             `}
           />
-          <${JsSlide} title="The handler" code=${examples.toolHandler.code}
+          <${JsSlide} chapter=${3} title="The handler"
+            filename=${examples.toolHandler.file} code=${examples.toolHandler.code}
             notes=${`
               ## TODO: The handler
               * TODO: Auth, preferences, and search already exist.
               * TODO: Keep the UI in sync so the human can watch.
             `}
           />
-          <${Slide}>
-            <${Heading} fontSize="h3" style=${{ margin: "0" }}>
+          <${Slide} className=${chapterClass(3)}>
+            <${Heading} fontSize="h3" textAlign="left" margin="0 0 12px">
               TODO: Live edit
             </${Heading}>
             <${CodeEditor}
@@ -408,10 +437,8 @@
           <!-- ============================================================ -->
           <!-- 4. Demo: Claude Desktop                                      -->
           <!-- ============================================================ -->
-          <${TopicSlide} backgroundUrl=${backgrounds.oldComputer} fontSize="6em">
-            Demo: Claude Desktop
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
+          <${TopicSlide} chapter=${chapter(4)} />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(4)}`}>
             ${`
               ---
               # TODO: A frontend-only document app
@@ -433,6 +460,7 @@
             `}
           </${MarkdownSlideSet}>
           <${RowsSlide}
+            chapter=${4}
             title="TODO: Server vs. WebMCP"
             sections=${[
               {
@@ -465,10 +493,8 @@
           <!-- ============================================================ -->
           <!-- 5. All in the browser                                        -->
           <!-- ============================================================ -->
-          <${TopicSlide} backgroundUrl=${backgrounds.bookStacks}>
-            All in the browser
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
+          <${TopicSlide} chapter=${chapter(5)} />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(5)}`}>
             ${`
               ---
               # TODO: A research assistant, fully in-browser
@@ -510,10 +536,8 @@
           <!-- ============================================================ -->
           <!-- 6. Stumbling blocks                                          -->
           <!-- ============================================================ -->
-          <${TopicSlide} backgroundUrl=${backgrounds.cuttingBoard} fontSize="6em">
-            Stumbling blocks & hacks
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
+          <${TopicSlide} chapter=${chapter(6)} />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(6)}`}>
             ${`
               ---
               # TODO: What broke
@@ -537,10 +561,8 @@
           <!-- ============================================================ -->
           <!-- 7. Wrap up                                                   -->
           <!-- ============================================================ -->
-          <${TopicSlide} backgroundUrl=${backgrounds.mopop} fontSize="6em">
-            Start building today
-          </${TopicSlide}>
-          <${MarkdownSlideSet} ...${animateListItems}>
+          <${TopicSlide} chapter=${chapter(7)} />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(7)}`}>
             ${`
               ---
               # TODO: The frontend-for-agents landscape

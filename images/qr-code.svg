@@ -1,7 +1,7 @@
 <!-- TODO: Replace with a real QR code for
      https://ryan-roemer.github.io/the-frontend-strikes-back/ -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="QR code placeholder">
-  <rect width="200" height="200" fill="#ffffff"/>
+  <rect width="200" height="200" rx="8" fill="#ffffff"/>
   <g fill="#0f1017">
     <rect x="16" y="16" width="48" height="48"/>
     <rect x="136" y="16" width="48" height="48"/>
@@ -18,5 +18,5 @@
     <rect x="32" y="152" width="16" height="16"/>
   </g>
   <text x="100" y="105" font-family="Inter, sans-serif" font-size="22" font-weight="700" fill="#0f1017" text-anchor="middle">QR</text>
-  <text x="100" y="128" font-family="Inter, sans-serif" font-size="16" font-weight="700" fill="#9b2c2c" text-anchor="middle">TODO</text>
+  <text x="100" y="128" font-family="Inter, sans-serif" font-size="16" font-weight="700" fill="#c92a2a" text-anchor="middle">TODO</text>
 </svg>

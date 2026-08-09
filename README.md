@@ -31,8 +31,12 @@ the remaps and scopes work, which upgrades are deliberately blocked, and how to 
 
 ### Deck URL parameters
 
-| Parameter             | Effect                                                       |
-| --------------------- | ------------------------------------------------------------ |
-| `?animate=false`      | Disable `Appear` step animations (reveal everything at once) |
-| `?presenterMode=true` | Presenter view with speaker notes                            |
-| `?slideIndex=N`       | Jump directly to a slide                                     |
+| Parameter             | Effect                                                        |
+| --------------------- | ------------------------------------------------------------- |
+| `?animate=false`      | Disable `Appear` step animations and slide transitions        |
+| `?presenterMode=true` | Presenter view with speaker notes                             |
+| `?slideIndex=N`       | Jump directly to a slide                                      |
+| `?exportMode=true`    | All slides stacked, deck styling intact — print this to PDF   |
+| `?printMode=true`     | All slides stacked, light ink-saving theme for paper handouts |
+
+Transitions are also disabled automatically under `prefers-reduced-motion`.

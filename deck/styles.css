@@ -1,10 +1,361 @@
 /* The Frontend Strikes Back - Custom Styles */
-/* Using Nearform theme colors for consistency */
 
-/* React Live Editor Styling */
+/*
+ * Color comes from the `--nf-*` custom properties that `theme.js` writes onto
+ * :root at import time, so the palette is defined in exactly one place.
+ *
+ * `--chapter-accent` is set per chapter by `chapters.js` on the slide element
+ * and cascades into everything on that slide -- including markdown content,
+ * which never receives a component prop. The values below are the fallback for
+ * slides outside a chapter, and for the deck chrome, which renders as a sibling
+ * above the slides rather than inside the active one (see Template).
+ */
+:root {
+  --chapter-accent: var(--nf-green-50, #78eec5);
+  --chapter-accent-base: var(--nf-green-base, #00e5a4);
+
+  --surface-1: rgba(255, 255, 255, 0.06);
+  --surface-2: rgba(255, 255, 255, 0.02);
+  --hairline: rgba(255, 255, 255, 0.1);
+  --muted: var(--nf-midnight-30, #97a1b8);
+
+  --mono: "Fira Code", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* --- Film grain ----------------------------------------------------------
+ *
+ * The deck background is built from gradients (see DECK_BACKGROUND in
+ * theme.js), and gradients alone read as flat vector fill. A noise tile at a
+ * few percent gives the surface some tooth. It lives here rather than in the
+ * background stack because it must tile, while Spectacle applies a single
+ * `background-size: cover` to every layer of a slide.
+ */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
+/* --- Typography ----------------------------------------------------------
+ *
+ * Spectacle's `Heading` is a styled div, not an `<h1>` -- there is not a single
+ * heading element in the rendered deck -- so element selectors reach nothing.
+ * Every heading therefore carries `.slide-title` or `.slide-subtitle`, applied
+ * by prop on hand-written slides and by `componentMap` on markdown ones.
+ *
+ * Class, not attribute: styled-components used to leak `font-size="h1"` onto
+ * the DOM, but v6 requires a `shouldForwardProp` guard that filters exactly
+ * those props back out. `className` survives both versions.
+ *
+ * Sizes and weights stay in the theme; only tracking and leading are set here.
+ * Inter's default tracking is drawn for text, not for 64px display -- closing
+ * it up is most of what separates a set headline from a browser default.
+ */
+#root .slide-title {
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+#root .slide-subtitle {
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+#root p,
+#root li {
+  line-height: 1.4;
+}
+
+/* Emphasis inside markdown, colored by the current chapter. */
+#root .em {
+  color: var(--chapter-accent);
+  font-weight: 600;
+}
+
+/* Uppercase tracked-out label. The wide tracking is what makes it read as a
+ * label rather than as small body text. */
+#root .eyebrow {
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--chapter-accent);
+}
+
+.accent-rule {
+  width: 120px;
+  height: 5px;
+  margin-top: 28px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--chapter-accent-base),
+    var(--chapter-accent)
+  );
+}
+
+/* Markdown bullets. Spectacle's default discs sit at body weight and read as
+ * filler; a chapter-colored marker ties the list to its section. */
+#root ul {
+  list-style: none;
+}
+
+#root ul > li {
+  position: relative;
+  padding-left: 1.1em;
+}
+
+#root ul > li::before {
+  content: "\25b8";
+  position: absolute;
+  left: 0;
+  color: var(--chapter-accent);
+}
+
+#root ol > li::marker {
+  color: var(--chapter-accent);
+  font-weight: 700;
+}
+
+/* --- Title slide --------------------------------------------------------- */
+
+/*
+ * Gradient-filled display type. The slight perspective is the deck's second
+ * Star Wars nod -- enough to register, not enough to become the joke. Both are
+ * cosmetic: if `background-clip: text` misbehaves anywhere, deleting this rule
+ * leaves plain white type and nothing else breaks.
+ */
+#root .title-display {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+  background: linear-gradient(
+    165deg,
+    #ffffff 0%,
+    #ffffff 42%,
+    var(--nf-green-50, #78eec5) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  transform: perspective(1400px) rotateX(8deg);
+  transform-origin: 50% 100%;
+}
+
+/* The display type owns the slide; the subtitle should read as a deck line,
+ * not compete at the same weight. */
+#root .title-subtitle {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--nf-midnight-10, #f4f8fa);
+}
+
+.qr-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px;
+  line-height: 0;
+  box-shadow: 0 14px 36px rgba(0, 14, 56, 0.55);
+}
+
+#root .qr-caption {
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* --- Chapter dividers ---------------------------------------------------- */
+
+#root .divider__numeral {
+  position: absolute;
+  right: 3%;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 360px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  color: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+#root .divider__title {
+  max-width: 15ch;
+}
+
+/* --- Cards --------------------------------------------------------------- */
+
+/*
+ * Replaces the previous `1px solid #fff` box. A hairline pure-white border
+ * reads as a debug outline; a translucent fill with a soft shadow reads as a
+ * surface sitting above the background.
+ */
+.card {
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow:
+    0 12px 32px rgba(0, 14, 56, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.card--label {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+#root .card__label {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--chapter-accent);
+}
+
+#root .card__icon {
+  font-size: 1.6em;
+  color: var(--chapter-accent);
+}
+
+/* Roadmap cells: number sits above the label as a quiet index into the deck,
+ * tying each cell to the chapter divider it introduces. */
+#root .roadmap__index {
+  font-family: var(--mono);
+  letter-spacing: 0.1em;
+  color: var(--chapter-accent);
+}
+
+#root .roadmap__title {
+  font-weight: 700;
+  color: #fff;
+}
+
+#root .roadmap__icon {
+  font-size: 46px;
+  color: var(--chapter-accent);
+}
+
+/* --- Deck chrome --------------------------------------------------------- */
+
+.deck-chrome {
+  color: var(--muted);
+}
+
+.deck-meta {
+  box-sizing: border-box;
+  padding: 0 44px 14px;
+  font-family: var(--mono);
+}
+
+#root .deck-meta__count {
+  font-family: var(--mono);
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.deck-progress {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.deck-progress__fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--chapter-accent-base),
+    var(--chapter-accent)
+  );
+  box-shadow: 0 0 18px var(--chapter-accent-base);
+  transition: width 400ms ease;
+}
+
+/* --- Code ---------------------------------------------------------------- */
+
+#root code {
+  font-family: var(--mono);
+  color: var(--nf-grey-30, #d9d9d9);
+}
+
+/*
+ * Framed code pane with a filename bar. The snippets are real files fetched
+ * from `examples/`, so naming them is information, not decoration.
+ */
+/*
+ * Height is capped to what is left of the 768px canvas after slide padding,
+ * the title, and the chrome -- otherwise a long file (tool-handler.js is 31
+ * lines) pushes the frame over the progress bar and off the slide.
+ */
+.code-frame {
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0b1220;
+  box-shadow: 0 16px 40px rgba(0, 14, 56, 0.5);
+  max-height: 540px;
+  display: flex;
+  flex-direction: column;
+}
+
+.code-frame__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.code-frame__dots {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--chapter-accent);
+  flex: none;
+}
+
+.code-frame__name {
+  font-family: var(--mono);
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/*
+ * Pane size comes from `theme.fontSizes.monospace`. Capped and scrollable here
+ * so a long snippet can never push the frame off the slide.
+ */
+.code-frame pre {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  line-height: 1.45 !important;
+  flex: 1;
+  min-height: 0;
+  overflow: auto !important;
+}
+
+.code-frame__bar {
+  flex: none;
+}
+
+/* --- React Live editor --------------------------------------------------- */
+
+.code-editor-container {
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 14, 56, 0.5);
+  background-color: var(--nf-midnight-base, #000e38);
+  margin: 20px 0;
+}
+
 .react-live-editor {
   background: rgb(30, 30, 30); /* match PRR theme */
-  font-family: Inconsolata, Monaco, Consolas, "Courier New", Courier, monospace;
+  font-family: var(--mono);
   font-size: 18px;
   line-height: 1.5;
   padding: 16px;
@@ -19,14 +370,18 @@
   white-space: nowrap !important;
 }
 
+.react-live-editor:focus {
+  box-shadow: inset 0 0 0 2px var(--nf-green-base, #00e5a4);
+}
+
 .react-live-preview {
-  border-top: 2px solid #454551;
-  background: #8950ff;
-  color: #f4f8fa;
+  border-top: 1px solid var(--hairline);
+  background: var(--nf-purple-base, #8950ff);
+  color: var(--nf-midnight-10, #f4f8fa);
   padding: 16px;
   min-height: 200px;
   display: flex;
-  font-family: "Inter", sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: 24px;
 }
 
@@ -36,36 +391,124 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Inter", sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
 }
 
-/* Error styling using theme colors */
 .react-live-error {
-  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
-  color: white;
+  background: linear-gradient(
+    135deg,
+    var(--nf-red-base, #ff6b6b),
+    var(--nf-red-80, #ff8f8f)
+  );
+  color: var(--nf-midnight-base, #000e38);
   padding: 12px 16px;
   font-size: 14px;
-  font-family: Inconsolata, Monaco, Consolas, "Courier New", Courier, monospace;
+  font-family: var(--mono);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-/* Code editor container styling */
-.code-editor-container {
-  border: 2px solid #454551; /* grey[80] - darker border for better contrast */
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 14, 56, 0.3); /* midnight.base with opacity */
-  background-color: #000e38; /* midnight.base */
-  margin: 20px 0;
+/* --- Presenter notes ------------------------------------------------------
+ *
+ * The notes pane is dense plain text in a separate view; the deck's list and
+ * heading treatments above would only get in its way.
+ */
+.notes ul > li::before {
+  content: none;
 }
 
-/* Focus states for better accessibility */
-.react-live-editor:focus {
-  box-shadow: inset 0 0 0 2px #00e5a4; /* green.base focus ring */
+.notes ul {
+  list-style: disc;
 }
 
-/* Responsive adjustments */
+/* --- Paged output: ?printMode=true / ?exportMode=true ---------------------
+ *
+ * Both modes stack every slide and render the deck template inside each one.
+ * `theme.js` sets `.paged-mode` for both and `.print-mode` for the handout
+ * only -- the one case where Spectacle has swapped to its light palette.
+ */
+
+/* Interactive-only chrome. The slide counter earns its place on a page; a
+ * fullscreen button does not. */
+.paged-mode .spectacle-fullscreen-button {
+  display: none;
+}
+
+/* Grain is a screen effect. On paper it is just a dirty plate. */
+.print-mode body::after {
+  display: none;
+}
+
+/*
+ * Chapter accents are darkened per chapter in `chapters.js`; this is the
+ * fallback for slides outside a chapter (the title slide's eyebrow and rule),
+ * where the deck green would otherwise print as a pale wash.
+ */
+.print-mode {
+  --chapter-accent: color-mix(in srgb, var(--nf-green-base, #00e5a4) 62%, #000);
+}
+
+/*
+ * Spectacle's print palette sets `primary` to #777, which is too light to read
+ * as a heading and too grey to read as body copy. Put real ink back.
+ *
+ * `.slide-title` / `.slide-subtitle` are on every heading in the deck, so this
+ * catches the one-off 150px and 118px display headings too.
+ */
+.print-mode #root .slide-title,
+.print-mode #root .slide-subtitle,
+.print-mode #root .title-subtitle,
+.print-mode #root .roadmap__title {
+  color: var(--nf-midnight-base, #000e38);
+}
+
+.print-mode #root p,
+.print-mode #root li {
+  color: #12233f;
+}
+
+.print-mode #root .deck-meta__count {
+  color: var(--nf-midnight-50, #526288);
+}
+
+/* Knocked-out gradient type renders as nothing on white. */
+.print-mode #root .title-display {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--nf-midnight-base, #000e38);
+  transform: none;
+}
+
+.print-mode .card {
+  background: none;
+  border-color: rgba(0, 14, 56, 0.18);
+  box-shadow: none;
+}
+
+.print-mode #root .divider__numeral {
+  color: rgba(0, 14, 56, 0.08);
+}
+
+.print-mode .deck-progress {
+  display: none;
+}
+
+.print-mode .qr-card {
+  box-shadow: none;
+  border: 1px solid rgba(0, 14, 56, 0.18);
+}
+
+/* --- Motion -------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-progress__fill {
+    transition: none;
+  }
+
+  #root .title-display {
+    transform: none;
+  }
+}
+
 @media (max-width: 768px) {
   .react-live-editor {
     font-size: 14px;

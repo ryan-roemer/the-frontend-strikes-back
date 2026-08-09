@@ -18,7 +18,9 @@ const getExample = async (name, path) => {
     throw new Error(`Example "${name}" failed: ${path} (${res.status})`);
   }
 
-  return { name, code: await res.text() };
+  // `file` is shown on the code pane's filename bar, so the audience can see
+  // the snippet is a real file in the repo rather than slide-only code.
+  return { name, file: path.split("/").pop(), code: await res.text() };
 };
 
 export const getExamples = async () => {
