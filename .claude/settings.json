@@ -101,7 +101,18 @@
       "Bash(node scopeproof.mjs)",
       "Bash(\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --dump-dom --virtual-time-budget=13000 --user-data-dir=/tmp/cdp-dom2 \"http://localhost:4399/?slideIndex=6&animate=false\")",
       "Bash(node adapter.mjs)",
-      "Bash(node adapter2.mjs)"
+      "Bash(node adapter2.mjs)",
+      "Bash(curl -s -o /dev/null -w \"server: %{http_code}\\\\n\" http://localhost:4399/)",
+      "Bash(pkill -f \"Google Chrome.*headless\")",
+      "Bash(rm -rf /tmp/cdp-sw-* /tmp/cdp-p-*)",
+      "Bash(./sweep.sh r5 *)",
+      "Bash(cd /Users/rye/scm/os/the-frontend-strikes-back-design && grep -n 'title-display' deck/styles.css)",
+      "Bash(ls -la /Users/rye/scm/os/the-frontend-strikes-back/docs/ 2>/dev/null; echo \"--- downloads ---\"; ls -lat ~/Downloads/*.svg 2>/dev/null | head -20; echo \"--- desktop ---\"; ls -lat ~/Desktop/*.svg 2>/dev/null | head -20)",
+      "Read(//Users/rye/Downloads/**)",
+      "Read(//Users/rye/Desktop/**)",
+      "Bash(node /private/tmp/claude-501/-Users-rye-scm-os-the-frontend-strikes-back/90e6b22e-6599-4e66-bb36-039d9d6331d7/scratchpad/bbox.mjs)",
+      "Bash(cd /Users/rye/scm/os/the-frontend-strikes-back-design && sed -n '1,80p' README.md | grep -n -A14 -i 'param\\\\|url')",
+      "Bash(qlmanage -t -s 600 -o . preview.svg)"
     ],
     "additionalDirectories": [
       "/Users/rye/scm/os/the-frontend-strikes-back-design/deck",

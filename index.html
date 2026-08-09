@@ -49,40 +49,8 @@
   <body>
     <div id="root"></div>
 
-    <!-- Deps
-      - jsDelivr `+esm` externalizes each package's deps and peerDeps as absolute
-        `/npm/<pkg>@<ver>/+esm` URLs baked into the bundle, so only the specifiers the deck
-        imports directly need a bare entry here. Spectacle's own deps (styled-components,
-        kbar, unified, react-syntax-highlighter, ...) resolve themselves.
-      - The trailing-slash entries are prefix remaps: they rewrite those baked-in URLs, which
-        is the only lever we have over transitive versions with no build step. Two jobs:
-        (a) collapse every React copy in the graph onto one -- React must be a singleton or
-            hooks blow up with "invalid hook call";
-        (b) drag spectacle's pinned deps forward onto React 19-compatible releases.
-      - spectacle 10.2.3 (not 10.2.1) is required for React 19: 10.2.1 sets `defaultProps` on
-        function components in 19 places, which React 19 removed support for.
-      - use-resize-observer stays on 9.x on purpose. v10 dropped its default export and
-        spectacle imports it as `import useResizeObserver from "use-resize-observer"`.
-      - styled-system has no update to make -- 5.1.5 is the latest release (Feb 2020) and it
-        has no React dependency at all, so it is unaffected by the React 19 move.
-      - "scopes" hands ./deck/react-compat.js to spectacle and nothing else -- see that file
-        for why React 19 breaks spectacle's Markdown. A scope key matches on the *importer's*
-        URL, and spectacle is the module that imports `createElement` and passes it into
-        rehype-react. Scoping the offenders themselves would do nothing: neither
-        rehype-react nor hast-to-hyperscript imports react at all, they just call the
-        factory spectacle handed them.
-        The scoped key is exact (no trailing slash) so `react@19.2.0/jsx-runtime/+esm` still
-        falls through to the prefix remap below and gets the real jsx-runtime.
-        COMPAT REQUIREMENT: "react" must keep pointing at the CDN, not at react-compat.js,
-        or that shim would import itself. Everything else here is a bare specifier.
-      - jsDelivr also advertises the un-deduped versions in `Link: rel=modulepreload` response
-        headers. Preloads are URL fetches, so they skip the import map and you'll see the old
-        react@18.x / 17.x in the network tab. They're downloaded but never instantiated --
-        wasted preload, not a second React. Verify the dedupe by hook identity (compare
-        `useState`, not the module default -- react-compat.js exports a Proxy):
-        `(await import("https://cdn.jsdelivr.net/npm/react@18.3.1/+esm")).useState ===
-         (await import("react")).useState`
-    -->
+    <!-- Pins, prefix remaps, and scopes are explained in docs/dependencies.md.
+         Read it before changing a version -- most entries here are load-bearing. -->
     <script type="importmap">
       {
         "imports": {
@@ -642,12 +610,8 @@
         </${Deck}>
       `;
 
-      // styled-components v5 filtered non-HTML props out with @emotion/is-prop-valid before
-      // they reached the DOM. v6 dropped that and expects transient ($-prefixed) props
-      // instead -- but Spectacle is written against v5, so without this every styled-system
-      // prop it uses (padding, margin, textAlign, justifyContent, ...) lands on the element
-      // as a bogus HTML attribute. This is the v6 migration bridge from their own docs, and
-      // it only applies to host elements so custom components still receive everything.
+      // Restores the prop filtering styled-components v6 dropped. Without it every
+      // styled-system prop Spectacle uses leaks onto the DOM. See docs/dependencies.md.
       const shouldForwardProp = (prop, target) =>
         typeof target === "string" ? isPropValid(prop) : true;
 

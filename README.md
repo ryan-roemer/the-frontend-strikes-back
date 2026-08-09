@@ -25,6 +25,10 @@ $ npm run dev      # serve the deck locally
 $ npm run format   # eslint --fix + prettier --write
 ```
 
+Dependencies are pinned and version-deduped entirely through the import map in `index.html`.
+Before changing any version, read [docs/dependencies.md](docs/dependencies.md) — it covers how
+the remaps and scopes work, which upgrades are deliberately blocked, and how to verify a change.
+
 ### Deck URL parameters
 
 | Parameter             | Effect                                                       |

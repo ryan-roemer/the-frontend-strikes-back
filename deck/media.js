@@ -9,11 +9,11 @@ export const logosHtm = {
     src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTODiKxPSWQzaep57CVW9j3x3n4iIlZkZLOZA&s"
     style=${{ width: "0.9em", height: "0.9em", marginBottom: "-0.05em" }}
   />`,
-  // TODO: Swap in the AgntCon / MCPCon North America logo URL.
   conf: html`<img
-    src="https://events.linuxfoundation.org/wp-content/uploads/2024/11/js_logo_white-1.svg"
+    src="./images/agntcon-mcpcon-icon.svg"
     style=${{
-      width: "0.9em",
+      // Icon is 117x92.5, so widen to preserve its aspect ratio at 0.9em tall.
+      width: "1.14em",
       height: "0.9em",
       marginBottom: "-0.05em",
       marginRight: "0.2em",
