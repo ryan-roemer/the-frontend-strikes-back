@@ -222,8 +222,20 @@ body::after {
   color: var(--chapter-accent);
 }
 
-/* Roadmap cells: number sits above the label as a quiet index into the deck,
- * tying each cell to the chapter divider it introduces. */
+/*
+ * Roadmap cells. The grid rows are content-sized, so the tile is only as tall
+ * as the two lines inside it -- an earlier percentage-height wrapper made the
+ * tiles fill the slide and collide with the heading.
+ */
+.card--roadmap {
+  padding: 26px 28px;
+}
+
+/* Index and icon share one line, so the title is the only thing with weight. */
+#root .roadmap__head {
+  color: var(--chapter-accent);
+}
+
 #root .roadmap__index {
   font-family: var(--mono);
   letter-spacing: 0.1em;
@@ -236,7 +248,7 @@ body::after {
 }
 
 #root .roadmap__icon {
-  font-size: 46px;
+  font-size: 32px;
   color: var(--chapter-accent);
 }
 
@@ -476,6 +488,78 @@ body::after {
   -webkit-text-fill-color: currentColor;
   color: var(--nf-midnight-base, #000e38);
   transform: none;
+}
+
+/* --- Actually printing ----------------------------------------------------
+ *
+ * `?printMode=true` / `?exportMode=true` only change how the deck lays out
+ * on screen. Sending it to a printer or to Save-as-PDF additionally activates
+ * `@media print`, where three things break that are invisible any other way.
+ * Verify changes here against a real `--print-to-pdf`, not the paged views.
+ */
+
+/*
+ * Spectacle ships `@media print { height: inherit; }` on Box, FlexBox AND Grid
+ * (see the shared `St` fragment in its source). Printing therefore makes every
+ * fixed-height box swell to its parent's height: the 5px accent rule under a
+ * chapter title becomes a full-height pill, and the progress bar does the same.
+ *
+ * Their rule is a single generated class, and styled-components injects it
+ * after this file, so matching specificity loses. `#root` wins it back.
+ */
+@media print {
+  #root .deck-chrome,
+  #root .deck-meta,
+  #root .divider__numeral,
+  #root .roadmap-grid,
+  #root .roadmap__head,
+  #root .card {
+    height: auto;
+  }
+
+  #root .accent-rule {
+    height: 5px;
+  }
+
+  #root .deck-progress {
+    height: 4px;
+  }
+
+  #root .deck-progress__fill {
+    height: 100%;
+  }
+
+  /*
+   * Print rasterizes box-shadows without their blur, so every soft shadow
+   * lands as a hard dark rectangle offset behind its element -- most visible
+   * as a slab behind the title-slide QR and the roadmap tiles. The borders
+   * carry the edges on their own.
+   */
+  #root .card,
+  #root .qr-card,
+  #root .code-frame,
+  #root .code-editor-container,
+  #root .deck-progress__fill {
+    box-shadow: none;
+  }
+
+  /*
+   * Chrome's print rasterizer does not honour `background-clip: text`. The
+   * gradient paints as a solid filled rectangle over the headline instead of
+   * being knocked out by it, and the perspective transform skews that
+   * rectangle across the slide. Print gets flat, reliable type.
+   *
+   * `.print-mode` sets its own (dark) colour at higher specificity, so the
+   * handout keeps ink while a printed exportMode deck stays white-on-navy.
+   */
+  #root .title-display {
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    -webkit-text-fill-color: currentColor;
+    color: #fff;
+    transform: none;
+  }
 }
 
 .print-mode .card {

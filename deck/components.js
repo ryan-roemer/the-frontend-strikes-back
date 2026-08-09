@@ -25,7 +25,7 @@ import {
 } from "spectacle";
 import { LiveEditor, LivePreview, LiveError, LiveProvider } from "react-live";
 import { themes } from "prism-react-renderer";
-import { theme, colors, photoBackground } from "./theme.js";
+import { colors, photoBackground } from "./theme.js";
 import { chapterClass, chapterNumber } from "./chapters.js";
 
 const html = htm.bind(createElement);
@@ -38,9 +38,7 @@ const animationsEnabled =
   urlParams.get("animate") === "false" || prefersReducedMotion ? false : true;
 
 export const AppearComponent = animationsEnabled ? Appear : Fragment;
-export const animateListItems = animationsEnabled
-  ? { animateListItems: true }
-  : {};
+const animateListItems = animationsEnabled ? { animateListItems: true } : {};
 
 /**
  * Markdown tag -> component map.
@@ -117,12 +115,6 @@ export const icon = (args) => {
   return `<i class="ph${fill ? "-fill" : ""} ph-${name}" ${color ? `style="color: ${color}"` : ""}></i>`;
 };
 
-export const iconArrow = icon({
-  name: "arrow-right",
-  fill: false,
-  color: theme.colors.quaternary,
-});
-
 export const Icon = ({ name, fill = true, color, className, style }) =>
   html`<i
     class="ph${fill ? "-fill" : ""} ph-${name}${className
@@ -131,25 +123,12 @@ export const Icon = ({ name, fill = true, color, className, style }) =>
     style=${{ color, ...style }}
   ></i>`;
 
-export const IconLink = ({ name, href, fill = false, color }) => html`
-  <a href=${href} style=${{ color, textDecoration: "none" }}
-    ><${Icon} name=${name} fill=${fill}
-  /></a>
-`;
-
-export const IconArrow = () => html`
-  <${Icon} name="arrow-right" fill=${false} color=${theme.colors.quaternary} />
-`;
-
 // Text styling components
 //
 // These resolve their color from `--chapter-accent`, which cascades down from
 // the chapter class on the slide -- so emphasis picks up the section's accent
 // automatically and falls back to the deck green outside a chapter.
 export const em = (text) => `<span class="em">${text}</span>`;
-
-export const Em = ({ children }) =>
-  html`<span className="em">${children}</span>`;
 
 /** Small tracked-out label that sits above a heading. */
 export const Eyebrow = ({
@@ -199,7 +178,7 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
         alignItems="center"
         width=${1}
       >
-        <${FlexBox} className="deck-meta__actions" alignItems="center">
+        <${FlexBox} alignItems="center">
           <${FullScreen} color=${colors.midnight[30]} size=${20} />
         <//>
         <${Text} className="deck-meta__count" fontSize="18px" margin="0">
@@ -325,7 +304,7 @@ export const CodeEditor = ({
 
 // Card layout props. The surface itself (fill, border, shadow) lives on the
 // `.card` class in styles.css; only alignment belongs in props.
-export const CARD_PROPS = {
+const CARD_PROPS = {
   className: "card",
   justifyContent: "center",
   alignItems: "center",
@@ -374,7 +353,7 @@ export const RowsSlide = ({ title, sections = [], notes, chapter }) => {
 
                   return html`
                     <${FlexBox} key=${i} ...${CARD_PROPS}>
-                      <${Text} className="card__text" fontSize="28px" margin="0">
+                      <${Text} fontSize="28px" margin="0">
                         <${FlexBox} alignItems="center">
                           ${
                             itemIcon

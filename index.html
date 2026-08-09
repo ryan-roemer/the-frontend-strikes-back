@@ -128,7 +128,6 @@
         AppearComponent,
         mdSlideProps,
         deckTransition,
-        CARD_PROPS,
       } from "./deck/components.js";
       const html = htm.bind(createElement);
 
@@ -265,39 +264,39 @@
             </${Notes}>
           </${Slide}>
           <${Slide}>
-            <${Heading} className="slide-title" textAlign="left" margin="0 0 28px">Roadmap</${Heading}>
-            <${FlexBox} justifyContent="center" alignItems="center" height="68%">
-              <${Grid} gridTemplateColumns="1fr 1fr" gridTemplateRows="1fr 1fr" gridGap="24px" width="100%">
-                ${[
-                  // `chapter` ties each cell to the divider it introduces, so
-                  // the roadmap previews the accent colors of the talk ahead.
-                  { title: "Agents Today", icon: "robot", chapter: 1 },
-                  { title: "WebMCP", icon: "plugs-connected", chapter: 2 },
-                  { title: "Live Demo", icon: "monitor-play", chapter: 4 },
-                  { title: "In-Browser AI", icon: "browser", chapter: 5 },
-                ].map(
-                  ({ title, icon, chapter }, i) => html`
-                    <${FlexBox}
-                      key=${i}
-                      ...${CARD_PROPS}
-                      className=${`card ${chapterClass(chapter)}`}
-                      flexDirection="column"
-                      alignItems="start"
-                      justifyContent="center"
-                      padding="34px"
-                    >
+            <${Heading} className="slide-title" textAlign="left" margin="0 0 40px">Roadmap</${Heading}>
+            <${Grid} className="roadmap-grid" gridTemplateColumns="1fr 1fr" gridGap="24px">
+              ${[
+                // `chapter` only picks the accent, so each tile previews the
+                // color of the divider it introduces. The number is the tile's
+                // position in the roadmap -- using the chapter index instead
+                // reads as a list with slides missing.
+                { title: "Agents Today", icon: "robot", chapter: 1 },
+                { title: "WebMCP", icon: "plugs-connected", chapter: 2 },
+                { title: "Live Demo", icon: "monitor-play", chapter: 4 },
+                { title: "In-Browser AI", icon: "browser", chapter: 5 },
+              ].map(
+                ({ title, icon, chapter }, i) => html`
+                  <${FlexBox}
+                    key=${i}
+                    className=${`card card--roadmap ${chapterClass(chapter)}`}
+                    flexDirection="column"
+                    alignItems="stretch"
+                    justifyContent="center"
+                  >
+                    <${FlexBox} className="roadmap__head" justifyContent="space-between" alignItems="center">
+                      <${Text} className="roadmap__index" fontSize="20px" margin="0">
+                        ${chapterNumber(i + 1)}
+                      </${Text}>
                       <${Icon} name=${icon} className="roadmap__icon" />
-                      <${Text} className="roadmap__index" fontSize="20px" margin="14px 0 6px">
-                        ${chapterNumber(chapter)}
-                      </${Text}>
-                      <${Text} className="roadmap__title" fontSize="34px" margin="0">
-                        ${title}
-                      </${Text}>
-                    </${FlexBox}>
-                  `,
-                )}
-              </${Grid}>
-            </${FlexBox}>
+                    <//>
+                    <${Text} className="roadmap__title" fontSize="32px" margin="14px 0 0">
+                      ${title}
+                    </${Text}>
+                  </${FlexBox}>
+                `,
+              )}
+            </${Grid}>
           </${Slide}>
           <!-- ============================================================ -->
           <!-- 1. Agents are already here                                   -->

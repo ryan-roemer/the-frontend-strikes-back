@@ -14,7 +14,7 @@ const params = new URLSearchParams(window.location.search);
 const exportMode = params.get("exportMode") === "true";
 
 /** Slides are stacked for paged output (either mode). */
-export const isPaged = exportMode || params.get("printMode") === "true";
+const isPaged = exportMode || params.get("printMode") === "true";
 
 /** Paper handout: Spectacle has switched to its light palette. */
 export const isLightPrint = isPaged && !exportMode;
