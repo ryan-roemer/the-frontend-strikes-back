@@ -60,13 +60,37 @@ export const colors = {
     30: "#D9D9D9",
     80: "#454551",
   },
-  red: {
-    base: "#FF6B6B",
-    80: "#FF8F8F",
-    50: "#FFB3B3",
-    30: "#FFD7D7",
-    10: "#FFEFEF",
+  // Nearform's `--color-nf-dark-green`. A second, deeper green rather than a
+  // fifth hue: it gives the warm-toned chapters their own identity without
+  // inventing a color the brand does not have.
+  darkGreen: {
+    base: "#07A06F",
+    80: "#2FBF8D",
+    50: "#6FD9B5",
+    30: "#AAEBD5",
+    10: "#E3F8F0",
   },
+};
+
+/**
+ * Spectacle's own brand rose -- NOT part of the deck palette.
+ *
+ * Deliberately outside `colors` so it never reads as a deck ramp and never gets
+ * mirrored onto `:root` by `applyCssVars()` below. Scoped to the one slide about
+ * Spectacle, where it matches the library's logo and banner art. Nearform's
+ * palette has no red or pink; anywhere else in the deck, this hue is a mistake.
+ */
+export const SPECTACLE_ROSE = "#FC6986";
+
+/**
+ * Semantic colors, kept out of the brand ramps above.
+ *
+ * Nearform's palette has no red. This exists only so that a live-code failure
+ * reads as a failure -- see `.react-live-error` in `styles.css`.
+ */
+export const feedback = {
+  error: "#FF6B6B",
+  errorSoft: "#FF8F8F",
 };
 
 // Nearform theme
@@ -180,6 +204,10 @@ const applyCssVars = () => {
 
   Object.entries(theme.colors).forEach(([name, value]) => {
     root.style.setProperty(`--nf-${name}`, value);
+  });
+
+  Object.entries(feedback).forEach(([name, value]) => {
+    root.style.setProperty(`--nf-feedback-${name}`, value);
   });
 
   // Render-mode hooks for styles.css. Paged output has no viewport chrome and

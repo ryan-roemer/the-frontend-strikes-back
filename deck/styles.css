@@ -409,8 +409,8 @@ body::after {
 .react-live-error {
   background: linear-gradient(
     135deg,
-    var(--nf-red-base, #ff6b6b),
-    var(--nf-red-80, #ff8f8f)
+    var(--nf-feedback-error, #ff6b6b),
+    var(--nf-feedback-errorSoft, #ff8f8f)
   );
   color: var(--nf-midnight-base, #000e38);
   padding: 12px 16px;

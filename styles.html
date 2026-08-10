@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Living style guide for the deck: palette, type scale, and chapter accents."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300..900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css"
+    />
+
+    <!-- The deck's own stylesheet, unmodified. Every swatch and treatment below
+         is rendered by these rules, not by a copy of them -- so this page cannot
+         drift from what the slides actually look like. -->
+    <link rel="stylesheet" type="text/css" href="./deck/styles.css" />
+
+    <style>
+      /*
+       * Page chrome only. Nothing here may restyle a deck treatment -- if a
+       * swatch looks wrong, the fix belongs in deck/styles.css or deck/theme.js.
+       */
+      body {
+        margin: 0;
+        padding: 0 0 120px;
+        background: #04101f;
+        color: #fff;
+        font-family: "Inter", system-ui, sans-serif;
+      }
+
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0 32px;
+      }
+
+      .masthead {
+        padding: 56px 0 40px;
+      }
+      .masthead h1 {
+        margin: 0 0 14px;
+        font-size: 38px;
+        letter-spacing: -0.03em;
+      }
+      .masthead p {
+        margin: 0 0 10px;
+        max-width: 80ch;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      code,
+      .mono {
+        font-family: var(--mono);
+      }
+      code {
+        font-size: 0.9em;
+        color: #b9d3ff;
+      }
+
+      section {
+        padding: 40px 0;
+        border-top: 1px solid var(--hairline);
+      }
+      section > h2 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+      }
+      section > .lede {
+        margin: 0 0 26px;
+        max-width: 80ch;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      h3.sub {
+        margin: 34px 0 14px;
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      /* --- swatches --------------------------------------------------------- */
+      .family {
+        margin-bottom: 22px;
+      }
+      .family__name {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .family__name b {
+        font-size: 15px;
+      }
+      .family__name span {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .ramp {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+      }
+      .ramp--pair {
+        grid-template-columns: repeat(2, minmax(0, 190px));
+      }
+      .swatch {
+        border-radius: 10px;
+        min-height: 92px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        font-family: var(--mono);
+        font-size: 12px;
+        border: 1px solid var(--hairline);
+      }
+      .swatch__stop {
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        opacity: 0.7;
+      }
+      .swatch__hex {
+        font-size: 12px;
+      }
+      .swatch__cr {
+        font-size: 10px;
+        opacity: 0.75;
+      }
+      .swatch--role {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+      }
+
+      /* --- token table ------------------------------------------------------ */
+      table.tokens {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      table.tokens th {
+        text-align: left;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+        padding: 0 14px 10px 0;
+        border-bottom: 1px solid var(--hairline);
+      }
+      table.tokens td {
+        padding: 11px 14px 11px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        vertical-align: middle;
+      }
+      table.tokens td.mono {
+        font-size: 13px;
+        color: #b9d3ff;
+      }
+      .chip {
+        display: inline-block;
+        width: 34px;
+        height: 20px;
+        border-radius: 5px;
+        border: 1px solid var(--hairline);
+        vertical-align: -5px;
+        margin-right: 10px;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      /* --- type scale ------------------------------------------------------- */
+      .type-row {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        gap: 20px;
+        align-items: baseline;
+        padding: 14px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .type-row__meta {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .type-row__meta b {
+        color: #fff;
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .type-row__sample {
+        overflow: hidden;
+      }
+
+      /* --- chapter panels --------------------------------------------------- */
+      .chapter {
+        margin-bottom: 18px;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid var(--hairline);
+      }
+      .chapter__bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        background: rgba(255, 255, 255, 0.04);
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .chapter__bar b {
+        color: #fff;
+        font-family: "Inter", system-ui, sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .chapter__stage {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 30px;
+        padding: 28px 30px 0;
+        background-size: cover;
+        background-position: center;
+      }
+      .stage__left {
+        position: relative;
+        min-height: 220px;
+      }
+      /* The deck sizes the numeral for a 1366x768 canvas; scale it to this page
+       * without touching the rule that owns it. */
+      .chapter__stage .divider__numeral {
+        font-size: 170px;
+        right: 1%;
+      }
+      .stage__title {
+        max-width: 15ch;
+        margin: 14px 0 0;
+        font-weight: 700;
+      }
+      .stage__list {
+        margin: 0;
+        padding: 0;
+      }
+      .chapter .deck-progress {
+        margin: 22px -30px 0;
+      }
+      .chapter .deck-progress__fill {
+        width: 45%;
+      }
+      .chapter__meta {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0 14px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .code-frame__row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: 18px;
+        padding: 10px 14px;
+        border: 1px solid var(--hairline);
+        border-bottom: none;
+        border-radius: 10px 10px 0 0;
+        background: #0b1220;
+      }
+      .code-frame__dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--chapter-accent);
+      }
+
+      /* --- print check ------------------------------------------------------ */
+      .print-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px 24px;
+        color: #12233f;
+      }
+      .print-card h4 {
+        margin: 8px 0 0;
+        color: #000e38;
+        font-size: 22px;
+        letter-spacing: -0.02em;
+      }
+      .print-card .eyebrow,
+      .print-card .em {
+        color: var(--print-accent);
+      }
+      .print-card .accent-rule {
+        background: var(--print-accent);
+        margin-top: 12px;
+      }
+      .print-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+      }
+
+      .callout {
+        border-left: 3px solid var(--chapter-accent);
+        padding: 4px 0 4px 16px;
+        margin: 22px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.65;
+        max-width: 80ch;
+      }
+      .callout b {
+        color: #fff;
+        font-weight: 600;
+      }
+
+      /* This page is a reference, not a slide -- the deck's film grain overlay
+       * only adds noise to swatch reading. */
+      body::after {
+        display: none;
+      }
+    </style>
+    <title>Style guide &middot; The Frontend Strikes Back</title>
+  </head>
+
+  <!-- `#root` is the ancestor most of deck/styles.css is scoped to, so the
+       treatments below resolve exactly as they do in the deck. -->
+  <body id="root">
+    <div class="wrap" id="out"></div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "htm": "https://cdn.jsdelivr.net/npm/htm@3.1.1/+esm",
+          "react": "https://cdn.jsdelivr.net/npm/react@19.2.8/+esm",
+          "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@19.2.8/jsx-runtime/+esm"
+        }
+      }
+    </script>
+
+    <script type="module">
+      // Everything on this page is derived from the real modules. Nothing is
+      // re-declared here, so the guide cannot go stale.
+      import {
+        colors,
+        theme,
+        feedback,
+        SPECTACLE_ROSE,
+        DECK_BACKGROUND,
+        photoBackground,
+      } from "./deck/theme.js";
+      import {
+        chapters,
+        chapterClass,
+        chapterNumber,
+        applyChapterStyles,
+      } from "./deck/chapters.js";
+
+      applyChapterStyles();
+
+      // --- contrast ---------------------------------------------------------
+      const BG_LIGHTEST = colors.midnight[80]; // brightest point of the gradient
+      const BG_DARKEST = colors.midnight.base;
+
+      const lum = (hex) => {
+        const h = hex.replace("#", "");
+        const c = [0, 2, 4]
+          .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+          .map((x) =>
+            x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4,
+          );
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+      };
+      const ratio = (a, b) => {
+        const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+        return (hi + 0.05) / (lo + 0.05);
+      };
+      /** WCAG grade against the worst-case (lightest) slide background. */
+      const grade = (hex) => {
+        const r = ratio(hex, BG_LIGHTEST);
+        return {
+          r,
+          label: r >= 7 ? "AAA" : r >= 4.5 ? "AA" : r >= 3 ? "LG" : "--",
+        };
+      };
+      /** Legible ink for text sitting on top of a swatch. */
+      const ink = (hex) =>
+        ratio(hex, "#000E38") >= ratio(hex, "#FFFFFF") ? "#000E38" : "#FFFFFF";
+
+      const esc = (s) => String(s).replace(/</g, "&lt;");
+
+      // --- palette ----------------------------------------------------------
+      const FAMILY_NOTES = {
+        basics: "Pure ends of the range. `white` is the deck's body text.",
+        midnight:
+          "The background. `base` is the deep corner, `80` the lit corner, `30` is `--muted` for deck chrome.",
+        green:
+          "Nearform's signature. `--color-nf-green` on nearform.com is `#00e6a4`; the 1-unit difference is a rounding artifact.",
+        purple: "Matches Nearform's `--color-nf-purple` exactly.",
+        blue: "Deck `base` is `#166bff`; Nearform's `--color-nf-blue` is `#478bff`, close to this ramp's `80` stop.",
+        grey: "Sparse by design -- only the stops the deck actually uses.",
+        darkGreen:
+          "Nearform's `--color-nf-dark-green`. A second, deeper green rather than a fifth hue, for the chapters that were salmon before.",
+      };
+
+      /** Which stop each family hands to a chapter accent, if any. */
+      const ACCENT_TEXT_STOP = Object.fromEntries(
+        chapters.map((c) => [c.accent.base, c.accent.text]),
+      );
+
+      const swatch = (stop, hex, isRole) => {
+        const g = grade(hex);
+        return `
+          <div class="swatch ${isRole ? "swatch--role" : ""}"
+               style="background:${hex};color:${ink(hex)}">
+            <span class="swatch__stop">${stop}</span>
+            <span>
+              <span class="swatch__hex">${hex.toUpperCase()}</span><br />
+              <span class="swatch__cr">${g.r.toFixed(1)}:1 ${g.label}</span>
+            </span>
+          </div>`;
+      };
+
+      const family = (name, ramp) => {
+        const stops = Object.entries(ramp);
+        const roleHex = Object.values(ACCENT_TEXT_STOP);
+        return `
+          <div class="family">
+            <div class="family__name">
+              <b>${name}</b>
+              <span>colors.${name}</span>
+            </div>
+            <div class="ramp ${stops.length <= 2 ? "ramp--pair" : ""}">
+              ${stops
+                .map(([stop, hex]) => swatch(stop, hex, roleHex.includes(hex)))
+                .join("")}
+            </div>
+            ${
+              FAMILY_NOTES[name]
+                ? `<p class="note" style="margin:8px 0 0">${FAMILY_NOTES[
+                    name
+                  ].replace(/`([^`]+)`/g, "<code>$1</code>")}</p>`
+                : ""
+            }
+          </div>`;
+      };
+
+      // --- sections ---------------------------------------------------------
+      const paletteSection = `
+        <section>
+          <h2>Palette</h2>
+          <p class="lede">
+            Every family below is mirrored onto <code>:root</code> as
+            <code>--nf-&lt;family&gt;-&lt;stop&gt;</code> by
+            <code>applyCssVars()</code> at import time, so
+            <code>deck/styles.css</code> never hardcodes a hex. Ratios are
+            measured against <code>${BG_LIGHTEST}</code>, the lightest point of
+            the slide gradient and therefore the worst case; a
+            <b>white outline</b> marks a stop that a chapter uses as accent text.
+          </p>
+          ${Object.entries(colors)
+            .map(([name, ramp]) => family(name, ramp))
+            .join("")}
+
+          <h3 class="sub">Outside the ramps</h3>
+          <table class="tokens">
+            <thead>
+              <tr><th>Value</th><th>Source</th><th>Where it is allowed</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono"><span class="chip" style="background:${feedback.error}"></span>${feedback.error}</td>
+                <td class="mono">feedback.error</td>
+                <td class="note">
+                  <code>.react-live-error</code> only. Nearform's palette has no
+                  red; this exists so a live-code failure reads as a failure.
+                </td>
+              </tr>
+              <tr>
+                <td class="mono"><span class="chip" style="background:${feedback.errorSoft}"></span>${feedback.errorSoft}</td>
+                <td class="mono">feedback.errorSoft</td>
+                <td class="note">The other end of that error gradient.</td>
+              </tr>
+              <tr>
+                <td class="mono"><span class="chip" style="background:${SPECTACLE_ROSE}"></span>${SPECTACLE_ROSE}</td>
+                <td class="mono">SPECTACLE_ROSE</td>
+                <td class="note">
+                  Spectacle's own brand rose, scoped to the one slide about
+                  Spectacle. Deliberately outside <code>colors</code> so it is
+                  never mistaken for a deck ramp. Anywhere else, it is a bug.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>`;
+
+      const ROLE_NOTES = {
+        primary: "Body text, list items, table cells. Spectacle's default.",
+        secondary:
+          "Every Heading, including all markdown slide titles -- Spectacle's `Heading` defaults to this and it is not chapter-aware.",
+        tertiary: "Background token. The real background is DECK_BACKGROUND.",
+        quaternary: "Links.",
+        quinary: "Unused by this deck; kept so the theme is complete.",
+      };
+
+      const tokenSection = `
+        <section>
+          <h2>Theme roles</h2>
+          <p class="lede">
+            Spectacle resolves <code>color="primary"</code> and friends through
+            these. Prefer them over inline hexes on components.
+          </p>
+          <table class="tokens">
+            <thead>
+              <tr><th>Role</th><th>Value</th><th>Used for</th></tr>
+            </thead>
+            <tbody>
+              ${Object.entries(theme.colors)
+                .map(
+                  ([role, hex]) => `
+                <tr>
+                  <td class="mono">${role}</td>
+                  <td class="mono"><span class="chip" style="background:${hex}"></span>${hex.toUpperCase()}</td>
+                  <td class="note">${(ROLE_NOTES[role] || "").replace(
+                    /`([^`]+)`/g,
+                    "<code>$1</code>",
+                  )}</td>
+                </tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </section>`;
+
+      const TYPE_NOTES = {
+        h1: "Markdown slide titles (`#`) and the Hi slide heading.",
+        h2: "Title-slide subtitle.",
+        h3: "Hi-slide bio lines, JsSlide titles, live-edit title.",
+        text: "Markdown body copy and list items.",
+        monospace: "CodePane and inline CodeSpan.",
+      };
+      const SAMPLE = {
+        h1: "Agents are already here",
+        h2: "WebMCP and the agent-ready browser",
+        h3: "I lead technology &amp; OSS at Nearform",
+        text: "Your UI is an interface for eyes, not for tools",
+        monospace: "navigator.modelContext.registerTool()",
+      };
+
+      const typeSection = `
+        <section>
+          <h2>Type scale</h2>
+          <p class="lede">
+            A ~1.27 modular scale, absolute px because Spectacle renders onto a
+            fixed 1366&times;768 canvas and scales the whole thing. Samples are
+            shown at their true size, so this page is a legibility check as much
+            as a reference &mdash; if a step looks small here it will look small
+            from the back of the room.
+          </p>
+          ${["h1", "h2", "h3", "text", "monospace"]
+            .map((key) => {
+              const size = theme.fontSizes[key];
+              const isMono = key === "monospace";
+              return `
+              <div class="type-row">
+                <div class="type-row__meta">
+                  <b>${key}</b>
+                  ${size}
+                </div>
+                <div class="type-row__sample"
+                     style="font-size:${size};font-family:${
+                       isMono ? "var(--mono)" : "inherit"
+                     };${
+                       isMono
+                         ? "color:#b9d3ff"
+                         : key.startsWith("h")
+                           ? `font-weight:700;letter-spacing:-0.03em;line-height:1.05;color:${theme.colors.secondary}`
+                           : "line-height:1.4"
+                     }">
+                  ${SAMPLE[key]}
+                </div>
+              </div>
+              <p class="note" style="margin:6px 0 0">${TYPE_NOTES[key].replace(
+                /`([^`]+)`/g,
+                "<code>$1</code>",
+              )}</p>`;
+            })
+            .join("")}
+        </section>`;
+
+      /**
+       * One accent rendered through every treatment that consumes it.
+       *
+       * Chapters pass `cls` so the real `.ch-N` rule supplies the custom
+       * properties; candidates pass `accent` and get them inline instead. Both
+       * paths hit identical markup, which is the point -- an alternate is only
+       * comparable if it is drawn by the same rules.
+       */
+      const stagePanel = ({
+        cls = "",
+        accent,
+        numeral,
+        eyebrow,
+        title,
+        photo = "",
+        badge = "",
+      }) => {
+        const vars = accent
+          ? `--chapter-accent:${accent.text};--chapter-accent-base:${accent.base};`
+          : "";
+        return `
+        <div class="chapter ${cls}">
+          <div class="chapter__bar">
+            <b>${badge || `${numeral} &middot; ${title}`}</b>
+            <span>text ${accent.text.toUpperCase()}</span>
+            <span>base ${accent.base.toUpperCase()}</span>
+            <span>${grade(accent.text).r.toFixed(2)}:1 ${grade(accent.text).label}</span>
+          </div>
+          <div class="chapter__stage" style="${vars}background-image:${photo}">
+            <div class="stage__left">
+              <div class="divider__numeral">${numeral}</div>
+              <p class="eyebrow" style="margin:0;font-size:14px">${eyebrow}</p>
+              <p class="slide-title stage__title" style="font-size:40px">${title}</p>
+              <div class="accent-rule"></div>
+              <div class="card card--roadmap" style="margin-top:22px">
+                <div class="roadmap__head" style="display:flex;justify-content:space-between;align-items:center">
+                  <span class="roadmap__index" style="font-size:14px">${numeral}</span>
+                  <i class="roadmap__icon ph-fill ph-robot"></i>
+                </div>
+                <p class="roadmap__title" style="font-size:22px;margin:6px 0 0">${title}</p>
+              </div>
+            </div>
+            <div>
+              <ul class="stage__list" style="font-size:19px;line-height:1.4">
+                <li style="margin-bottom:10px"><span class="em">Screen-scraping</span> the DOM</li>
+                <li style="margin-bottom:10px"><span class="em">Playwright MCP</span> clicking through human-shaped UIs</li>
+                <li>Brittle, slow, expensive, unaccountable</li>
+              </ul>
+              <div class="code-frame__row">
+                <span class="code-frame__dot"></span>
+                <span class="code-frame__name">register-tool.js</span>
+              </div>
+            </div>
+            <div class="deck-progress" style="grid-column:1/-1">
+              <div class="deck-progress__fill"></div>
+            </div>
+            <div class="chapter__meta" style="grid-column:1/-1">
+              <span>The Frontend Strikes Back</span>
+              <span>${numeral} / 07</span>
+            </div>
+          </div>
+        </div>`;
+      };
+
+      const chapterPanel = (c) =>
+        stagePanel({
+          cls: chapterClass(c.n),
+          accent: c.accent,
+          numeral: chapterNumber(c.n),
+          eyebrow: `Chapter ${chapterNumber(c.n)}`,
+          title: c.title,
+          photo: photoBackground(c.background).backgroundImage || "",
+        });
+
+      const chapterSection = `
+        <section>
+          <h2>Chapter accents</h2>
+          <p class="lede">
+            <code>chapters.js</code> writes
+            <code>--chapter-accent</code> / <code>--chapter-accent-base</code>
+            onto the slide element, and everything inside inherits them &mdash;
+            including markdown, which never receives a component prop. Each panel
+            below carries a real <code>.ch-N</code> class and sits on that
+            chapter's divider photo behind the real
+            <code>photoBackground()</code> scrim. <code>text</code> is for type,
+            <code>base</code> for bars and glows.
+          </p>
+          ${chapters.map(chapterPanel).join("")}
+          <p class="callout">
+            <b>Two greens are adjacent.</b> Chapters 6 and 7 run
+            <code>darkGreen</code> into <code>green</code>, whose accent text
+            (${colors.darkGreen[50].toUpperCase()} vs
+            ${colors.green[50].toUpperCase()}) is close at a glance. The section
+            break still reads from the divider photo and numeral; if it needs
+            more separation, deepen <code>darkGreen[50]</code> toward its
+            <code>80</code> stop rather than reaching for a new hue.
+          </p>
+        </section>`;
+
+      /**
+       * Accents evaluated for chapters 1 and 6 and not adopted.
+       *
+       * Kept because amber is the only warm hue Nearform's tokens offer, and it
+       * exists nowhere else in the repo -- if it is not here it is gone. Not
+       * wired into the deck.
+       */
+      const ALTERNATES = [
+        {
+          id: "amber",
+          name: "Nearform amber",
+          status: "Not adopted",
+          ramp: {
+            base: "#FFD236",
+            80: "#FFDC5E",
+            50: "#FFE68F",
+            30: "#FFF0BC",
+            10: "#FFF9E6",
+          },
+          textStop: 80,
+          note: "Nearform's `--color-amber-300`, deliberately overridden from Tailwind's `#fcd34d`. The only warm hue in their token set, and the only candidate that would have kept four visually distinct chapter accents. Uses the `80` stop for text because the `50` stop washes out to cream. Highest contrast of any candidate.",
+        },
+      ];
+
+      const alternateSection = `
+        <section>
+          <h2>Alternates</h2>
+          <p class="lede">
+            Not in <code>deck/theme.js</code> &mdash; nothing here ships. Accents
+            weighed against <code>darkGreen</code> for chapters 1 and 6, drawn
+            through the same treatments as the live chapters above so the
+            comparison is honest. Adopting one means adding its ramp to
+            <code>colors</code> and pointing <code>ACCENTS</code> at it; that is
+            the whole change.
+          </p>
+          ${ALTERNATES.map((alt) => {
+            const accent = {
+              text: alt.ramp[alt.textStop],
+              base: alt.ramp.base,
+            };
+            return `
+              <div class="family" style="margin-top:26px">
+                <div class="family__name">
+                  <b>${alt.name}</b>
+                  <span>${alt.status}</span>
+                </div>
+                <div class="ramp">
+                  ${Object.entries(alt.ramp)
+                    .map(([stop, hex]) =>
+                      swatch(stop, hex, hex === accent.text),
+                    )
+                    .join("")}
+                </div>
+                <p class="note" style="margin:8px 0 14px">${alt.note.replace(
+                  /`([^`]+)`/g,
+                  "<code>$1</code>",
+                )}</p>
+                ${stagePanel({
+                  accent,
+                  numeral: "01",
+                  eyebrow: "Chapter 01",
+                  title: "Agents are already here",
+                  photo:
+                    photoBackground(chapters[0].background).backgroundImage ||
+                    "",
+                  badge: `${alt.name} &mdash; ${alt.status.toLowerCase()}`,
+                })}
+              </div>`;
+          }).join("")}
+        </section>`;
+
+      const printSection = `
+        <section>
+          <h2>Paper handout</h2>
+          <p class="lede">
+            <code>?printMode=true</code> switches Spectacle to its light palette,
+            where the accent tints vanish on white.
+            <code>applyChapterStyles()</code> compensates with
+            <code>color-mix(in srgb, base 62%, #000)</code>. These are the
+            resulting inks.
+          </p>
+          <div class="print-grid">
+            ${chapters
+              .map(
+                (c) => `
+              <div class="print-card" style="--print-accent:color-mix(in srgb, ${c.accent.base} 62%, #000)">
+                <p class="eyebrow" style="margin:0;font-size:12px">Chapter ${chapterNumber(c.n)}</p>
+                <h4>${c.title}</h4>
+                <div class="accent-rule"></div>
+                <p style="margin:12px 0 0;font-size:14px;line-height:1.5">
+                  Agents are <span class="em">already using your app</span>.
+                </p>
+              </div>`,
+              )
+              .join("")}
+          </div>
+        </section>`;
+
+      document.getElementById("out").innerHTML = `
+        <header class="masthead">
+          <h1>Style guide</h1>
+          <p>
+            A living reference for the deck's palette, type scale, and chapter
+            accents. It imports <code>deck/theme.js</code> and
+            <code>deck/chapters.js</code> directly and loads
+            <code>deck/styles.css</code> unmodified, so nothing here is a copy
+            &mdash; change a value in those files and this page changes with it.
+          </p>
+          <p>
+            Not part of the deck. Served alongside it at
+            <code>/styles.html</code>.
+          </p>
+        </header>
+        ${typeSection}
+        ${paletteSection}
+        ${tokenSection}
+        ${chapterSection}
+        ${alternateSection}
+        ${printSection}`;
+
+      // The deck background belongs to the slides; this page borrows it for the
+      // chapter panels that have no photo of their own.
+      document.querySelectorAll(".chapter__stage").forEach((el) => {
+        if (!el.style.backgroundImage)
+          el.style.backgroundImage = DECK_BACKGROUND;
+      });
+    </script>
+  </body>
+</html>

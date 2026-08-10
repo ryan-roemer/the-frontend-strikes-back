@@ -105,7 +105,12 @@
       } from "spectacle";
       import { StyleSheetManager } from "styled-components";
       import isPropValid from "@emotion/is-prop-valid";
-      import { theme, DECK_BACKGROUND, photoBackground } from "./deck/theme.js";
+      import {
+        theme,
+        DECK_BACKGROUND,
+        photoBackground,
+        SPECTACLE_ROSE,
+      } from "./deck/theme.js";
       import { logosHtm, backgrounds, images } from "./deck/media.js";
       import { getExamples } from "./deck/examples.js";
       import {
@@ -244,7 +249,7 @@
               <${Text} fontSize="h3">
                 <${Link}
                   href="https://nearform.com/open-source"
-                  color="rgb(252, 105, 134)"
+                  color=${SPECTACLE_ROSE}
                   textDecoration="none"
                 >
                   nearform.com/open-source

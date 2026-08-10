@@ -17,14 +17,14 @@ const ACCENTS = {
   green: { text: colors.green[50], base: colors.green.base },
   purple: { text: colors.purple[50], base: colors.purple.base },
   blue: { text: colors.blue[50], base: colors.blue.base },
-  red: { text: colors.red[50], base: colors.red.base },
+  darkGreen: { text: colors.darkGreen[50], base: colors.darkGreen.base },
 };
 
 export const chapters = [
   {
     n: 1,
     title: "Agents are already here",
-    accent: ACCENTS.red,
+    accent: ACCENTS.darkGreen,
     background: backgrounds.danger,
   },
   {
@@ -54,7 +54,7 @@ export const chapters = [
   {
     n: 6,
     title: "Stumbling blocks & hacks",
-    accent: ACCENTS.red,
+    accent: ACCENTS.darkGreen,
     background: backgrounds.cuttingBoard,
   },
   {
