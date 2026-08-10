@@ -86,15 +86,19 @@ export const theme = {
     text: "'Inter', system-ui, sans-serif",
     monospace: "'Fira Code', ui-monospace, SFMono-Regular, Consolas, monospace",
   },
-  // A ~1.33 modular scale. Spectacle's defaults (72/64/56/44) are nearly flat,
-  // which flattens hierarchy and overflows bullet-heavy slides.
+  // A ~1.27 modular scale. Spectacle's defaults (72/64/56/44) step by only
+  // 1.13-1.27, so h1 through h3 read as one size and the hierarchy collapses.
+  //
+  // The floor matters as much as the ratio: this renders onto a fixed 1366x768
+  // canvas that gets read from the back of a room, so `text` cannot chase the
+  // scale downward. Every step here is sized to survive that projection.
   //
   // Deep-merged with the default theme, so anything omitted here is untouched.
   fontSizes: {
-    h1: "64px",
-    h2: "48px",
-    h3: "36px",
-    text: "34px",
+    h1: "72px",
+    h2: "58px",
+    h3: "46px",
+    text: "36px",
     // Read by CodePane and by inline CodeSpan. 18px is what fits the longest
     // example (`tool-handler.js`, 31 lines) on the 768px canvas.
     monospace: "18px",
