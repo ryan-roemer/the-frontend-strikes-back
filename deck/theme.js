@@ -19,6 +19,58 @@ const isPaged = exportMode || params.get("printMode") === "true";
 /** Paper handout: Spectacle has switched to its light palette. */
 export const isLightPrint = isPaged && !exportMode;
 
+// --- Heading treatment ------------------------------------------------------
+//
+// How slide headings take their color. These names only select a rule; the
+// declarations live in the `[data-heading]` block in `styles.css`.
+//
+// Chapter identity has to travel through CSS rather than through the theme:
+// styled-system resolves a color token from a plain object, with no access to
+// the DOM, so a token cannot know which chapter it is rendering inside.
+// `--chapter-accent` already cascades from the slide element, which is why the
+// chapter-aware treatments are reachable from CSS and only from CSS.
+//
+//   system   -- leaves headings on Spectacle's `secondary` theme color, whatever
+//               that is set to. One color for every heading, no chapter
+//               awareness, and it follows `theme.colors.secondary` if that moves.
+//   white    -- neutral heading; the chapter color is carried by the eyebrow,
+//               rule, numeral, and markers around it.
+//   accent   -- the chapter accent at full saturation.
+//   tint     -- white mixed part-way toward the chapter accent.
+//   gradient -- white into the chapter accent across the words.
+
+/** Every valid treatment. Exported so `styles.html` builds its picker from it. */
+export const HEADING_STYLES = ["system", "white", "accent", "tint", "gradient"];
+
+/** The deck's setting. This is the line to edit. */
+const HEADING_STYLE = "tint";
+
+/**
+ * Resolved for this load. `?heading=<value>` wins, but only if it names a real
+ * treatment -- a typo falls back to the configured default rather than dropping
+ * headings into an unstyled state.
+ */
+export const headingStyle = HEADING_STYLES.includes(params.get("heading"))
+  ? params.get("heading")
+  : HEADING_STYLE;
+
+/** How much color the `gradient` treatment carries, 0-100. */
+const HEADING_GRAD = 70;
+
+/**
+ * Map a 0-100 "color amount" onto the white plateau the gradient holds before
+ * the accent starts: 100 begins the accent immediately, 0 holds white across
+ * most of the word. Exported so the slider in `styles.html` and the
+ * `?headingGrad=` param cannot disagree about what a number means.
+ */
+export const gradHold = (amount) =>
+  `${Math.round((100 - Math.min(100, Math.max(0, Number(amount) || 0))) * 0.6)}%`;
+
+/** Resolved gradient strength for this load, clamped to the slider's range. */
+export const headingGrad = params.has("headingGrad")
+  ? Math.min(100, Math.max(0, Number(params.get("headingGrad")) || 0))
+  : HEADING_GRAD;
+
 // Nearform color palette
 // NOTE: Use these colors through Spectacle component props (color="primary")
 // rather than inline styles (style={{color: theme.colors.primary}})
@@ -214,6 +266,9 @@ const applyCssVars = () => {
   // no hover, and the handout needs ink-on-white treatments throughout.
   if (isPaged) root.classList.add("paged-mode");
   if (isLightPrint) root.classList.add("print-mode");
+
+  root.dataset.heading = headingStyle;
+  root.style.setProperty("--heading-grad-hold", gradHold(headingGrad));
 };
 
 applyCssVars();

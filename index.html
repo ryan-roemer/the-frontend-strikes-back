@@ -130,6 +130,7 @@
         RowsSlide,
         Eyebrow,
         AccentRule,
+        SlideHeading,
         AppearComponent,
         mdSlideProps,
         deckTransition,
@@ -163,6 +164,11 @@
               <${Eyebrow}>
                 ${logosHtm.conf} AgntCon + MCPCon NA
               </${Eyebrow}>
+              <!-- The only two headings that stay on a raw \`Heading\`. This slide
+                   is its own composition: \`.title-display\` and \`.title-subtitle\`
+                   own their size, tracking, leading and color outright, and
+                   routing them through \`SlideHeading\` would layer
+                   \`.slide-title\`'s tracking underneath for no benefit. -->
               <${Heading}
                 className="title-display"
                 fontSize="118px"
@@ -206,16 +212,16 @@
           </${Slide}>
           <${Slide} ...${photoBackground(backgrounds.venue)}>
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center">
-              <${Heading} className="slide-title" fontSize="150px" color="primary">
+              <${SlideHeading} fixed=${true} fontSize="150px" color="primary">
                 <${Icon} name="heart" /> AgntCon
-              </${Heading}>
+              </${SlideHeading}>
             </${FlexBox}>
           </${Slide}>
           <${Slide}>
             <${FlexBox} flexDirection="column" alignSelf="center" justifyContent="left" alignItems="left">
-              <${Heading} className="slide-title" fontSize="h1" color="secondary">
+              <${SlideHeading} fontSize="h1">
                 Hi!
-              </${Heading}>
+              </${SlideHeading}>
               <${AppearComponent}>
                 <${Text} fontSize="h3">
                   <${Icon} name="hand-waving" /> I'm Ryan Roemer
@@ -269,7 +275,7 @@
             </${Notes}>
           </${Slide}>
           <${Slide}>
-            <${Heading} className="slide-title" textAlign="left" margin="0 0 40px">Roadmap</${Heading}>
+            <${SlideHeading} textAlign="left" margin="0 0 40px">Roadmap</${SlideHeading}>
             <${Grid} className="roadmap-grid" gridTemplateColumns="1fr 1fr" gridGap="24px">
               ${[
                 // `chapter` only picks the accent, so each tile previews the
@@ -383,7 +389,7 @@
           <${JsSlide} chapter=${3} title="Registering a tool"
             filename=${examples.registerTool.file} code=${examples.registerTool.code}
             notes=${`
-              ## TODO: Registering a tool
+              # TODO: Registering a tool
               * TODO: Walk the four fields.
               * TODO: Point out that 'execute' just calls existing app code.
             `}
@@ -391,7 +397,7 @@
           <${JsSlide} chapter=${3} title="Defining the schema"
             filename=${examples.toolSchema.file} code=${examples.toolSchema.code}
             notes=${`
-              ## TODO: Defining the schema
+              # TODO: Defining the schema
               * TODO: Descriptions are prompt engineering.
               * TODO: Enums and bounds keep the agent on rails.
             `}
@@ -399,15 +405,15 @@
           <${JsSlide} chapter=${3} title="The handler"
             filename=${examples.toolHandler.file} code=${examples.toolHandler.code}
             notes=${`
-              ## TODO: The handler
+              # TODO: The handler
               * TODO: Auth, preferences, and search already exist.
               * TODO: Keep the UI in sync so the human can watch.
             `}
           />
           <${Slide} className=${chapterClass(3)}>
-            <${Heading} fontSize="h3" textAlign="left" margin="0 0 12px">
+            <${SlideHeading} variant="subtitle" fontSize="h3" textAlign="left" margin="0 0 12px">
               TODO: Live edit
-            </${Heading}>
+            </${SlideHeading}>
             <${CodeEditor}
               noInline=${true}
               editorHeight="380px"

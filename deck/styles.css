@@ -66,6 +66,95 @@ body::after {
   line-height: 1.15;
 }
 
+/* --- Heading treatment ----------------------------------------------------
+ *
+ * Which of these applies is chosen by `HEADING_STYLE` in `theme.js`, which
+ * writes the name onto `:root` as `data-heading`; `?heading=<name>` overrides it
+ * for a single load, and `/styles.html` has a picker for the same attribute.
+ *
+ * Spectacle's `Heading` takes its color from the `secondary` theme token, and a
+ * theme token cannot be made chapter-aware -- styled-system resolves it from a
+ * plain object with no access to the DOM. So every chapter-aware treatment below
+ * reads `--chapter-accent`, which already cascades from the slide element and
+ * reaches markdown content that never receives a component prop.
+ *
+ * Both heading classes are covered: `.slide-title` for slide titles and
+ * `.slide-subtitle` for the code-slide titles. Headings that own their color on
+ * purpose -- the chapter dividers, the AgntCon slide -- carry `heading--fixed`
+ * and are left alone.
+ *
+ * Selector weight is (1,3,0), which clears the single generated class
+ * styled-components emits for the `color` prop, so no `!important` is needed.
+ */
+[data-heading] #root :is(.slide-title, .slide-subtitle):not(.heading--fixed) {
+  /* Switching out of `gradient` has to undo its text fill, or every later
+   * treatment paints transparent glyphs. */
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+/*
+ * Hands headings back to the `secondary` theme color. A no-op in the deck, where
+ * Spectacle already applies it -- but it reads the same custom property rather
+ * than a literal, so it follows `theme.colors.secondary` if that changes, and it
+ * gives `styles.html` (which has no Spectacle to inherit from) a true baseline.
+ */
+[data-heading="system"]
+  #root
+  :is(.slide-title, .slide-subtitle):not(.heading--fixed) {
+  color: var(--nf-secondary);
+}
+
+[data-heading="white"]
+  #root
+  :is(.slide-title, .slide-subtitle):not(.heading--fixed) {
+  color: var(--nf-primary, #fff);
+}
+
+[data-heading="accent"]
+  #root
+  :is(.slide-title, .slide-subtitle):not(.heading--fixed) {
+  color: var(--chapter-accent);
+}
+
+[data-heading="tint"]
+  #root
+  :is(.slide-title, .slide-subtitle):not(.heading--fixed) {
+  color: color-mix(in srgb, var(--chapter-accent) 45%, #fff);
+}
+
+/*
+ * Two things keep a clipped-text gradient looking like plain white type:
+ *
+ * 1. The background box is the ELEMENT, not the glyphs. A slide title is a
+ *    full-width block, so a heading whose text stops at 60% of the slide only
+ *    ever reveals the first 60% of the ramp -- the white end. `fit-content`
+ *    shrinks the box onto the text so the whole ramp lands on the letters.
+ * 2. A steep angle across a wide, short box spends most of its length getting
+ *    nowhere. `.title-display` can afford 165deg because it is two lines of
+ *    118px; a one-line title cannot, so this runs nearly horizontal.
+ *
+ * `--heading-grad-hold` is how far the white plateau extends before the accent
+ * starts -- the "how much color" knob, driven by the toggle in styles.html and
+ * by `?headingGrad=<0-100>` on a deck URL.
+ */
+[data-heading="gradient"]
+  #root
+  :is(.slide-title, .slide-subtitle):not(.heading--fixed) {
+  width: fit-content;
+  max-width: 100%;
+  background: linear-gradient(
+    100deg,
+    #fff 0%,
+    #fff var(--heading-grad-hold, 18%),
+    var(--chapter-accent) 96%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
 #root p,
 #root li {
   line-height: 1.4;

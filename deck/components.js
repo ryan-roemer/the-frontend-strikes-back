@@ -41,31 +41,61 @@ export const AppearComponent = animationsEnabled ? Appear : Fragment;
 const animateListItems = animationsEnabled ? { animateListItems: true } : {};
 
 /**
- * Markdown tag -> component map.
+ * Every heading in the deck.
  *
- * Markdown headings are the one thing in the deck that CSS cannot otherwise
- * reach: Spectacle's `Heading` renders a styled div, so there is no `<h1>` to
- * select, and the styled-system props it used to leak onto the DOM as
- * attributes get filtered back out by the `shouldForwardProp` guard that
- * styled-components v6 needs. `className` is the only hook that survives both,
- * and the component map is the only place to attach one.
+ * A class is the only hook CSS has on a heading: Spectacle's `Heading` renders a
+ * styled div, so there is no `<h1>` to select, and the styled-system props it
+ * used to leak onto the DOM as attributes get filtered back out by the
+ * `shouldForwardProp` guard that styled-components v6 needs.
+ *
+ * That class used to be hand-typed at every call site, which is how the live-edit
+ * slide ended up with no class at all and quietly outside the heading treatment.
+ * Going through here makes the class automatic and opting out explicit.
+ *
+ *   variant  -- "title" for a slide title, "subtitle" for the smaller heading
+ *               that sits above a code pane. Picks `.slide-title` /
+ *               `.slide-subtitle`, which carry the tracking and leading.
+ *   fixed    -- this heading's color is deliberate (chapter dividers, the
+ *               AgntCon slide), so the `[data-heading]` treatment in styles.css
+ *               skips it.
+ *
+ * `className` is appended rather than replaced, so a caller can add a one-off
+ * class without losing the system ones.
+ */
+export const SlideHeading = ({
+  variant = "title",
+  fixed = false,
+  className = "",
+  ...rest
+}) => html`
+  <${Heading}
+    ...${rest}
+    className=${[`slide-${variant}`, fixed && "heading--fixed", className]
+      .filter(Boolean)
+      .join(" ")}
+  />
+`;
+
+/**
+ * Markdown tag -> component map.
  *
  * The non-heading entries are not decoration -- `componentMap` REPLACES
  * Spectacle's default map rather than merging with it, so leaving one out
  * drops that tag back to unstyled browser HTML. This mirrors Spectacle 10.2.1's
  * internal default (which is not exported) using its public components; the
- * only changes are the heading classNames. `animateListItems` still swaps in
- * its own `li` afterwards, so list reveals keep working.
+ * only changes are the headings, which route through `SlideHeading`.
+ * `animateListItems` still swaps in its own `li` afterwards, so list reveals
+ * keep working.
  */
-const mdHeading = (fontSize, className) => (props) =>
-  html`<${Heading} ...${props} fontSize=${fontSize} className=${className} />`;
+const mdHeading = (fontSize, variant) => (props) =>
+  html`<${SlideHeading} ...${props} fontSize=${fontSize} variant=${variant} />`;
 
 const MARKDOWN_COMPONENTS = {
   p: Text,
-  h1: mdHeading("h1", "slide-title"),
-  h2: mdHeading("h2", "slide-title"),
-  h3: mdHeading("h3", "slide-subtitle"),
-  h4: mdHeading("h4", "slide-subtitle"),
+  h1: mdHeading("h1", "title"),
+  h2: mdHeading("h2", "title"),
+  h3: mdHeading("h3", "subtitle"),
+  h4: mdHeading("h4", "subtitle"),
   blockquote: Quote,
   ul: UnorderedList,
   ol: OrderedList,
@@ -212,7 +242,7 @@ const MdNotes = ({ notes }) =>
  */
 export const JsSlide = ({ title, filename, code, notes, chapter }) => html`
   <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
-    <${Heading} className="slide-subtitle" fontSize="h3" textAlign="left" margin="0 0 24px">${title}</${Heading}>
+    <${SlideHeading} variant="subtitle" fontSize="h3" textAlign="left" margin="0 0 24px">${title}</${SlideHeading}>
     <div className="code-frame">
       ${
         filename
@@ -249,15 +279,16 @@ export const TopicSlide = ({ chapter, fontSize = "88px", ...rest }) => {
           ${chapterNumber(n)}
         <//>
         <${Eyebrow}>Episode ${chapterNumber(n)}</${Eyebrow}>
-        <${Heading}
-          className="slide-title divider__title"
+        <${SlideHeading}
+          className="divider__title"
+          fixed=${true}
           fontSize=${fontSize}
           color="primary"
           textAlign="left"
           margin="12px 0 0"
         >
           ${title}
-        </${Heading}>
+        </${SlideHeading}>
         <${AccentRule} />
       <//>
     </${Slide}>
@@ -323,7 +354,7 @@ export const RowsSlide = ({ title, sections = [], notes, chapter }) => {
 
   return html`
     <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
-      <${Heading} className="slide-title" textAlign="left" margin="0">${title}</${Heading}>
+      <${SlideHeading} textAlign="left" margin="0">${title}</${SlideHeading}>
       <${FlexBox} justifyContent="center" alignItems="center">
         <${Grid}
           gridTemplateColumns=${gridColumns}

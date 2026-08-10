@@ -340,6 +340,109 @@
         font-weight: 600;
       }
 
+      /* --- heading toggle --------------------------------------------------- */
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: rgba(4, 16, 31, 0.94);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--hairline);
+      }
+      .toolbar__inner {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 12px 32px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .toolbar__label {
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .toolbar button {
+        font: inherit;
+        font-size: 13px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--hairline);
+        border-radius: 999px;
+        padding: 6px 14px;
+        cursor: pointer;
+      }
+      .toolbar button:hover {
+        color: #fff;
+      }
+      .toolbar button[aria-pressed="true"] {
+        color: #000e38;
+        background: var(--nf-green-50, #78eec5);
+        border-color: transparent;
+        font-weight: 600;
+      }
+      .toolbar a {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: #b9d3ff;
+      }
+      /* Only meaningful while the gradient treatment is selected. */
+      .toolbar__grad {
+        display: none;
+        align-items: center;
+        gap: 9px;
+        padding-left: 14px;
+        margin-left: 4px;
+        border-left: 1px solid var(--hairline);
+      }
+      [data-heading="gradient"] .toolbar__grad {
+        display: flex;
+      }
+      .toolbar__grad input {
+        width: 130px;
+        accent-color: var(--nf-green-50, #78eec5);
+      }
+      .toolbar__grad output {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: #b9d3ff;
+        min-width: 3.5ch;
+      }
+
+      .options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 14px;
+        margin-top: 20px;
+      }
+      .option {
+        border: 1px solid var(--hairline);
+        border-radius: 12px;
+        padding: 16px 18px;
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .option h4 {
+        margin: 0 0 4px;
+        font-size: 15px;
+      }
+      .option .mono {
+        font-size: 11px;
+        color: #b9d3ff;
+      }
+      .option p {
+        margin: 8px 0 0;
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+      .option--live {
+        border-color: var(--nf-green-50, #78eec5);
+      }
+
       /* This page is a reference, not a slide -- the deck's film grain overlay
        * only adds noise to swatch reading. */
       body::after {
@@ -352,6 +455,11 @@
   <!-- `#root` is the ancestor most of deck/styles.css is scoped to, so the
        treatments below resolve exactly as they do in the deck. -->
   <body id="root">
+    <div class="toolbar">
+      <div class="toolbar__inner" id="toolbar">
+        <span class="toolbar__label">Slide headings</span>
+      </div>
+    </div>
     <div class="wrap" id="out"></div>
 
     <script type="importmap">
@@ -374,6 +482,10 @@
         SPECTACLE_ROSE,
         DECK_BACKGROUND,
         photoBackground,
+        HEADING_STYLES,
+        headingStyle,
+        headingGrad,
+        gradHold,
       } from "./deck/theme.js";
       import {
         chapters,
@@ -784,6 +896,85 @@
           }).join("")}
         </section>`;
 
+      /**
+       * Page copy for each treatment. The ids come from `HEADING_STYLES` in
+       * `theme.js`, so adding a treatment there surfaces it here; only the prose
+       * lives on this page.
+       */
+      const HEADING_NOTES = {
+        system: {
+          name: "System",
+          css: "color: var(--nf-secondary)",
+          note: "Leaves headings on Spectacle's `secondary` theme color. One color for every heading with no chapter awareness, so the loudest element on the slide carries no information -- and it disagrees with the dividers, which are already `primary`.",
+        },
+        white: {
+          name: "White",
+          css: "color: var(--nf-primary)",
+          note: "Headings hit 11.3:1 and stop competing with the accent, which still lands through the eyebrow, rule, numeral, markers, em text, and progress bar. Makes body slides agree with the dividers. Reserves color for signal.",
+        },
+        accent: {
+          name: "Chapter accent",
+          css: "color: var(--chapter-accent)",
+          note: "Maximum chapter identity. But 72px of saturated accent is a lot of color, and the heading then matches em text and list markers exactly -- trading hierarchy within the slide for hierarchy between slides.",
+        },
+        tint: {
+          name: "Accent-tinted white",
+          css: "color-mix(accent 45%, #fff)",
+          note: "The current setting. Legible as white, tinted enough to read as belonging to the section; contrast stays close to white because the mix is mostly white.",
+        },
+        gradient: {
+          name: "Gradient",
+          css: "#fff -> var(--chapter-accent)",
+          note: "Reuses the `.title-display` treatment already on the title slide, so it is a pattern the deck has rather than a new one. Use the slider to set how much color it carries. Costs a `background-clip: text`, which degrades to transparent glyphs if it ever fails.",
+        },
+      };
+
+      const HEADING_TREATMENTS = HEADING_STYLES.map((id) => ({
+        id,
+        name: id,
+        css: "",
+        note: "",
+        ...HEADING_NOTES[id],
+      }));
+
+      const headingSection = `
+        <section id="headings">
+          <h2>Slide headings</h2>
+          <p class="lede">
+            Spectacle's <code>Heading</code> takes its color from the
+            <code>secondary</code> theme token, which <em>cannot</em> be made
+            chapter-aware &mdash; styled-system resolves it from a plain object
+            with no access to the DOM &mdash; so anything per-chapter has to ride
+            <code>--chapter-accent</code> in CSS. Set the deck's choice with
+            <code>HEADING_STYLE</code> in <code>deck/theme.js</code>
+            (currently <code>${esc(headingStyle)}</code>);
+            <code>?heading=&lt;id&gt;</code> overrides it for one load. The picker
+            at the top of this page drives the whole guide, chapter panels
+            included.
+          </p>
+          <p class="callout">
+            <b>The deck is of two minds about this.</b> Divider titles are
+            <code>color="primary"</code>, with the chapter color carried by the
+            eyebrow, rule, and numeral around them; body slides fall through to
+            <code>secondary</code>. Whichever way this goes, one of the two is
+            currently wrong. Dividers and the AgntCon slide carry
+            <code>heading--fixed</code> and are excluded, so you are comparing
+            against them rather than moving them too. Both
+            <code>.slide-title</code> and <code>.slide-subtitle</code> follow the
+            treatment, which is what brings the code-slide titles along.
+          </p>
+          <div class="options">
+            ${HEADING_TREATMENTS.map(
+              (t) => `
+              <div class="option" data-option="${t.id}">
+                <h4>${t.name}</h4>
+                <span class="mono">${esc(t.css)}</span>
+                <p>${t.note.replace(/`([^`]+)`/g, "<code>$1</code>")}</p>
+              </div>`,
+            ).join("")}
+          </div>
+        </section>`;
+
       const printSection = `
         <section>
           <h2>Paper handout</h2>
@@ -827,6 +1018,7 @@
           </p>
         </header>
         ${typeSection}
+        ${headingSection}
         ${paletteSection}
         ${tokenSection}
         ${chapterSection}
@@ -839,6 +1031,94 @@
         if (!el.style.backgroundImage)
           el.style.backgroundImage = DECK_BACKGROUND;
       });
+
+      // --- heading picker ---------------------------------------------------
+      //
+      // Drives the same `data-heading` attribute the deck does, so what this page
+      // shows is what the deck will do. Both starting values come from
+      // `theme.js`, which has already resolved `HEADING_STYLE` against this
+      // page's own `?heading=` / `?headingGrad=` -- so the guide opens on the
+      // deck's real setting and there is only one place that parsing happens.
+      const toolbar = document.getElementById("toolbar");
+      const deckLink = document.createElement("a");
+
+      let treatment = headingStyle;
+      let gradAmount = headingGrad;
+
+      const sync = () => {
+        document.documentElement.dataset.heading = treatment;
+        // The same mapping the deck applies, imported rather than repeated.
+        document.documentElement.style.setProperty(
+          "--heading-grad-hold",
+          gradHold(gradAmount),
+        );
+
+        toolbar
+          .querySelectorAll("button")
+          .forEach((b) =>
+            b.setAttribute(
+              "aria-pressed",
+              String(b.dataset.heading === treatment),
+            ),
+          );
+        document
+          .querySelectorAll(".option")
+          .forEach((el) =>
+            el.classList.toggle(
+              "option--live",
+              el.dataset.option === treatment,
+            ),
+          );
+
+        const isGradient = treatment === "gradient";
+        const deckQuery = isGradient
+          ? `?heading=${treatment}&headingGrad=${gradAmount}`
+          : `?heading=${treatment}`;
+        deckLink.href = `./${deckQuery}`;
+        deckLink.textContent = `open deck with ${deckQuery} ↗`;
+
+        // Survives a reload, so a treatment can be lived with for a while.
+        const url = new URL(window.location.href);
+        url.searchParams.set("heading", treatment);
+        if (isGradient) url.searchParams.set("headingGrad", gradAmount);
+        else url.searchParams.delete("headingGrad");
+        window.history.replaceState(null, "", url);
+      };
+
+      HEADING_TREATMENTS.forEach((t) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = t.name;
+        b.dataset.heading = t.id;
+        b.addEventListener("click", () => {
+          treatment = t.id;
+          sync();
+        });
+        toolbar.appendChild(b);
+      });
+
+      const gradWrap = document.createElement("label");
+      gradWrap.className = "toolbar__grad";
+      gradWrap.innerHTML = `
+        <span class="toolbar__label">Color</span>
+        <input type="range" min="0" max="100" step="5" />
+        <output></output>`;
+      const gradInput = gradWrap.querySelector("input");
+      const gradOut = gradWrap.querySelector("output");
+      gradInput.addEventListener("input", () => {
+        gradAmount = Number(gradInput.value);
+        gradOut.textContent = gradAmount;
+        sync();
+      });
+      toolbar.appendChild(gradWrap);
+
+      deckLink.target = "_blank";
+      deckLink.rel = "noopener";
+      toolbar.appendChild(deckLink);
+
+      gradInput.value = gradAmount;
+      gradOut.textContent = gradAmount;
+      sync();
     </script>
   </body>
 </html>
