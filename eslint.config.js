@@ -14,7 +14,6 @@ export default [
         console: "readonly",
         document: "readonly",
         fetch: "readonly",
-        navigator: "readonly",
         window: "readonly",
       },
     },

@@ -1,0 +1,14 @@
+<!-- No JavaScript. Annotating the form exposes the same capability as
+     registerTool. TODO: verify attribute names against the explainer. -->
+<form
+  toolname="search_documents"
+  tooldescription="Search the user's documents and return matching excerpts."
+  onsubmit="app.search(new FormData(this))"
+>
+  <input name="query" required tooldescription="Natural language query." />
+  <select name="sortBy">
+    <option value="relevance" selected>Relevance</option>
+    <option value="newest">Newest</option>
+  </select>
+  <button type="submit">Search</button>
+</form>

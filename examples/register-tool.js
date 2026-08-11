@@ -1,20 +1,15 @@
-// TODO: The smallest possible WebMCP tool registration.
-navigator.modelContext.registerTool({
+document.modelContext.registerTool({
   name: "search_documents",
   description: "Search the user's documents and return matching excerpts.",
+  // The schema is the contract, and descriptions are prompt engineering.
   inputSchema: {
     type: "object",
     properties: {
-      query: { type: "string", description: "What to search for" },
+      query: { type: "string", description: "Natural language query." },
+      sortBy: { type: "string", enum: ["relevance", "newest", "oldest"] },
     },
     required: ["query"],
   },
-  async execute({ query }) {
-    // TODO: Call the same function the UI's search box already calls.
-    const results = await window.app.searchDocuments(query);
-
-    return {
-      content: [{ type: "text", text: JSON.stringify(results) }],
-    };
-  },
+  // Hook into exposed functionality in your frontend app.
+  execute: async (args) => window.app.searchDocuments(args),
 });

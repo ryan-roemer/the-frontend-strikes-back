@@ -27,6 +27,7 @@ import { LiveEditor, LivePreview, LiveError, LiveProvider } from "react-live";
 import { themes } from "prism-react-renderer";
 import { colors, photoBackground } from "./theme.js";
 import { chapterClass, chapterNumber } from "./chapters.js";
+import { VERDICTS } from "./takeaways.js";
 
 const html = htm.bind(createElement);
 
@@ -42,6 +43,12 @@ const animateListItems = animationsEnabled ? { animateListItems: true } : {};
 
 /**
  * Every heading in the deck.
+ *
+ * ALWAYS pass an explicit `fontSize`. Spectacle's `Heading` carries its default
+ * size in `defaultProps`, which React 19 no longer applies to function
+ * components -- so a heading with no `fontSize` (or an explicit `undefined`)
+ * falls all the way back to the 16px base and reads as body text. Two RowsSlide
+ * titles shipped at 16px before anyone noticed.
  *
  * A class is the only hook CSS has on a heading: Spectacle's `Heading` renders a
  * styled div, so there is no `<h1>` to select, and the styled-system props it
@@ -113,6 +120,20 @@ const MARKDOWN_COMPONENTS = {
  * `componentProps` reaches every mapped component, which is what left-aligns
  * markdown to match the prop-driven slides around it -- Spectacle's `Heading`
  * defaults to centered.
+ *
+ * TWO RULES for the `Notes:` line inside a markdown slide, both learned the
+ * hard way:
+ *
+ *   1. It must be ONE logical line. Continue it with a single trailing `\` so
+ *      the template literal folds the newline away. A literal `\\` is a
+ *      backslash, not a continuation, and everything after it falls through and
+ *      renders as slide content -- which overflows the slide and is the only
+ *      symptom you see.
+ *   2. It must be PLAIN TEXT. Any inline markup silently truncates the note at
+ *      the first marker: `em()` dies at the `<span`, and `**bold**` dies at the
+ *      `**`. Use `em()` freely in slide bodies and in the `notes` PROP on
+ *      hand-written slides (those go through `MdNotes` below, which renders
+ *      full markdown) -- just never in a markdown slide's `Notes:`.
  */
 export const mdSlideProps = {
   ...animateListItems,
@@ -145,12 +166,13 @@ export const icon = (args) => {
   return `<i class="ph${fill ? "-fill" : ""} ph-${name}" ${color ? `style="color: ${color}"` : ""}></i>`;
 };
 
-export const Icon = ({ name, fill = true, color, className, style }) =>
+export const Icon = ({ name, fill = true, color, className, style, title }) =>
   html`<i
     class="ph${fill ? "-fill" : ""} ph-${name}${className
       ? ` ${className}`
       : ""}"
     style=${{ color, ...style }}
+    title=${title}
   ></i>`;
 
 // Text styling components
@@ -240,7 +262,14 @@ const MdNotes = ({ notes }) =>
  * `examples/`, and naming them tells the audience the code is honest rather
  * than written for the slide.
  */
-export const JsSlide = ({ title, filename, code, notes, chapter }) => html`
+export const JsSlide = ({
+  title,
+  filename,
+  code,
+  notes,
+  chapter,
+  language = "javascript",
+}) => html`
   <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
     <${SlideHeading} variant="subtitle" fontSize="h3" textAlign="left" margin="0 0 24px">${title}</${SlideHeading}>
     <div className="code-frame">
@@ -252,7 +281,7 @@ export const JsSlide = ({ title, filename, code, notes, chapter }) => html`
             </div>`
           : null
       }
-      <${CodePane} language="javascript" showLineNumbers=${true}>${code}</${CodePane}>
+      <${CodePane} language=${language} showLineNumbers=${true}>${code}</${CodePane}>
     </div>
     <${MdNotes} notes=${notes} />
   </${Slide}>
@@ -343,7 +372,18 @@ const CARD_PROPS = {
 
 // Rows slide component: a grid of labelled rows, each with a row of items.
 // `sections` is `[{ title, items: [string | { text, icon }] }]`.
-export const RowsSlide = ({ title, sections = [], notes, chapter }) => {
+//
+// `dense` shrinks the padding and type so four rows, or three wide items in a
+// row, still fit the 768px canvas. Without it those layouts run off the bottom
+// and the right -- the grid sizes itself from its content and has no idea how
+// tall a slide is.
+export const RowsSlide = ({
+  title,
+  sections = [],
+  notes,
+  chapter,
+  dense = false,
+}) => {
   // Calculate grid layout based on sections
   const maxItems = Math.max(
     ...sections.map((section) => Math.max(section.items.length, 1)),
@@ -351,15 +391,20 @@ export const RowsSlide = ({ title, sections = [], notes, chapter }) => {
   );
   const gridRows = `repeat(${sections.length}, 1fr)`;
   const gridColumns = `repeat(${maxItems + 1}, 1fr)`;
+  const cardClass = dense ? "card card--dense" : "card card--rows";
 
   return html`
     <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
-      <${SlideHeading} textAlign="left" margin="0">${title}</${SlideHeading}>
+      <${SlideHeading}
+        textAlign="left"
+        margin="0"
+        fontSize=${dense ? "h3" : "h1"}
+      >${title}</${SlideHeading}>
       <${FlexBox} justifyContent="center" alignItems="center">
         <${Grid}
           gridTemplateColumns=${gridColumns}
           gridTemplateRows=${gridRows}
-          gridGap="20px"
+          gridGap=${dense ? "10px" : "14px"}
           width="100%"
         >
           ${sections.map((section) => {
@@ -368,14 +413,13 @@ export const RowsSlide = ({ title, sections = [], notes, chapter }) => {
 
             return html`
               <${Fragment}>
-                <!-- Section label - spans all items in this section -->
-                <${FlexBox} ...${CARD_PROPS} className="card card--label" height="100%">
-                  <${Text} className="card__label" fontSize="30px" margin="0">
+                ${"" /* Section label -- spans all items in this section */}
+                <${FlexBox} ...${CARD_PROPS} className=${`${cardClass} card--label`} height="100%">
+                  <${Text} className="card__label" fontSize=${dense ? "24px" : "30px"} margin="0">
                     ${section.title}
                   </${Text}>
                 </${FlexBox}>
 
-                <!-- Section content cells -->
                 ${section.items.map((item, i) => {
                   // Handle both string items and { icon, text } objects
                   const itemText = typeof item === "string" ? item : item.text;
@@ -383,8 +427,8 @@ export const RowsSlide = ({ title, sections = [], notes, chapter }) => {
                     typeof item === "object" && item.icon ? item.icon : null;
 
                   return html`
-                    <${FlexBox} key=${i} ...${CARD_PROPS}>
-                      <${Text} fontSize="28px" margin="0">
+                    <${FlexBox} key=${i} ...${CARD_PROPS} className=${cardClass}>
+                      <${Text} fontSize=${dense ? "22px" : "28px"} margin="0">
                         <${FlexBox} alignItems="center">
                           ${
                             itemIcon
@@ -403,7 +447,6 @@ export const RowsSlide = ({ title, sections = [], notes, chapter }) => {
                   `;
                 })}
 
-                <!-- Empty padding -->
                 ${Array.from({ length: extraItemsCount }).map(
                   (_, i) => html`<${Box} key=${i}></${Box}>`,
                 )}
@@ -416,3 +459,243 @@ export const RowsSlide = ({ title, sections = [], notes, chapter }) => {
     </${Slide}>
   `;
 };
+
+/**
+ * One of the six takeaways.
+ *
+ * The number is a plain digit inside a circle drawn in CSS, not a dingbat
+ * (U+279A-279F, the ➊-➏ the outline drafts in). Inter has no coverage there, so
+ * those glyphs fall back to tofu -- a failure that shows up on the projector and
+ * nowhere else. Drawn in CSS it also reads `--chapter-accent`, which a font glyph
+ * could not.
+ *
+ * `detail` is a prop rather than a property of the takeaway so the same data can
+ * be a dense tile on the roadmap slide and a full callout at a chapter's close.
+ */
+export const TakeawayCard = ({
+  takeaway,
+  detail = true,
+  compact = false,
+  className = "",
+}) => {
+  const { n, text, detail: detailText, verdict } = takeaway;
+  const mark = verdict ? VERDICTS[verdict] : null;
+
+  return html`
+    <${FlexBox}
+      className=${`card takeaway ${compact ? "takeaway--compact" : ""} ${className}`
+        .replace(/\s+/g, " ")
+        .trim()}
+      alignItems="start"
+      justifyContent="start"
+    >
+      <${Box} className="takeaway__badge">${n}<//>
+      <${Box} className="takeaway__body">
+        <${Text} className="takeaway__text" fontSize=${compact ? "22px" : "30px"} margin="0">
+          ${text}
+        </${Text}>
+        ${
+          detail && detailText
+            ? html`<${Text} className="takeaway__detail" fontSize=${compact ? "20px" : "24px"} margin="8px 0 0">
+                ${detailText}
+              </${Text}>`
+            : null
+        }
+      <//>
+      ${
+        mark
+          ? html`<${Icon}
+              name=${mark.icon}
+              className="takeaway__verdict"
+              title=${mark.title}
+            />`
+          : null
+      }
+    <//>
+  `;
+};
+
+/**
+ * A column (or grid) of takeaway cards.
+ *
+ * `compact` is needed wherever more than three cards share a slide: the roadmap
+ * and the closing recap both show all six, and at full size six cards plus their
+ * part labels run off the bottom of the canvas.
+ */
+export const TakeawayList = ({
+  items = [],
+  detail = true,
+  columns = 1,
+  compact = false,
+}) => html`
+  <${Grid}
+    className="takeaway-grid"
+    gridTemplateColumns=${`repeat(${columns}, 1fr)`}
+    gridGap=${compact ? "10px" : "18px"}
+  >
+    ${items.map(
+      (item) =>
+        html`<${TakeawayCard}
+          key=${item.n}
+          takeaway=${item}
+          detail=${detail}
+          compact=${compact}
+        />`,
+    )}
+  </${Grid}>
+`;
+
+/**
+ * A chapter's closing beat.
+ *
+ * Built from `byChapter(n)` at the call site rather than from hand-written copy,
+ * so a takeaway cannot be declared in `takeaways.js` and then never land.
+ */
+export const TakeawaySlide = ({
+  chapter,
+  title,
+  items = [],
+  detail = true,
+  columns = 1,
+  compact = false,
+  notes,
+}) => html`
+  <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
+    <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
+    <${TakeawayList}
+      items=${items}
+      detail=${detail}
+      columns=${columns}
+      compact=${compact}
+    />
+    <${MdNotes} notes=${notes} />
+  </${Slide}>
+`;
+
+/**
+ * The two halves of the room, side by side.
+ *
+ * Rendered twice by design -- once in the cold open as a promise, once at the
+ * close as the payoff -- which is exactly why it is a component and not two
+ * hand-built layouts. If the two versions drift, the callback stops reading as a
+ * callback and turns into a slide the audience thinks they have already seen.
+ *
+ * `action` is what separates them: the cold open states who is in the room, the
+ * close tells each half what to do about it.
+ */
+export const AudienceCards = ({ audiences = [], action = false }) => html`
+  <${Grid} gridTemplateColumns="1fr 1fr" gridGap="24px">
+    ${audiences.map(
+      (audience) => html`
+        <${FlexBox}
+          key=${audience.key}
+          className="card audience"
+          flexDirection="column"
+          alignItems="start"
+          justifyContent="start"
+        >
+          <${Icon} name=${audience.icon} className="audience__icon" />
+          <${Text} className="audience__who" fontSize="26px" margin="14px 0 0">
+            ${audience.who}
+          </${Text}>
+          <${Text} className="audience__claim" fontSize="32px" margin="10px 0 0">
+            ${audience.claim}
+          </${Text}>
+          ${
+            action
+              ? html`<${Text} className="audience__action" fontSize="26px" margin="16px 0 0">
+                  ${audience.action}
+                </${Text}>`
+              : null
+          }
+        <//>
+      `,
+    )}
+  </${Grid}>
+`;
+
+/**
+ * A two-column reference table: label on the left, one line on the right.
+ *
+ * `RowsSlide` cannot do this job. Its cells are `.card` surfaces, and five of them
+ * stacked is taller than the canvas even at `dense` -- the padding, border and
+ * shadow are most of the height. Here the rows are hairline-separated instead, so
+ * five (or more) fit comfortably and the slide reads as the reference table it is.
+ *
+ * One Grid holds every cell rather than a flex row per line, so the label column
+ * stays aligned down the slide for free.
+ */
+export const MatrixSlide = ({ chapter, title, rows = [], notes }) => html`
+  <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
+    <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
+    <${Grid} className="matrix" gridTemplateColumns="auto 1fr">
+      ${rows.map(
+        (row, i) => html`
+          <${Fragment} key=${i}>
+            <${Box} className="matrix__name">
+              ${
+                row.icon
+                  ? html`<${Icon} name=${row.icon} className="matrix__icon" />`
+                  : null
+              }
+              ${row.name}
+            <//>
+            <${Box} className="matrix__note">${row.note}<//>
+          </${Fragment}>
+        `,
+      )}
+    </${Grid}>
+    <${MdNotes} notes=${notes} />
+  </${Slide}>
+`;
+
+/**
+ * A hand-off to a live demo.
+ *
+ * Its real job is the `backup` prop. Three times in this talk the slides stop
+ * and a live app takes over, and the one thing that must not be improvised on
+ * stage is what to do when the demo fails -- so the fallback plan is pushed into
+ * the speaker notes, above everything else, at the moment it would be needed.
+ */
+// TODO(Ryan): Check this `backup` thing and see about video backups for live demos.
+export const DemoSlide = ({
+  chapter,
+  label = "Live demo",
+  app,
+  url,
+  points = [],
+  notes,
+  backup,
+}) => html`
+  <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
+    <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
+      <${Eyebrow}><${Icon} name="monitor-play" /> ${label}</${Eyebrow}>
+      <${SlideHeading} fontSize="h1" textAlign="left" margin="10px 0 0">
+        ${app}
+      </${SlideHeading}>
+      <${AccentRule} />
+      ${
+        url
+          ? html`<${Text} className="demo__url" fontSize="26px" margin="24px 0 0">
+              ${url}
+            </${Text}>`
+          : null
+      }
+      ${
+        points.length
+          ? html`<${UnorderedList} className="demo__points" margin="18px 0 0">
+              ${points.map(
+                (point, i) =>
+                  html`<${ListItem} key=${i} fontSize="28px">${point}</${ListItem}>`,
+              )}
+            </${UnorderedList}>`
+          : null
+      }
+    <//>
+    <${MdNotes}
+      notes=${[backup && `**IF IT BREAKS:** ${backup}`, notes]
+        .filter(Boolean)
+        .join("\n\n")}
+    />
+  </${Slide}>
+`;

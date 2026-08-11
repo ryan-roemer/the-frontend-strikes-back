@@ -33,20 +33,23 @@ const UNSPLASH_QUERY = "q=80&w=1024&auto=format&fit=crop";
 export const backgrounds = {
   // Current: used by the deck's topic slides.
   // TODO: Replace with an AgntCon / MCPCon venue image.
-  venue: `https://images.unsplash.com/photo-1449157291145-7efd050a4d0e?${UNSPLASH_QUERY}`,
-  danger: `https://images.unsplash.com/photo-1587065915399-8f8c714ab540?${UNSPLASH_QUERY}`,
+  venue: `https://images.unsplash.com/photo-1745816731674-d9c33eaa4f3a?${UNSPLASH_QUERY}`,
+  city: `https://images.unsplash.com/photo-1449157291145-7efd050a4d0e?${UNSPLASH_QUERY}`,
   networkCables: `https://images.unsplash.com/photo-1558494949-ef010cbdcc31?${UNSPLASH_QUERY}`,
-  greenCode: `https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?${UNSPLASH_QUERY}`,
-  oldComputer: `https://images.unsplash.com/photo-1561990975-6cfff5661206?${UNSPLASH_QUERY}`,
   bookStacks: `https://images.unsplash.com/photo-1550399105-c4db5fb85c18?${UNSPLASH_QUERY}`,
-  cuttingBoard: `https://images.unsplash.com/photo-1690983321709-0eccbcb20d00?${UNSPLASH_QUERY}`,
+  oldComputer: `https://images.unsplash.com/photo-1561990975-6cfff5661206?${UNSPLASH_QUERY}`,
+  // Ch. 4's agents keep notes for each other (`take_notes` / `read_notes`), so
+  // the divider is a wall of them.
+  postits: `https://images.unsplash.com/photo-1507925921958-8a62f3d1a50d?${UNSPLASH_QUERY}`,
   mopop: `https://images.unsplash.com/photo-1508858648555-ba5da0be9511?${UNSPLASH_QUERY}`,
 
   // Library: unused, but known-good. Swap any of these into the list above.
+  danger: `https://images.unsplash.com/photo-1587065915399-8f8c714ab540?${UNSPLASH_QUERY}`,
+  greenCode: `https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?${UNSPLASH_QUERY}`,
+  cuttingBoard: `https://images.unsplash.com/photo-1690983321709-0eccbcb20d00?${UNSPLASH_QUERY}`,
   usSupremeCourt: `https://images.unsplash.com/photo-1453945619913-79ec89a82c51?${UNSPLASH_QUERY}`,
   gavelBook: `https://images.unsplash.com/photo-1618771623063-6c3faa854a61?${UNSPLASH_QUERY}`,
   typing: `https://images.unsplash.com/photo-1560092269-eaeb3c5e74ba?${UNSPLASH_QUERY}`,
-  postits: `https://images.unsplash.com/photo-1507925921958-8a62f3d1a50d?${UNSPLASH_QUERY}`,
   notebook: `https://images.unsplash.com/photo-1598620616655-7fce1a6fdf87?${UNSPLASH_QUERY}`,
   keys: `https://images.unsplash.com/photo-1631164159497-3a2408944c35?${UNSPLASH_QUERY}`,
   vintageComputer: `https://images.unsplash.com/photo-1711346105258-bbb9136592d7?${UNSPLASH_QUERY}`,

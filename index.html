@@ -96,7 +96,6 @@
         Deck,
         Text,
         Link,
-        Grid,
         Image,
         Markdown,
         MarkdownSlideSet,
@@ -116,9 +115,15 @@
       import {
         chapter,
         chapterClass,
-        chapterNumber,
         applyChapterStyles,
       } from "./deck/chapters.js";
+      import {
+        takeaways,
+        byPart,
+        byChapter,
+        PARTS,
+        AUDIENCES,
+      } from "./deck/takeaways.js";
       import {
         icon,
         Icon,
@@ -126,8 +131,12 @@
         Template,
         JsSlide,
         TopicSlide,
-        CodeEditor,
         RowsSlide,
+        MatrixSlide,
+        TakeawayList,
+        TakeawaySlide,
+        AudienceCards,
+        DemoSlide,
         Eyebrow,
         AccentRule,
         SlideHeading,
@@ -156,19 +165,13 @@
           transition=${deckTransition}
           backgroundImage=${DECK_BACKGROUND}
         >
-          <!-- ============================================================ -->
-          <!-- Intro                                                        -->
-          <!-- ============================================================ -->
+          ${"" /* --- Intro --- */}
           <${Slide}>
-            <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
+            <${FlexBox} className="title-copy" height="100%" flexDirection="column" justifyContent="center" alignItems="start">
               <${Eyebrow}>
-                ${logosHtm.conf} AgntCon + MCPCon NA
+                ${logosHtm.conf} AgntCon + MCPCon NA 2026
               </${Eyebrow}>
-              <!-- The only two headings that stay on a raw \`Heading\`. This slide
-                   is its own composition: \`.title-display\` and \`.title-subtitle\`
-                   own their size, tracking, leading and color outright, and
-                   routing them through \`SlideHeading\` would layer
-                   \`.slide-title\`'s tracking underneath for no benefit. -->
+              ${"" /* Raw Heading, not SlideHeading: this slide's two headings own their size, tracking and color outright. */}
               <${Heading}
                 className="title-display"
                 fontSize="118px"
@@ -180,7 +183,7 @@
               <${AccentRule} />
               <${Heading}
                 className="title-subtitle"
-                fontSize="h2"
+                fontSize="h3"
                 color="primary"
                 textAlign="left"
                 margin="32px 0 0"
@@ -204,16 +207,17 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  TODO: Cold open.
-                  * ${em("Agents are already using your app")} -- just badly.
+                  * TODO: cold open.
+                  * ${em("Agents are already using your app")}, just badly.
                 `}
               </${Markdown}>
             </${Notes}>
           </${Slide}>
+          ${"" /* TODO: REMOVE VENUE SLIDE? */}
           <${Slide} ...${photoBackground(backgrounds.venue)}>
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center">
               <${SlideHeading} fixed=${true} fontSize="150px" color="primary">
-                <${Icon} name="heart" /> AgntCon
+                <${Icon} name="heart" /> AGNTCon
               </${SlideHeading}>
             </${FlexBox}>
           </${Slide}>
@@ -241,8 +245,480 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  TODO: Personal framing.
-                  * Why the ${em("frontend")} is where this fight happens.
+                  * TODO: personal framing.
+                  * Why the ${em("frontend")} is where this happens.
+                `}
+              </${Markdown}>
+            </${Notes}>
+          </${Slide}>
+          ${"" /* --- Cold open --- */}
+          ${"" /* TODO: This is all good anchoring, but it's missing the "story" of how agents are doing more. Review and make sure we have the framing right. */}
+          <${Slide}>
+            <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
+              <${Eyebrow}>
+                <${Icon} name="robot" /> Agents are already using your app
+              </${Eyebrow}>
+              <${SlideHeading} fontSize="h1" textAlign="left" margin="18px 0 0">
+                The frontend is <u>back</u>.
+              </${SlideHeading}>
+              <${AccentRule} />
+              ${
+                "" /* `fixed` opts out of the tint treatment so this reads as support under the claim, not a second headline. */
+              }
+              <${SlideHeading}
+                variant="subtitle"
+                fixed=${true}
+                fontSize="h3"
+                color="primary"
+                textAlign="left"
+                margin="24px 0 0"
+              >
+                Agents can call it. And it can run the AI stack.
+              </${SlideHeading}>
+            </${FlexBox}>
+            <${Notes}>
+              <${Markdown} className="notes">
+                ${`
+                  * One line: agents are already using your app.
+                  * TODO: name the bad path once? The accepted abstract's opening is
+                    concrete -- screen-scraping, driving Playwright MCP through
+                    human-shaped UIs. One line, then hand off.
+                  * TODO: hand off to the session with the research on this.
+                  * The two things are the two halves of the title, and the next slide's
+                    Part A and Part B: ${em("WebMCP")}, and ${em("the agent-ready browser")}.
+                  * WebMCP opens your frontend to every agent, in the page or out.
+                  * Retrieval, inference, coordination: all of it can run in the browser now.
+                  * Don't relitigate "agents are coming." They bought a ticket.
+                `}
+              </${Markdown}>
+            </${Notes}>
+          </${Slide}>
+          <${Slide}>
+            <${SlideHeading} textAlign="left" margin="0 0 36px">
+              Everyone's welcome
+            </${SlideHeading}>
+            <${AudienceCards} audiences=${AUDIENCES} />
+            <${Notes}>
+              <${Markdown} className="notes">
+                ${`
+                  * Half of you build frontends, half build AI systems.
+                  * One takeaway for each. We come back to these at the end.
+                  * 20 sec. This is the setup for the closing slide.
+                `}
+              </${Markdown}>
+            </${Notes}>
+          </${Slide}>
+          <${Slide}>
+            <${SlideHeading} fontSize="h3" textAlign="left" margin="0 0 14px">
+              Six things to take away
+            </${SlideHeading}>
+            <${Eyebrow} className="takeaway-part">
+              <${Icon} name=${PARTS.A.icon} /> Part A · ${PARTS.A.title}
+            </${Eyebrow}>
+            <${TakeawayList}
+              items=${byPart("A")}
+              detail=${false}
+              columns=${3}
+              compact=${true}
+            />
+            <${Eyebrow} className="takeaway-part">
+              <${Icon} name=${PARTS.B.icon} /> Part B · ${PARTS.B.title}
+            </${Eyebrow}>
+            <${TakeawayList}
+              items=${byPart("B")}
+              detail=${false}
+              columns=${3}
+              compact=${true}
+            />
+            <${Notes}>
+              <${Markdown} className="notes">
+                ${`
+                  * 45 sec. Read them, don't explain them. They get earned later.
+                  * Part A: ${em("your app")}. Part B: ${em("the browser")}.
+                `}
+              </${Markdown}>
+            </${Notes}>
+          </${Slide}>
+          <${RowsSlide}
+            title="Go see these too"
+            sections=${[
+              {
+                title: "The vision",
+                items: [{ text: "TODO: session + when", icon: "compass" }],
+              },
+              {
+                title: "How agents arrive",
+                items: [{ text: "TODO: session + when", icon: "path" }],
+              },
+              {
+                title: "WebMCP in depth",
+                items: [
+                  { text: "TODO: session + when", icon: "plugs-connected" },
+                ],
+              },
+            ]}
+            notes=${`
+              * TODO: how to name these? Speakers, rooms, times, or just topics.
+              * 20 sec. We're on first, so this is a pointer, not a disclaimer.
+              * TODO: your line for handing off the WebMCP deep dives.
+            `}
+          />
+          ${"" /* --- 1. WebMCP --- */}
+          <${TopicSlide} chapter=${chapter(1)} />
+          ${
+            "" /* TODO: two things the accepted abstract promises that the deck currently drops.
+                  Both belong on the slide below, which is already at capacity -- adding a
+                  bullet means cutting one, so this is a real trade, not a freebie.
+                    1. "WebMCP changes the contract." The abstract's strongest framing line,
+                       and arguably a better heading than "How WebMCP works".
+                    2. "A new rising W3C standard." One line, no spec teaching -- and it is
+                       the natural setup for pointing at the two deep-dive sessions. */
+          }
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(1)}`}>
+            ${`
+              ---
+              # How WebMCP works
+
+              * The page **registers** tools. The agent discovers and calls them.
+              * One API: \`document.modelContext\`
+              * And the ${em("agent")} can be just about anywhere:
+                  * Claude Desktop, over a local relay
+                  * A browser extension
+                  * Or code running in the page itself
+              * Most of this lands on apps that ${em("keep")} their backend
+
+              Notes: \
+                Mental model, then move. No spec history, no standards-body slide. \
+                The "agent can be anywhere" bullet matters: it's what makes ch. 4 an \
+                architecture and not a party trick.
+            `}
+          </${MarkdownSlideSet}>
+          ${"" /* TODO(CODE): REVIEW ALL CODE EXAMPLES AND REVISE */}
+          <${JsSlide} chapter=${1} title="Register a tool"
+            filename=${examples.registerTool.file} code=${examples.registerTool.code}
+            language=${examples.registerTool.language}
+            notes=${`
+              * Name, description, schema, function. That is all of it.
+              * Descriptions are ${em("prompt engineering")}. The model reads them to decide
+                whether to call this at all.
+              * \`sortBy\` is an enum: constrain the agent, don't hope it guesses.
+              * \`execute\` calls what the search box already calls.
+            `}
+          />
+          <${JsSlide} chapter=${1} title="...or no JavaScript at all"
+            filename=${examples.declarativeTool.file} code=${examples.declarativeTool.code}
+            language=${examples.declarativeTool.language}
+            notes=${`
+              * For a lot of apps this is ${em("markup")}, not code.
+              * The form already has named inputs, validation, a submit handler.
+              * TODO: VERIFY attribute names against the explainer. The declarative
+                half of the proposal is the least settled part.
+            `}
+          />
+          <${JsSlide} chapter=${1} title="What you get for free"
+            filename=${examples.toolHandler.file} code=${examples.toolHandler.code}
+            language=${examples.toolHandler.language}
+            notes=${`
+              * ${em("Auth, personalization, business logic")}: all already there. The tool
+                runs in the page the user is signed in to.
+              * A backend MCP server means a new deploy, auth again, domain model again.
+              * This is why the rollout will mostly be ${em("backend-backed")} apps. Easier and
+                more flexible to wire in here.
+              * Intranet and complex-auth apps: WebMCP is the only practical option.
+              * \`setSearchResults\` keeps the UI in sync, so the human sees what the
+                agent did.
+            `}
+          />
+          <${DemoSlide}
+            chapter=${1}
+            label="Quick demo"
+            app="Claude Desktop calls our page"
+            url="nearform.github.io/vector-search-web"
+            points=${[
+              "Configure @mcp-b/webmcp-local-relay once.",
+              "Open any WebMCP-enabled page.",
+              "Call its tools from Claude Desktop.",
+            ]}
+            backup=${`Cut to the recorded clip. Do NOT debug on stage --
+              this is a 75-second cameo and the real demo is chapter 2.`}
+            notes=${`
+              * 75 sec. Same app as ch. 2, so there's only one thing to set up.
+              * Keep it short. Other sessions go deep on agents driving your site.
+              * ${em("First cut")} if we're running long.
+            `}
+          />
+          <${TakeawaySlide}
+            chapter=${1}
+            title=${`Part A · ${PARTS.A.title}`}
+            items=${byChapter(1)}
+            compact=${true}
+            detail=${false}
+            notes=${`
+              * All three. This is the ${em("frontend")} half of the room.
+              * On 3: TODO, hand off to the session with the traffic research.
+            `}
+          />
+          ${"" /* --- 2. Vector search --- */}
+          ${"" /* TODO: Mention "semantic search" in here as it's in the abstract. */}
+          <${TopicSlide} chapter=${chapter(2)} />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(2)}`}>
+            ${`
+              ---
+              # Our starting point: browser-based vector search
+
+              * ${em("Orama")} for the client-side vector store
+              * A web-sized **embedding model**, quantized down
+              * Indexing and querying both happen in the tab
+              * No network roundtrips
+              * Offline capability, privacy, simplicity
+
+              Notes: \
+                Orama, plus a quantized web-sized embedding model. Near-instant \
+                in-memory queries, no network roundtrips. Drawback: you have to load \
+                the data and fit it client-side.
+            `}
+          </${MarkdownSlideSet}>
+          <${DemoSlide}
+            chapter=${2}
+            label="Live demo"
+            app="Browser-based vector search"
+            url="nearform.github.io/vector-search-web"
+            points=${[
+              "Build the index in the page.",
+              "Search it with no network at all.",
+              "Watch the tab, not a server log.",
+            ]}
+            backup=${`Recorded clip, then straight to the numbers slide.`}
+            notes=${`
+              * ${em("Two minutes")} of clicking, max.
+              * Show the network tab going quiet.
+              * https://nearform.com/digital-community/browser-based-vector-search-fast-private-and-no-backend-required
+            `}
+          />
+          <${RowsSlide}
+            chapter=${2}
+            title="Performance"
+            sections=${[
+              {
+                title: "Model download",
+                items: [
+                  {
+                    text: "TODO: MB, cached after first load",
+                    icon: "download",
+                  },
+                ],
+              },
+              {
+                title: "Index build",
+                items: [{ text: "TODO: ms for N documents", icon: "database" }],
+              },
+              {
+                title: "Query",
+                items: [{ text: "TODO: ms, no network", icon: "lightning" }],
+              },
+            ]}
+            notes=${`
+              * TODO: FILL IN from a fresh run of the demo.
+              * Numbers from the article's Performance section.
+            `}
+          />
+          <${TakeawaySlide}
+            chapter=${2}
+            title="Takeaway"
+            items=${byChapter(2)}
+            notes=${`
+              * This one is ${em("ready")}. Go use it.
+            `}
+          />
+          ${"" /* --- 3. Models in the browser --- */}
+          <${TopicSlide} chapter=${chapter(3)} />
+          <${MatrixSlide}
+            chapter=${3}
+            title="Running a model in the browser"
+            rows=${[
+              {
+                icon: "browser",
+                name: "Chrome Prompt API",
+                note: "TODO: Built in, Chrome-ish only.",
+              },
+              {
+                icon: "cube",
+                name: "transformers.js",
+                note: "TODO: Full HF, crashy.",
+              },
+              {
+                icon: "graphics-card",
+                name: "web-llm",
+                note: "TODO: Tuned web-friendly LLMs, but old",
+              },
+              {
+                icon: "cpu",
+                name: "wllama",
+                note: "TODO: llama.cpp in WASM. Run GGUF!",
+              },
+              {
+                icon: "stack",
+                name: "LiteRT.js",
+                note: "TODO: New runtime, Gemma 4, few other models yet",
+              },
+            ]}
+            notes=${`
+              * TODO: tune these one-liners, they're my summary not yours.
+              * No demo in this chapter, so it's the cheapest 30 sec to cut.
+            `}
+          />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(3)}`}>
+            ${`
+              ---
+              # The wrinkles
+
+              * **Context**: TODO -- super small. 2023 small
+              * **Tool calling**: the model can't actually call our tools... yet.
+              * **Availability**: flags, model downloads, cold starts.
+              * TODO: MORE POINTS
+
+              Notes: \
+                One line each, don't linger. Compared to cloud foundation models it's \
+                an entirely different world. The tool-calling shim gets its own slide in \
+                ch. 4, where it's doing real work.
+            `}
+          </${MarkdownSlideSet}>
+          <${TakeawaySlide}
+            chapter=${3}
+            title="Takeaway"
+            items=${byChapter(3)}
+            notes=${`
+              * Classifiers, rerankers, extractors: yes.
+                Product core: not yet.
+            `}
+          />
+          ${"" /* --- 4. Web agents --- */}
+          <${TopicSlide} chapter=${chapter(4)} />
+         ${"" /* TODO(SLIDE?): Alex Nahas nod. */}
+         ${"" /* TODO: Tweak this -- Keep? */}
+          <${RowsSlide}
+            chapter=${4}
+            dense=${true}
+            title="Web agents: all in a browser tab"
+            sections=${[
+              {
+                title: "Agents",
+                items: [
+                  { text: "Coordinator", icon: "users-three" },
+                  { text: "Researcher", icon: "magnifying-glass" },
+                  { text: "Writer", icon: "pencil-line" },
+                ],
+              },
+              {
+                title: "Tools",
+                items: [
+                  {
+                    text: "search_nearform_knowledge",
+                    icon: "plugs-connected",
+                  },
+                  { text: "take_notes", icon: "note-pencil" },
+                  { text: "read_notes", icon: "note" },
+                ],
+              },
+              {
+                title: "Runs on",
+                items: [
+                  { text: "On-device model", icon: "brain" },
+                  { text: "Local vector index", icon: "database" },
+                  { text: "Iframe bridge", icon: "bridge" },
+                ],
+              },
+            ]}
+            notes=${`
+              * \`search_nearform_knowledge\` is ${em("remote")}: it's ch. 2's app, reached
+                cross-origin over the MCP-B bridge.
+              * TODO: this wants a real diagram. Inline SVG of agents, tools, and the
+                cross-origin hop.
+            `}
+          />
+          <${DemoSlide}
+            chapter=${4}
+            label="Live demo"
+            app="Nearform research agents"
+            url="nearform.github.io/web-agents"
+            points=${[
+              "A coordinator, a researcher, and a writer.",
+              "Searching our vector app over the bridge.",
+              "Taking and reading notes as they go.",
+            ]}
+            backup=${`TODO: VIDEO BACKUP???`}
+            notes=${`
+              * 2 min of clicking, max. Show it working, then show it straining.
+                Don't oversell.
+              * Say it out loud: this is a ${em("stress test")}, not an architecture I'd
+                recommend. WebMCP is just as good in an app with a backend.
+              * Going pure frontend just shows us where the limits are.
+              * https://nearform.com/digital-community/webmcp-turning-web-pages-into-tools-for-ai-agents/
+            `}
+          />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(4)}`}>
+            ${`
+              ---
+              # ... but then we hit the hard parts
+
+              * **Tool calling**: we prompt, parse, dispatch, repeat
+              * Browser updates break things
+              * Coordination eats context, and we do not have much
+              * Small models are challenging to get sensible results.
+
+              Notes: \
+                The shim is unglamorous engineering. Show it as a workaround, not a \
+                clever trick. TODO: your line for why we still shipped it anyway.
+            `}
+          </${MarkdownSlideSet}>
+          <${TakeawaySlide}
+            chapter=${4}
+            title="Takeaway"
+            items=${byChapter(4)}
+            notes=${`
+              * ${em("Early days")}, clear direction.
+              * A few years ago we were here with backend AI too.
+            `}
+          />
+          ${"" /* --- 5. Start building today --- */}
+          <${TopicSlide} chapter=${chapter(5)} />
+          <${TakeawaySlide}
+            chapter=${5}
+            title="The frontend-for-agents landscape"
+            items=${takeaways}
+            detail=${false}
+            columns=${2}
+            compact=${true}
+            notes=${`
+              * 20 sec. They've seen each of these twice. Just read them.
+              * This is the "landscape" the abstract promised, plus the runtimes table.
+            `}
+          />
+          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(5)}`}>
+            ${`
+              ---
+              # TODO: Your next steps (Monday!)
+
+              1. TODO
+              2. TODO
+              3. TODO
+
+              Notes: \
+                Small and concrete. Nobody rewrites an app after a talk, but anyone can \
+                register three tools in an afternoon.
+            `}
+          </${MarkdownSlideSet}>
+          <${Slide} className=${chapterClass(5)}>
+            <${SlideHeading} textAlign="left" margin="0 0 30px">
+              So, what now?
+            </${SlideHeading}>
+            <${AudienceCards} audiences=${AUDIENCES} action=${true} />
+            <${Notes}>
+              <${Markdown} className="notes">
+                ${`
+                  * ${em("Never cut this slide")}. It's the only one that says what to do.
+                  * Callback to the cold open: one takeaway for each half of the room.
+                  * TODO: your closing line on the title. Then stop and let it sit.
                 `}
               </${Markdown}>
             </${Notes}>
@@ -266,338 +742,21 @@
               <${Markdown} className="notes">
                 ${`
                   * ${em("Spectacle")} is a presentation library for React.
-                  * This deck runs on it: no build step, all in the browser.
-                  * If you come find me later:
-                    * I've got ${em("stickers")} for Spectacle and our other open source projects.
-                    * ...and some ${em("t-shirts")}.
+                  * This deck runs on it. No build step, all in the browser.
+                  * Come find me later: ${em("stickers")} and ${em("t-shirts")}.
                 `}
               </${Markdown}>
             </${Notes}>
           </${Slide}>
-          <${Slide}>
-            <${SlideHeading} textAlign="left" margin="0 0 40px">Roadmap</${SlideHeading}>
-            <${Grid} className="roadmap-grid" gridTemplateColumns="1fr 1fr" gridGap="24px">
-              ${[
-                // `chapter` only picks the accent, so each tile previews the
-                // color of the divider it introduces. The number is the tile's
-                // position in the roadmap -- using the chapter index instead
-                // reads as a list with slides missing.
-                { title: "Agents Today", icon: "robot", chapter: 1 },
-                { title: "WebMCP", icon: "plugs-connected", chapter: 2 },
-                { title: "Live Demo", icon: "monitor-play", chapter: 4 },
-                { title: "In-Browser AI", icon: "browser", chapter: 5 },
-              ].map(
-                ({ title, icon, chapter }, i) => html`
-                  <${FlexBox}
-                    key=${i}
-                    className=${`card card--roadmap ${chapterClass(chapter)}`}
-                    flexDirection="column"
-                    alignItems="stretch"
-                    justifyContent="center"
-                  >
-                    <${FlexBox} className="roadmap__head" justifyContent="space-between" alignItems="center">
-                      <${Text} className="roadmap__index" fontSize="20px" margin="0">
-                        ${chapterNumber(i + 1)}
-                      </${Text}>
-                      <${Icon} name=${icon} className="roadmap__icon" />
-                    <//>
-                    <${Text} className="roadmap__title" fontSize="32px" margin="14px 0 0">
-                      ${title}
-                    </${Text}>
-                  </${FlexBox}>
-                `,
-              )}
-            </${Grid}>
-          </${Slide}>
-          <!-- ============================================================ -->
-          <!-- 1. Agents are already here                                   -->
-          <!-- ============================================================ -->
-          <${TopicSlide} chapter=${chapter(1)} />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(1)}`}>
-            ${`
-              ---
-              # TODO: They already use your app
-
-              * TODO: ${em("Screen-scraping")} the DOM
-              * TODO: ${em("Playwright MCP")} clicking through human-shaped UIs
-              * TODO: Brittle, slow, expensive, unaccountable
-
-              Notes: TODO: Open with a concrete example of the bad path.
-
-              ---
-              # TODO: Why it goes badly
-
-              * TODO: Your UI is an interface for ${em("eyes")}, not for tools
-              * TODO: No schema, no contract, no ${em("discoverability")}
-              * TODO: Every redesign is a breaking change
-
-              Notes: TODO
-            `}
-          </${MarkdownSlideSet}>
-          <!-- ============================================================ -->
-          <!-- 2. WebMCP                                                    -->
-          <!-- ============================================================ -->
-          <${TopicSlide} chapter=${chapter(2)} />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(2)}`}>
-            ${`
-              ---
-              # TODO: What is WebMCP?
-
-              * TODO: ${em("MCP")}, but in the page
-              * TODO: The app ${em("registers")} tools; the agent discovers and calls them
-              * TODO: \`navigator.modelContext\`
-
-              Notes: TODO
-
-              ---
-              # TODO: A rising W3C standard
-
-              * TODO: Where the spec lives and who's driving it
-              * TODO: Current status, browser support, polyfills
-              * TODO: How to follow along
-
-              Notes: TODO
-
-              ---
-              # TODO: The contract changes
-
-              * TODO: Reuse your existing ${em("auth")} -- the user is already signed in
-              * TODO: Reuse ${em("personalization")} and app state
-              * TODO: Reuse the ${em("business logic")} you already shipped
-              * TODO: Much faster than standing up a separate MCP server
-
-              Notes: TODO
-            `}
-          </${MarkdownSlideSet}>
-          <!-- ============================================================ -->
-          <!-- 3. The basics                                                -->
-          <!-- ============================================================ -->
-          <${TopicSlide} chapter=${chapter(3)} />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(3)}`}>
-            ${`
-              ---
-              # TODO: Making a function agent-callable
-
-              1. TODO: ${em("Name")} and describe it
-              2. TODO: Define an input ${em("schema")}
-              3. TODO: ${em("Register")} it
-              4. TODO: Return content the agent can use
-
-              Notes: TODO: Set up the next three code slides.
-            `}
-          </${MarkdownSlideSet}>
-          <${JsSlide} chapter=${3} title="Registering a tool"
-            filename=${examples.registerTool.file} code=${examples.registerTool.code}
-            notes=${`
-              # TODO: Registering a tool
-              * TODO: Walk the four fields.
-              * TODO: Point out that 'execute' just calls existing app code.
-            `}
-          />
-          <${JsSlide} chapter=${3} title="Defining the schema"
-            filename=${examples.toolSchema.file} code=${examples.toolSchema.code}
-            notes=${`
-              # TODO: Defining the schema
-              * TODO: Descriptions are prompt engineering.
-              * TODO: Enums and bounds keep the agent on rails.
-            `}
-          />
-          <${JsSlide} chapter=${3} title="The handler"
-            filename=${examples.toolHandler.file} code=${examples.toolHandler.code}
-            notes=${`
-              # TODO: The handler
-              * TODO: Auth, preferences, and search already exist.
-              * TODO: Keep the UI in sync so the human can watch.
-            `}
-          />
-          <${Slide} className=${chapterClass(3)}>
-            <${SlideHeading} variant="subtitle" fontSize="h3" textAlign="left" margin="0 0 12px">
-              TODO: Live edit
-            </${SlideHeading}>
-            <${CodeEditor}
-              noInline=${true}
-              editorHeight="380px"
-              previewHeight="140px"
-              code=${`
-                // TODO: Live-edit me during the talk.
-                const tools = [];
-                const registerTool = (tool) => tools.push(tool);
-
-                registerTool({
-                  name: "search_documents",
-                  description: "Search the user's documents.",
-                });
-
-                const Tools = () => (
-                  <ul>
-                    {tools.map((tool) => (
-                      <li key={tool.name}>
-                        <b>{tool.name}</b> - {tool.description}
-                      </li>
-                    ))}
-                  </ul>
-                );
-
-                render(<Tools />);
-              `
-                .replace(/\n                /g, "\n")
-                .trim()}
-            />
-          </${Slide}>
-          <!-- ============================================================ -->
-          <!-- 4. Demo: Claude Desktop                                      -->
-          <!-- ============================================================ -->
-          <${TopicSlide} chapter=${chapter(4)} />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(4)}`}>
-            ${`
-              ---
-              # TODO: A frontend-only document app
-
-              * TODO: What the app does for a human
-              * TODO: The tools it exposes to an agent
-              * TODO: ${em("No server")}, no MCP process, no deploy
-
-              Notes: TODO: SWITCH TO LIVE DEMO HERE.
-
-              ---
-              # TODO: What the agent sees
-
-              * TODO: Tool ${em("discovery")}
-              * TODO: A ${em("call")}, start to finish
-              * TODO: The human watching it happen in the UI
-
-              Notes: TODO
-            `}
-          </${MarkdownSlideSet}>
-          <${RowsSlide}
-            chapter=${4}
-            title="TODO: Server vs. WebMCP"
-            sections=${[
-              {
-                title: "TODO",
-                items: [
-                  { text: "TODO: MCP server", icon: "hard-drives" },
-                  { text: "TODO: WebMCP", icon: "browser" },
-                ],
-              },
-              {
-                title: "TODO",
-                items: [
-                  { text: "TODO", icon: "lock" },
-                  { text: "TODO", icon: "lock-open" },
-                ],
-              },
-              {
-                title: "TODO",
-                items: [
-                  { text: "TODO", icon: "clock" },
-                  { text: "TODO", icon: "lightning" },
-                ],
-              },
-            ]}
-            notes=${`
-              ## TODO: Comparison
-              * TODO: Auth, deploy, business logic, time to ship.
-            `}
-          />
-          <!-- ============================================================ -->
-          <!-- 5. All in the browser                                        -->
-          <!-- ============================================================ -->
-          <${TopicSlide} chapter=${chapter(5)} />
           <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(5)}`}>
             ${`
-              ---
-              # TODO: A research assistant, fully in-browser
-
-              * TODO: What it does
-              * TODO: What ${em("never leaves the device")}
-              * TODO: Architecture at a glance
-
-              Notes: TODO
-
-              ---
-              # TODO: Multi-agent coordination
-
-              * TODO: How the agents divide the work
-              * TODO: Who calls whom
-              * TODO: What coordination costs
-
-              Notes: TODO
-
-              ---
-              # TODO: Semantic search in the page
-
-              * TODO: ${em("Embeddings")} -- generated where?
-              * TODO: Where the vectors live
-              * TODO: How fast is it, really
-
-              Notes: TODO
-
-              ---
-              # TODO: On-device models
-
-              * TODO: Which models, which runtime
-              * TODO: Download size and cold start
-              * TODO: What's good enough ${em("locally")} vs. what isn't
-
-              Notes: TODO
-            `}
-          </${MarkdownSlideSet}>
-          <!-- ============================================================ -->
-          <!-- 6. Stumbling blocks                                          -->
-          <!-- ============================================================ -->
-          <${TopicSlide} chapter=${chapter(6)} />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(6)}`}>
-            ${`
-              ---
-              # TODO: What broke
-
-              * TODO
-              * TODO
-              * TODO
-
-              Notes: TODO
-
-              ---
-              # TODO: What we hacked around it
-
-              * TODO
-              * TODO
-              * TODO
-
-              Notes: TODO
-            `}
-          </${MarkdownSlideSet}>
-          <!-- ============================================================ -->
-          <!-- 7. Wrap up                                                   -->
-          <!-- ============================================================ -->
-          <${TopicSlide} chapter=${chapter(7)} />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(7)}`}>
-            ${`
-              ---
-              # TODO: The frontend-for-agents landscape
-
-              * TODO: Specs and proposals to watch
-              * TODO: Libraries and polyfills
-              * TODO: Who's shipping this already
-
-              Notes: TODO
-
-              ---
-              # TODO: Next steps
-
-              * TODO: Pick ${em("one")} function in your app and register it
-              * TODO: Drive it from a real agent
-              * TODO: Where to read more
-
-              Notes: TODO
-
               --- { "layout" : "columns" }
 
               ::section
 
               # This deck!
 
+              ${"" /* TODO: Add web-agents, vector-search-web too? */}
               ${icon("browser")} See the deck at:
               [ryan-roemer.github.io/the-frontend-strikes-back](https://ryan-roemer.github.io/the-frontend-strikes-back/)
 

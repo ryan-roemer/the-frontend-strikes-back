@@ -1,31 +1,15 @@
-// TODO: The payoff -- the handler reuses what the app already has.
-// Session auth, user preferences, and business logic all come for free
-// because this runs *inside* the page the user is already signed in to.
-export const execute = async ({ query, limit = 5, sortBy = "relevance" }) => {
-  const { session, preferences, documents } = window.app.getState();
+const text = (s) => ({ type: "text", text: s });
 
-  if (!session) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Not signed in." }],
-    };
-  }
+// Session auth, preferences, and business logic come free: this runs *inside*
+// the page the user is already signed in to.
+export const execute = async (args) => {
+  const { session, prefs, documents } = window.app.getState();
+  if (!session) return { isError: true, content: [text("Not signed in.")] };
 
-  // TODO: Same search the human UI uses -- no duplicate backend.
-  const results = await documents.search({
-    query,
-    limit,
-    sortBy,
-    locale: preferences.locale,
-  });
+  // The same search the human UI already uses -- no duplicate backend.
+  const results = await documents.search({ ...args, locale: prefs.locale });
 
-  // TODO: Keep the UI in sync so the human sees what the agent did.
+  // Keep the UI in sync, so the human sees what the agent did.
   window.app.setSearchResults(results);
-
-  return {
-    content: results.map((doc) => ({
-      type: "text",
-      text: `${doc.title}\n${doc.excerpt}`,
-    })),
-  };
+  return { content: results.map((d) => text(d.title)) };
 };

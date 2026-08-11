@@ -19,6 +19,7 @@
   --hairline: rgba(255, 255, 255, 0.1);
   --muted: var(--nf-midnight-30, #97a1b8);
 
+  --sans: "Inter", system-ui, sans-serif;
   --mono: "Fira Code", ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
@@ -155,9 +156,29 @@ body::after {
   -webkit-text-fill-color: transparent;
 }
 
-#root p,
-#root li {
+/*
+ * Underlined emphasis inside a display heading.
+ *
+ * The browser default is a hairline sitting on the baseline, which at 72px reads
+ * as a hyperlink and collides with descenders. Thickened, offset, and drawn in the
+ * saturated accent so it reads as a deliberate mark. `text-decoration-color` is
+ * independent of `-webkit-text-fill-color`, so this survives the `gradient`
+ * heading treatment too.
+ */
+#root :is(.slide-title, .slide-subtitle, .title-display) u {
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.14em;
+  text-decoration-color: var(--chapter-accent-base);
+}
+
+#root p {
   line-height: 1.4;
+}
+
+/* Bullets are tighter than prose: the densest markdown slide runs seven items
+ * deep and 1.4 put the last one under the slide counter. */
+#root li {
+  line-height: 1.32;
 }
 
 /* Emphasis inside markdown, colored by the current chapter. */
@@ -236,8 +257,24 @@ body::after {
   transform-origin: 50% 100%;
 }
 
+/*
+ * The title slide's copy column stops short of the QR block.
+ *
+ * The QR is absolutely positioned into the bottom-right corner, so it sits
+ * outside the flow these headings lay out in -- nothing was stopping the
+ * subtitle from running underneath it, and it did. Reserving the gutter here
+ * holds for any subtitle string, which nudging one font size would not.
+ *
+ * 280px = the 46px offset, the ~200px the caption spans (it is wider than the
+ * 174px card above it), and a gap so the two columns read as separate.
+ */
+#root .title-copy {
+  padding-right: 280px;
+}
+
 /* The display type owns the slide; the subtitle should read as a deck line,
- * not compete at the same weight. */
+ * not compete at the same weight. Sized to stay on ONE line inside the column
+ * above -- at h2 it wrapped, which moved the whole composition off centre. */
 #root .title-subtitle {
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -320,6 +357,23 @@ body::after {
   padding: 26px 28px;
 }
 
+/*
+ * Dense cards, for slides carrying four rows or three wide items in a row.
+ * A grid sizes itself from its content and cannot know how tall a slide is, so
+ * past three rows the default padding runs off the 768px canvas.
+ */
+.card--dense {
+  padding: 10px 16px;
+}
+
+/*
+ * RowsSlide cards. Tighter than a bare `.card` because these slides carry an h1
+ * title plus three rows, and the deck chrome eats the bottom ~120px of the canvas.
+ */
+.card--rows {
+  padding: 16px 20px;
+}
+
 /* Index and icon share one line, so the title is the only thing with weight. */
 #root .roadmap__head {
   color: var(--chapter-accent);
@@ -338,6 +392,172 @@ body::after {
 
 #root .roadmap__icon {
   font-size: 32px;
+  color: var(--chapter-accent);
+}
+
+/* --- Takeaways -----------------------------------------------------------
+ *
+ * The recurring device: each of the six claims appears three times, in the same
+ * treatment every time, so the repetition reads as one running thread rather
+ * than three unrelated summary slides.
+ *
+ * The badge is a circle drawn here with a plain digit inside, not the ➊-➏
+ * dingbats (U+279A-279F). Inter has no glyphs at those code points, so they fall
+ * back to tofu -- visible on a projector and nowhere else -- and a font glyph
+ * could not take `--chapter-accent` the way this can.
+ */
+.takeaway {
+  padding: 22px 26px;
+  gap: 20px;
+}
+
+/*
+ * Compact takeaways, for the two slides that show all six at once: the roadmap
+ * up front and the recap at the close. At full size six cards plus their part
+ * labels overrun the canvas by roughly 200px.
+ */
+.takeaway--compact {
+  padding: 10px 16px;
+  gap: 14px;
+}
+
+#root .takeaway--compact .takeaway__badge {
+  width: 34px;
+  height: 34px;
+  font-size: 19px;
+  line-height: 30px;
+}
+
+/*
+ * Part label above each group on the roadmap slide. Needs `#root` to outrank
+ * the `margin="0"` styled-system class that `Eyebrow` sets on every instance.
+ */
+#root .takeaway-part {
+  margin: 12px 0 8px;
+}
+
+#root .takeaway__badge {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--chapter-accent);
+  border-radius: 999px;
+  color: var(--chapter-accent);
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 40px;
+  text-align: center;
+}
+
+#root .takeaway__text {
+  font-weight: 700;
+  color: #fff;
+}
+
+#root .takeaway__detail {
+  color: var(--muted);
+}
+
+/*
+ * The verdict mark: one icon, tucked into the card's top-right.
+ *
+ * It sits outside `.takeaway__body` so the body keeps the full text column, and
+ * `margin-left: auto` in the row flex pushes it to the corner without absolute
+ * positioning (which would need the card to become a containing block and would
+ * overlap long text at compact sizes).
+ *
+ * Colour is `--chapter-accent`. The chapter progression already carries
+ * confidence, so the icon supplies recognition, not a second colour system.
+ */
+#root .takeaway__verdict {
+  flex: 0 0 auto;
+  margin-left: auto;
+  align-self: flex-start;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--chapter-accent);
+  opacity: 0.85;
+}
+
+.takeaway--compact #root .takeaway__verdict,
+#root .takeaway--compact .takeaway__verdict {
+  font-size: 24px;
+}
+
+/* --- The two halves of the room ------------------------------------------ */
+
+.audience {
+  padding: 30px 32px;
+}
+
+#root .audience__icon {
+  font-size: 44px;
+  color: var(--chapter-accent);
+}
+
+/* Tracked-out and quiet: this line is the label, not the message. */
+#root .audience__who {
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--chapter-accent);
+}
+
+#root .audience__claim {
+  font-weight: 700;
+  color: #fff;
+}
+
+#root .audience__action {
+  color: var(--muted);
+}
+
+/* The title's payoff, on the closing slide. The one line the talk ends on. */
+#root .close-line {
+  color: var(--chapter-accent);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* --- Reference table (MatrixSlide) --------------------------------------
+ *
+ * Rows are separated by hairlines rather than being cards, which is what lets
+ * five or more of them fit the canvas. Both cells carry the border so the rule
+ * runs the full width of the grid.
+ */
+.matrix {
+  align-items: stretch;
+}
+
+#root .matrix__name,
+#root .matrix__note {
+  font-family: var(--sans);
+  padding: 15px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 26px;
+  line-height: 1.25;
+}
+
+#root .matrix__name {
+  padding-right: 32px;
+  font-family: var(--mono);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--chapter-accent);
+}
+
+#root .matrix__icon {
+  margin-right: 0.5em;
+}
+
+#root .matrix__note {
+  color: #fff;
+}
+
+/* --- Demo hand-off ------------------------------------------------------- */
+
+#root .demo__url {
+  font-family: var(--mono);
   color: var(--chapter-accent);
 }
 
@@ -387,9 +607,11 @@ body::after {
  * from `examples/`, so naming them is information, not decoration.
  */
 /*
- * Height is capped to what is left of the 768px canvas after slide padding,
- * the title, and the chrome -- otherwise a long file (tool-handler.js is 31
- * lines) pushes the frame over the progress bar and off the slide.
+ * Height is capped to what is left of the 768px canvas after slide padding, the
+ * title, and the deck chrome. The arithmetic, measured: the frame starts at y=153
+ * (slide padding + an h3 title + its margin) and the chrome's meta row starts at
+ * y=646, so anything taller than ~480 puts the frame on top of the slide counter.
+ * It did, and the last line was clipped mid-glyph behind "10 / 35".
  */
 .code-frame {
   border: 1px solid var(--hairline);
@@ -397,7 +619,7 @@ body::after {
   overflow: hidden;
   background: #0b1220;
   box-shadow: 0 16px 40px rgba(0, 14, 56, 0.5);
-  max-height: 540px;
+  max-height: 480px;
   display: flex;
   flex-direction: column;
 }
@@ -427,20 +649,64 @@ body::after {
 }
 
 /*
- * Pane size comes from `theme.fontSizes.monospace`. Capped and scrollable here
- * so a long snippet can never push the frame off the slide.
+ * `CodePane` wraps its `<pre>` in an unclassed div, and THAT div is the frame's
+ * flex child -- not the pre. Without this rule the wrapper keeps its natural
+ * height, `flex: 1` on the pre applies in a non-flex parent and does nothing, and
+ * a long snippet gets silently clipped by the frame instead of scrolling.
+ *
+ * Excluding the bar and Spectacle's `.step-placeholder` (a zero-height sibling it
+ * injects) leaves exactly the code wrapper.
+ */
+.code-frame > div:not(.code-frame__bar):not(.step-placeholder) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/*
+ * Pane size comes from `theme.fontSizes.monospace`. Capped and scrollable, so a
+ * snippet longer than the canvas scrolls in the frame rather than running off the
+ * slide. Examples are kept short enough to need no scrolling; this is the safety
+ * net for the ones that grow.
  */
 .code-frame pre {
   margin: 0 !important;
+  padding: 10px 4px 10px 0 !important;
   border-radius: 0 !important;
-  line-height: 1.45 !important;
+  line-height: 1.34 !important;
   flex: 1;
   min-height: 0;
   overflow: auto !important;
+  overscroll-behavior: contain;
+}
+
+/* A scrollbar you can actually see against the pane, and grab mid-talk. */
+.code-frame pre::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.code-frame pre::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chapter-accent) 45%, transparent);
+}
+
+.code-frame pre::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .code-frame__bar {
   flex: none;
+}
+
+/*
+ * Paged output has no scrollbars, so a long snippet is simply cut off. That is
+ * the accepted trade: the deck reads correctly on screen, and the handout loses
+ * the tail of an over-long example.
+ */
+.paged-mode .code-frame pre {
+  overflow: hidden !important;
 }
 
 /* --- React Live editor --------------------------------------------------- */
@@ -558,7 +824,10 @@ body::after {
 .print-mode #root .slide-title,
 .print-mode #root .slide-subtitle,
 .print-mode #root .title-subtitle,
-.print-mode #root .roadmap__title {
+.print-mode #root .roadmap__title,
+.print-mode #root .takeaway__text,
+.print-mode #root .matrix__note,
+.print-mode #root .audience__claim {
   color: var(--nf-midnight-base, #000e38);
 }
 
@@ -602,8 +871,20 @@ body::after {
   #root .divider__numeral,
   #root .roadmap-grid,
   #root .roadmap__head,
+  #root .takeaway-grid,
+  #root .takeaway__body,
+  #root .matrix,
   #root .card {
     height: auto;
+  }
+
+  /* The badge is a circle, so it needs its height back explicitly. */
+  #root .takeaway__badge {
+    height: 44px;
+  }
+
+  #root .takeaway--compact .takeaway__badge {
+    height: 34px;
   }
 
   #root .accent-rule {
