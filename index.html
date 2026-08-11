@@ -92,7 +92,6 @@
       import {
         FlexBox,
         Heading,
-        Slide,
         Deck,
         Text,
         Link,
@@ -128,6 +127,7 @@
         icon,
         Icon,
         em,
+        DeckSlide,
         Template,
         JsSlide,
         TopicSlide,
@@ -166,7 +166,8 @@
           backgroundImage=${DECK_BACKGROUND}
         >
           ${"" /* --- Intro --- */}
-          <${Slide}>
+          ${"" /* `chrome={false}`: Template draws no chrome on slide 1, so this slide keeps the full 768px canvas. */}
+          <${DeckSlide} chrome=${false}>
             <${FlexBox} className="title-copy" height="100%" flexDirection="column" justifyContent="center" alignItems="start">
               <${Eyebrow}>
                 ${logosHtm.conf} AgntCon + MCPCon NA 2026
@@ -212,16 +213,16 @@
                 `}
               </${Markdown}>
             </${Notes}>
-          </${Slide}>
+          </${DeckSlide}>
           ${"" /* TODO: REMOVE VENUE SLIDE? */}
-          <${Slide} ...${photoBackground(backgrounds.venue)}>
+          <${DeckSlide} ...${photoBackground(backgrounds.venue)}>
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center">
               <${SlideHeading} fixed=${true} fontSize="150px" color="primary">
                 <${Icon} name="heart" /> AGNTCon
               </${SlideHeading}>
             </${FlexBox}>
-          </${Slide}>
-          <${Slide}>
+          </${DeckSlide}>
+          <${DeckSlide}>
             <${FlexBox} flexDirection="column" alignSelf="center" justifyContent="left" alignItems="left">
               <${SlideHeading} fontSize="h1">
                 Hi!
@@ -250,10 +251,10 @@
                 `}
               </${Markdown}>
             </${Notes}>
-          </${Slide}>
+          </${DeckSlide}>
           ${"" /* --- Cold open --- */}
           ${"" /* TODO: This is all good anchoring, but it's missing the "story" of how agents are doing more. Review and make sure we have the framing right. */}
-          <${Slide}>
+          <${DeckSlide}>
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
               <${Eyebrow}>
                 <${Icon} name="robot" /> Agents are already using your app
@@ -292,8 +293,8 @@
                 `}
               </${Markdown}>
             </${Notes}>
-          </${Slide}>
-          <${Slide}>
+          </${DeckSlide}>
+          <${DeckSlide}>
             <${SlideHeading} textAlign="left" margin="0 0 36px">
               Everyone's welcome
             </${SlideHeading}>
@@ -307,8 +308,8 @@
                 `}
               </${Markdown}>
             </${Notes}>
-          </${Slide}>
-          <${Slide}>
+          </${DeckSlide}>
+          <${DeckSlide}>
             <${SlideHeading} fontSize="h3" textAlign="left" margin="0 0 14px">
               Six things to take away
             </${SlideHeading}>
@@ -338,7 +339,7 @@
                 `}
               </${Markdown}>
             </${Notes}>
-          </${Slide}>
+          </${DeckSlide}>
           <${RowsSlide}
             title="Go see these too"
             sections=${[
@@ -374,7 +375,7 @@
                     2. "A new rising W3C standard." One line, no spec teaching -- and it is
                        the natural setup for pointing at the two deep-dive sessions. */
           }
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(1)}`}>
+          <${MarkdownSlideSet} ...${mdSlideProps(1)}>
             ${`
               ---
               # How WebMCP works
@@ -452,7 +453,6 @@
             title=${`Part A · ${PARTS.A.title}`}
             items=${byChapter(1)}
             compact=${true}
-            detail=${false}
             notes=${`
               * All three. This is the ${em("frontend")} half of the room.
               * On 3: TODO, hand off to the session with the traffic research.
@@ -461,7 +461,7 @@
           ${"" /* --- 2. Vector search --- */}
           ${"" /* TODO: Mention "semantic search" in here as it's in the abstract. */}
           <${TopicSlide} chapter=${chapter(2)} />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(2)}`}>
+          <${MarkdownSlideSet} ...${mdSlideProps(2)}>
             ${`
               ---
               # Our starting point: browser-based vector search
@@ -567,7 +567,7 @@
               * No demo in this chapter, so it's the cheapest 30 sec to cut.
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(3)}`}>
+          <${MarkdownSlideSet} ...${mdSlideProps(3)}>
             ${`
               ---
               # The wrinkles
@@ -613,7 +613,7 @@
                 title: "Tools",
                 items: [
                   {
-                    text: "search_nearform_knowledge",
+                    text: "search_ ... _knowledge",
                     icon: "plugs-connected",
                   },
                   { text: "take_notes", icon: "note-pencil" },
@@ -656,7 +656,7 @@
               * https://nearform.com/digital-community/webmcp-turning-web-pages-into-tools-for-ai-agents/
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(4)}`}>
+          <${MarkdownSlideSet} ...${mdSlideProps(4)}>
             ${`
               ---
               # ... but then we hit the hard parts
@@ -694,7 +694,7 @@
               * This is the "landscape" the abstract promised, plus the runtimes table.
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(5)}`}>
+          <${MarkdownSlideSet} ...${mdSlideProps(5)}>
             ${`
               ---
               # TODO: Your next steps (Monday!)
@@ -708,7 +708,7 @@
                 register three tools in an afternoon.
             `}
           </${MarkdownSlideSet}>
-          <${Slide} className=${chapterClass(5)}>
+          <${DeckSlide} className=${chapterClass(5)}>
             <${SlideHeading} textAlign="left" margin="0 0 30px">
               So, what now?
             </${SlideHeading}>
@@ -722,8 +722,8 @@
                 `}
               </${Markdown}>
             </${Notes}>
-          </${Slide}>
-          <${Slide} backgroundImage="url(${images.spectacle})">
+          </${DeckSlide}>
+          <${DeckSlide} backgroundImage="url(${images.spectacle})">
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center">
               <${Link} href="https://nearform.com/open-source/spectacle">
                 <${SpectacleLogo} size=${400} />
@@ -747,8 +747,8 @@
                 `}
               </${Markdown}>
             </${Notes}>
-          </${Slide}>
-          <${MarkdownSlideSet} ...${mdSlideProps} className=${`md ${chapterClass(5)}`}>
+          </${DeckSlide}>
+          <${MarkdownSlideSet} ...${mdSlideProps(5)}>
             ${`
               --- { "layout" : "columns" }
 

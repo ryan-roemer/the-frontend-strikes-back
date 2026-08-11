@@ -21,6 +21,72 @@
 
   --sans: "Inter", system-ui, sans-serif;
   --mono: "Fira Code", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  /*
+   * The band along the bottom of the canvas that the deck chrome owns.
+   *
+   * The chrome (see `Template`) is an absolutely positioned sibling ABOVE the
+   * active slide, not a box inside it -- so without a reservation, content can
+   * sit entirely within the 768px slide and still be laid on top of the slide
+   * counter. Nothing in the layout prevents that; it used to be avoided only by
+   * per-slide magic numbers, each found by measuring rather than by design.
+   *
+   * This number is used exactly twice, and that is the point: it sizes the
+   * chrome (`.deck-chrome`) and it is subtracted from every slide (`.slide`).
+   * They cannot disagree, so the space cannot be lost again.
+   */
+  --chrome-h: 122px;
+}
+
+/* --- Slide canvas ---------------------------------------------------------
+ *
+ * `.slide` is on every slide in the deck, applied in one place -- `DeckSlide`
+ * in `components.js` -- rather than typed per slide. Do NOT reach for
+ * `.spectacle-v7-slide`: Spectacle 10.2.3 does emit that class, but on 35
+ * empty 0x0 marker divs in a sibling container, not on the slides.
+ */
+#root .slide {
+  /* Spectacle sizes the slide `height: 100%` under the default content-box, so
+   * without this the reservation grows the slide to 890px instead of shrinking
+   * what is usable inside it -- the content lands in exactly the same place and
+   * only the box moves. */
+  box-sizing: border-box;
+  padding-bottom: var(--chrome-h);
+}
+
+/*
+ * The title slide has no chrome to clear -- `Template` returns `null` for slide
+ * 1 -- so it owns the full canvas. `<DeckSlide chrome=${false}>` is the other
+ * half of that early return; the two have to stay in agreement.
+ */
+#root .slide--full {
+  padding-bottom: 0;
+}
+
+/* --- Page box -------------------------------------------------------------
+ *
+ * The UA's default `body { margin: 8px }` was never reset, and it costs
+ * something in every mode:
+ *
+ *   on screen -- Spectacle scales the 1366x768 canvas to fit its container, and
+ *                the container is the body box. 8px on each edge makes that
+ *                752px tall, so the whole deck renders at 0.979 scale for no
+ *                reason.
+ *   on paper  -- the stacked slides are exactly 35 x 768px, and the margins push
+ *                the document 16px past that. The overflow lands on a 36th sheet
+ *                that is blank apart from 8px of background: the phantom last
+ *                slide in `?exportMode=true` PDFs.
+ *
+ * `@page` margins do the same thing from the printer's side, and Save-as-PDF
+ * applies them whatever the dialog's paper setting is. A slide IS the page here.
+ */
+html,
+body {
+  margin: 0;
+}
+
+@page {
+  margin: 0;
 }
 
 /* --- Film grain ----------------------------------------------------------
@@ -30,6 +96,11 @@
  * few percent gives the surface some tooth. It lives here rather than in the
  * background stack because it must tile, while Spectacle applies a single
  * `background-size: cover` to every layer of a slide.
+ *
+ * STRICTLY a screen effect -- see the `@media print` reset further down. A
+ * `position: fixed` overlay is laid out against the page box when paginating,
+ * and Chrome pays for it with an extra, otherwise-empty sheet at the end of
+ * every PDF. That was the phantom 36th slide in `?exportMode=true`.
  */
 body::after {
   content: "";
@@ -175,10 +246,8 @@ body::after {
   line-height: 1.4;
 }
 
-/* Bullets are tighter than prose: the densest markdown slide runs seven items
- * deep and 1.4 put the last one under the slide counter. */
 #root li {
-  line-height: 1.32;
+  line-height: 1.4;
 }
 
 /* Emphasis inside markdown, colored by the current chapter. */
@@ -229,6 +298,25 @@ body::after {
 #root ol > li::marker {
   color: var(--chapter-accent);
   font-weight: 700;
+}
+
+/*
+ * Nested bullets step down a size and change marker.
+ *
+ * A sub-point set at the parent's size, with the parent's marker, reads as a
+ * sibling that has been indented for no reason -- the deck's densest slide runs
+ * four points and three sub-points and looked like seven equal ones. `em` keeps
+ * this tied to `theme.fontSizes.text` rather than introducing a second body
+ * size to keep in sync, and the step is most of what the 7-bullet slide needed
+ * back from the chrome band.
+ */
+#root li ul > li {
+  font-size: 0.82em;
+}
+
+#root li ul > li::before {
+  content: "\2013";
+  opacity: 0.85;
 }
 
 /* --- Title slide --------------------------------------------------------- */
@@ -358,20 +446,13 @@ body::after {
 }
 
 /*
- * Dense cards, for slides carrying four rows or three wide items in a row.
- * A grid sizes itself from its content and cannot know how tall a slide is, so
- * past three rows the default padding runs off the 768px canvas.
+ * Dense cards. Nothing to do with fitting the canvas any more -- `RowsSlide`
+ * gives its grid a definite height and `minmax(0, 1fr)` rows, so the grid
+ * cannot overrun the slide whatever the padding is. This is now only what it
+ * says: less air inside a card that is carrying three items across.
  */
 .card--dense {
-  padding: 10px 16px;
-}
-
-/*
- * RowsSlide cards. Tighter than a bare `.card` because these slides carry an h1
- * title plus three rows, and the deck chrome eats the bottom ~120px of the canvas.
- */
-.card--rows {
-  padding: 16px 20px;
+  padding: 14px 18px;
 }
 
 /* Index and icon share one line, so the title is the only thing with weight. */
@@ -563,7 +644,19 @@ body::after {
 
 /* --- Deck chrome --------------------------------------------------------- */
 
+/*
+ * Fixed height, bottom-aligned contents -- deliberately not content-sized.
+ * The counter is set in Fira Code, so a chrome that measured itself from its
+ * own text would be one height before the webfont lands and another after, and
+ * the reservation every slide makes against `--chrome-h` would be wrong for one
+ * of them. Reserving the band is only sound if the band is a constant.
+ */
 .deck-chrome {
+  box-sizing: border-box;
+  height: var(--chrome-h);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   color: var(--muted);
 }
 
@@ -607,11 +700,14 @@ body::after {
  * from `examples/`, so naming them is information, not decoration.
  */
 /*
- * Height is capped to what is left of the 768px canvas after slide padding, the
- * title, and the deck chrome. The arithmetic, measured: the frame starts at y=153
- * (slide padding + an h3 title + its margin) and the chrome's meta row starts at
- * y=646, so anything taller than ~480 puts the frame on top of the slide counter.
- * It did, and the last line was clipped mid-glyph behind "10 / 35".
+ * No height cap. The frame is a flex item in the slide's content column, and
+ * that column now has a definite height -- the canvas less the chrome band
+ * (`--chrome-h`) less the slide padding -- so the frame shrinks to fit whatever
+ * is left under the title, and `.code-frame pre` scrolls inside it.
+ *
+ * This used to be `max-height: 480px`, arrived at by measuring: frame top at
+ * y=153, counter at y=646. It was correct for exactly one title length and one
+ * heading size.
  */
 .code-frame {
   border: 1px solid var(--hairline);
@@ -619,7 +715,7 @@ body::after {
   overflow: hidden;
   background: #0b1220;
   box-shadow: 0 16px 40px rgba(0, 14, 56, 0.5);
-  max-height: 480px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -801,7 +897,7 @@ body::after {
 }
 
 /* Grain is a screen effect. On paper it is just a dirty plate. */
-.print-mode body::after {
+.paged-mode body::after {
   display: none;
 }
 
@@ -866,6 +962,18 @@ body::after {
  * after this file, so matching specificity loses. `#root` wins it back.
  */
 @media print {
+  /*
+   * The film grain again, this time for the printing path itself.
+   * `.paged-mode` above covers the two paged URLs; this covers everything,
+   * including a plain Ctrl-P of the interactive deck. A `position: fixed`
+   * overlay is sized against the page box during pagination, and Chrome emits
+   * a trailing blank sheet for it -- 36 pages out of a 35-slide deck. It also
+   * rasterizes the noise tile once per page, which is most of a 100MB PDF.
+   */
+  body::after {
+    display: none;
+  }
+
   #root .deck-chrome,
   #root .deck-meta,
   #root .divider__numeral,

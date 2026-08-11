@@ -31,6 +31,23 @@ import { VERDICTS } from "./takeaways.js";
 
 const html = htm.bind(createElement);
 
+/*
+ * ZERO IS AN INDEX, NOT A LENGTH.
+ *
+ * styled-system resolves the space-group props -- `margin`, `padding`, `top`,
+ * `right`, `bottom`, `left` and their per-side forms -- through `theme.space`
+ * whenever the value is a bare number or a bare numeric string. This theme's
+ * `space` starts at 16 (see `theme.js`), so `margin="0"` and `bottom={0}` both
+ * mean SIXTEEN PIXELS, and they mean it silently: the deck renders, nothing
+ * warns, and the layout is just 16px looser than it was written to be.
+ *
+ * It cost the deck real canvas. Every takeaway card carried 32px of margin it
+ * had asked not to have, and the chrome floated 16px off the bottom edge.
+ *
+ * Write `"0px"`. A value with units skips the scale lookup. Any other length
+ * (`"8px 0 0"`, `"12px"`) is already safe -- only a bare `0` / `"0"` is a key.
+ */
+
 const urlParams = new URLSearchParams(window.location.search);
 const prefersReducedMotion = matchMedia(
   "(prefers-reduced-motion: reduce)",
@@ -115,7 +132,13 @@ const MARKDOWN_COMPONENTS = {
 };
 
 /**
- * Shared props for every `MarkdownSlideSet`.
+ * Props for a `MarkdownSlideSet`, given the chapter it sits in.
+ *
+ * A function rather than a constant because of `className`. Spectacle builds a
+ * markdown set's slides internally, so they cannot go through `DeckSlide` and
+ * pick up `.slide` there -- and `.slide` is what reserves the deck chrome's
+ * band. Every class a markdown slide needs is therefore assembled here, in one
+ * place, from the one thing that varies.
  *
  * `componentProps` reaches every mapped component, which is what left-aligns
  * markdown to match the prop-driven slides around it -- Spectacle's `Heading`
@@ -135,11 +158,12 @@ const MARKDOWN_COMPONENTS = {
  *      hand-written slides (those go through `MdNotes` below, which renders
  *      full markdown) -- just never in a markdown slide's `Notes:`.
  */
-export const mdSlideProps = {
+export const mdSlideProps = (chapter) => ({
   ...animateListItems,
   componentProps: { textAlign: "left" },
   componentMap: MARKDOWN_COMPONENTS,
-};
+  className: `slide md ${chapterClass(chapter)}`,
+});
 
 /**
  * Slide-to-slide motion, handed to `Deck`.
@@ -191,7 +215,7 @@ export const Eyebrow = ({
   <${Text}
     className=${`eyebrow ${className}`.trim()}
     fontSize=${fontSize}
-    margin="0"
+    margin="0px"
   >
     ${children}
   </${Text}>
@@ -212,6 +236,17 @@ export const AccentRule = ({ className = "" }) => html`
  * selecting the active slide through its inline `display` style -- both go
  * stale silently, which is worse than neutral furniture. Chapter identity is
  * carried by the content area instead: dividers, rules, emphasis and markers.
+ *
+ * `bottom="0px"`, NOT `bottom={0}`. styled-system resolves `top/right/bottom/
+ * left` through `theme.space`, so a bare `0` is an INDEX -- and `space[0]` is
+ * 16px in this theme. The chrome spent the deck's life floating 16px off the
+ * canvas edge because of it. A string with units skips the scale lookup.
+ *
+ * How much vertical space this band owns is `--chrome-h` in `styles.css`, and
+ * every slide reserves exactly that much. Nothing here may size itself from its
+ * own content: the counter is set in a webfont, so a content-height chrome
+ * moves between first paint and font load, and the reservation would be wrong
+ * for whichever of the two it was not measured against.
  */
 export const Template = ({ slideNumber, numberOfSlides } = {}) => {
   // The title slide carries its own composition; chrome would only crowd it,
@@ -223,7 +258,7 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
     : 0;
 
   return html`
-    <${Box} className="deck-chrome" position="absolute" bottom=${0} width=${1}>
+    <${Box} className="deck-chrome" position="absolute" bottom="0px" width=${1}>
       <${FlexBox}
         className="deck-meta"
         justifyContent="space-between"
@@ -233,7 +268,7 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
         <${FlexBox} alignItems="center">
           <${FullScreen} color=${colors.midnight[30]} size=${20} />
         <//>
-        <${Text} className="deck-meta__count" fontSize="18px" margin="0">
+        <${Text} className="deck-meta__count" fontSize="18px" margin="0px">
           ${String(slideNumber).padStart(2, "0")} / ${String(numberOfSlides).padStart(2, "0")}
         </${Text}>
       <//>
@@ -256,6 +291,28 @@ const MdNotes = ({ notes }) =>
 // Slide components
 
 /**
+ * Every slide in the deck. Use this, never Spectacle's `Slide` directly.
+ *
+ * Its only job is to guarantee the `.slide` class, which is what reserves the
+ * deck chrome's band (`--chrome-h`) inside the slide's own box. A slide that
+ * misses the class lays its content out over the slide counter and looks
+ * completely fine while doing it -- so the class cannot be something a call
+ * site remembers to type.
+ *
+ * `chrome={false}` opts out, for the one slide `Template` draws no chrome on.
+ *
+ * The markdown sets are the exception that cannot go through here: Spectacle
+ * builds their slides internally. They get the class from `mdSlideProps()`.
+ */
+export const DeckSlide = ({ className, chrome = true, children, ...rest }) => {
+  const classes = ["slide", chrome ? null : "slide--full", className]
+    .filter(Boolean)
+    .join(" ");
+
+  return html`<${Slide} className=${classes} ...${rest}>${children}</${Slide}>`;
+};
+
+/**
  * Code slide with a filename bar.
  *
  * The bar is not chrome for its own sake: these snippets are real files under
@@ -270,7 +327,7 @@ export const JsSlide = ({
   chapter,
   language = "javascript",
 }) => html`
-  <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
+  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
     <${SlideHeading} variant="subtitle" fontSize="h3" textAlign="left" margin="0 0 24px">${title}</${SlideHeading}>
     <div className="code-frame">
       ${
@@ -284,7 +341,7 @@ export const JsSlide = ({
       <${CodePane} language=${language} showLineNumbers=${true}>${code}</${CodePane}>
     </div>
     <${MdNotes} notes=${notes} />
-  </${Slide}>
+  </${DeckSlide}>
 `;
 
 /**
@@ -298,7 +355,7 @@ export const TopicSlide = ({ chapter, fontSize = "88px", ...rest }) => {
   const { n, title, background } = chapter;
 
   return html`
-    <${Slide}
+    <${DeckSlide}
       className=${`divider ${chapterClass(n)}`}
       ...${photoBackground(background)}
       ...${rest}
@@ -320,7 +377,7 @@ export const TopicSlide = ({ chapter, fontSize = "88px", ...rest }) => {
         </${SlideHeading}>
         <${AccentRule} />
       <//>
-    </${Slide}>
+    </${DeckSlide}>
   `;
 };
 
@@ -389,23 +446,30 @@ export const RowsSlide = ({
     ...sections.map((section) => Math.max(section.items.length, 1)),
     1,
   );
-  const gridRows = `repeat(${sections.length}, 1fr)`;
+  // `minmax(0, 1fr)`, not `1fr`. A bare `1fr` track is `minmax(auto, 1fr)`, and
+  // that auto floor refuses to shrink below the row's content -- so a long row
+  // pushes the grid past the height it was given and back over the slide's
+  // bottom edge, which is exactly the failure the definite height is here to
+  // prevent.
+  const gridRows = `repeat(${sections.length}, minmax(0, 1fr))`;
   const gridColumns = `repeat(${maxItems + 1}, 1fr)`;
-  const cardClass = dense ? "card card--dense" : "card card--rows";
+  const cardClass = dense ? "card card--dense" : "card";
 
   return html`
-    <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
+    <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
       <${SlideHeading}
         textAlign="left"
-        margin="0"
+        margin="0px"
         fontSize=${dense ? "h3" : "h1"}
       >${title}</${SlideHeading}>
-      <${FlexBox} justifyContent="center" alignItems="center">
+      ${"" /* `flex="1"` + `minHeight="0"` is what makes the `1fr` rows mean something. Without a definite height the grid sizes from its content, the rows are as tall as their text, and the whole block can run past the bottom of the slide -- which is what the `.card--rows` padding used to be compensating for. */}
+      <${FlexBox} justifyContent="center" alignItems="center" flex="1" minHeight="0">
         <${Grid}
           gridTemplateColumns=${gridColumns}
           gridTemplateRows=${gridRows}
           gridGap=${dense ? "10px" : "14px"}
           width="100%"
+          height="100%"
         >
           ${sections.map((section) => {
             const itemCount = Math.max(section.items.length, 1);
@@ -415,7 +479,7 @@ export const RowsSlide = ({
               <${Fragment}>
                 ${"" /* Section label -- spans all items in this section */}
                 <${FlexBox} ...${CARD_PROPS} className=${`${cardClass} card--label`} height="100%">
-                  <${Text} className="card__label" fontSize=${dense ? "24px" : "30px"} margin="0">
+                  <${Text} className="card__label" fontSize=${dense ? "24px" : "30px"} margin="0px">
                     ${section.title}
                   </${Text}>
                 </${FlexBox}>
@@ -428,7 +492,7 @@ export const RowsSlide = ({
 
                   return html`
                     <${FlexBox} key=${i} ...${CARD_PROPS} className=${cardClass}>
-                      <${Text} fontSize=${dense ? "22px" : "28px"} margin="0">
+                      <${Text} fontSize=${dense ? "22px" : "28px"} margin="0px">
                         <${FlexBox} alignItems="center">
                           ${
                             itemIcon
@@ -456,7 +520,7 @@ export const RowsSlide = ({
         </${Grid}>
       </${FlexBox}>
       <${MdNotes} notes=${notes} />
-    </${Slide}>
+    </${DeckSlide}>
   `;
 };
 
@@ -491,7 +555,7 @@ export const TakeawayCard = ({
     >
       <${Box} className="takeaway__badge">${n}<//>
       <${Box} className="takeaway__body">
-        <${Text} className="takeaway__text" fontSize=${compact ? "22px" : "30px"} margin="0">
+        <${Text} className="takeaway__text" fontSize=${compact ? "22px" : "30px"} margin="0px">
           ${text}
         </${Text}>
         ${
@@ -560,7 +624,7 @@ export const TakeawaySlide = ({
   compact = false,
   notes,
 }) => html`
-  <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
+  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
     <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
     <${TakeawayList}
       items=${items}
@@ -569,7 +633,7 @@ export const TakeawaySlide = ({
       compact=${compact}
     />
     <${MdNotes} notes=${notes} />
-  </${Slide}>
+  </${DeckSlide}>
 `;
 
 /**
@@ -626,7 +690,7 @@ export const AudienceCards = ({ audiences = [], action = false }) => html`
  * stays aligned down the slide for free.
  */
 export const MatrixSlide = ({ chapter, title, rows = [], notes }) => html`
-  <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
+  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
     <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
     <${Grid} className="matrix" gridTemplateColumns="auto 1fr">
       ${rows.map(
@@ -646,7 +710,7 @@ export const MatrixSlide = ({ chapter, title, rows = [], notes }) => html`
       )}
     </${Grid}>
     <${MdNotes} notes=${notes} />
-  </${Slide}>
+  </${DeckSlide}>
 `;
 
 /**
@@ -667,7 +731,7 @@ export const DemoSlide = ({
   notes,
   backup,
 }) => html`
-  <${Slide} className=${chapter ? chapterClass(chapter) : ""}>
+  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
     <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
       <${Eyebrow}><${Icon} name="monitor-play" /> ${label}</${Eyebrow}>
       <${SlideHeading} fontSize="h1" textAlign="left" margin="10px 0 0">
@@ -697,5 +761,5 @@ export const DemoSlide = ({
         .filter(Boolean)
         .join("\n\n")}
     />
-  </${Slide}>
+  </${DeckSlide}>
 `;
