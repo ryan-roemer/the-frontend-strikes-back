@@ -288,30 +288,49 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
           width=${1}
         >
           ${
-            "" /* Robot BEFORE fullscreen so it keeps the same x on every slide: fullscreen is the icon that drops off the title slide, and a trailing robot would slide left when it went. */
+            "" /* Fullscreen first, robot second, on EVERY slide including the title.
+                  The controls are not chrome in the decorative sense -- they are the
+                  two things a presenter reaches for, and going fullscreen is the
+                  first of them, which makes slide 1 the slide it is needed on most.
+                  Gating it behind `chrome` alongside the counter and the progress bar
+                  conflated "information about position in the deck", which a title
+                  slide genuinely should not carry, with "controls", which it should.
+                  Rendering unconditionally also means the robot's x needs no
+                  reserved-box trickery to stay put. */
           }
           <${FlexBox} alignItems="center">
+            <${FullScreen} color=${colors.midnight[30]} size=${20} />
             <${ChatToggle} />
-            ${chrome
-              ? html`<${FullScreen} color=${colors.midnight[30]} size=${20} />`
-              : null}
           <//>
-          ${chrome
-            ? html`<${Text}
-                className="deck-meta__count"
-                fontSize="18px"
-                margin="0px"
-              >
-                ${String(slideNumber).padStart(2, "0")} /
-                ${String(numberOfSlides).padStart(2, "0")}
-              </${Text}>`
-            : null}
+          ${
+            "" /* The counter is the tallest thing in this row, so dropping it on the
+                  title slide let the row collapse and lifted the robot 13px. Rendered
+                  with `visibility: hidden` rather than omitted: the box keeps the row
+                  at one height, so the robot holds its y as well as its x. */
+          }
+          <${Text}
+            className=${`deck-meta__count${chrome ? "" : " deck-meta__count--reserved"}`}
+            fontSize="18px"
+            margin="0px"
+            aria-hidden=${chrome ? undefined : true}
+          >
+            ${String(slideNumber).padStart(2, "0")} /
+            ${String(numberOfSlides).padStart(2, "0")}
+          </${Text}>
         <//>
-        ${chrome
-          ? html`<${Box} className="deck-progress" width=${1}>
-              <${Box} className="deck-progress__fill" width=${`${progress}%`} />
-            <//>`
-          : null}
+        ${
+          "" /* Reserved on the title slide, like the counter, and for a reason that is
+                easy to miss: `.deck-chrome` bottom-aligns its contents, so omitting
+                this 3.8px bar let the whole meta row DROP by 3.8px -- the icons sat
+                lower on slide 1 and jumped up on the first navigation. Measured. */
+        }
+        <${Box}
+          className=${`deck-progress${chrome ? "" : " deck-progress--reserved"}`}
+          width=${1}
+          aria-hidden=${chrome ? undefined : true}
+        >
+          <${Box} className="deck-progress__fill" width=${`${progress}%`} />
+        <//>
       <//>
     <//>
   `;

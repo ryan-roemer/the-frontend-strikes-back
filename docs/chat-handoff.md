@@ -8,7 +8,7 @@ This document is the record of that model layer: why it is not the Chrome Prompt
 swap cost and bought, and the measured numbers to re-derive if anything changes.
 
 > **Pre-flight, before any talk.** The model is a 2 GB download. Fetch it on a connection you
-> trust and confirm the status row reads "on disk", then open the panel and ask one question.
+> trust and confirm the header bar reads "on disk", then open the panel and ask one question.
 > See [§7](#7-pre-flight).
 
 ---
@@ -286,9 +286,9 @@ constrained decoding costs prompt work, not just validation.
 
 Do this before a talk, on the machine you will present from:
 
-1. **Download the model** from the panel's status row, on a connection you trust. ~46s on a fast
+1. **Download the model** from the state icon in the panel's header bar, on a connection you trust. ~46s on a fast
    link; assume much longer on venue wifi.
-2. **Confirm "on disk"** in the status row, and open the info modal to check the GPU row.
+2. **Confirm "on disk"** on that icon, and open the info modal to check the GPU row.
 3. **Ask one question**, and press stop mid-answer once.
 4. **If you are presenting from something other than Chrome**, do all of the above there. Safari
    26 and Firefox 145+ are coded for and unverified. If GPU_ARTISAN does not run on Firefox, that
@@ -301,7 +301,7 @@ Do this before a talk, on the machine you will present from:
 
 ## 8. Measured numbers
 
-Chrome 151, macOS, Apple GPU (metal-3, `shader-f16`), `maxNumTokens: 4096`.
+Chrome 151, macOS, Apple GPU (metal-3, `shader-f16`), `maxNumTokens: 8192`.
 
 | Quantity                              | Value                              |
 | ------------------------------------- | ---------------------------------- |
@@ -320,11 +320,68 @@ Chrome 151, macOS, Apple GPU (metal-3, `shader-f16`), `maxNumTokens: 4096`.
 | `busy` cleared after pressing stop    | 11ms                               |
 | System prompt                         | ~660 tokens                        |
 | Per-turn retrieval + question         | ~330 tokens                        |
-| First turn's context                  | ~990 of 4,096 tokens (24%)         |
+| First turn's prefill                  | ~840 of 8,192 tokens (~14%)        |
+| Turns before the context meter warns  | ~20                                |
 
-`maxNumTokens` is a **KV-cache budget we choose**, not a model ceiling — Gemma 4 does 32k. 4096
-is sized against measured demand; the cache costs GPU memory on top of ~1.8 GB of weights. Raise
-it if a machine has headroom, drop it to 2048 if one OOMs.
+### The context window, and why 8,192
+
+Four "limits" are in play and they disagree:
+
+| Source                                                           | Says   | Enforced?                |
+| ---------------------------------------------------------------- | ------ | ------------------------ |
+| Architecture (`google/gemma-4-E2B-it` `max_position_embeddings`) | 128k   | yes, by the model        |
+| `litert-community` model card, in prose                          | 32k    | **no**                   |
+| The `.litertlm` file's `LlmMetadata.max_num_tokens`              | absent | nothing to enforce       |
+| LiteRT-LM's own default when unset                               | 4,096  | only if you pass nothing |
+
+The file declaring nothing is the load-bearing part: there is no cap to hit and no way to query
+one — [LiteRT-LM #2865](https://github.com/google-ai-edge/LiteRT-LM/issues/2865) is open precisely
+because a package's real capacity is not exposed. Whatever we pass is what we get, confirmed by
+reading `engine.settings.mainExecutorSettings.maxNumTokens` back at runtime.
+
+So the number came from measurement, with a deck-realistic prompt (~840 tokens of preface plus a
+question) on an Apple GPU:
+
+| `maxNumTokens` | create | avg ttft | prefill  | decode |
+| -------------- | ------ | -------- | -------- | ------ |
+| 4,096          | 1154ms | 88ms     | 1577 tps | 72 tps |
+| **8,192**      | 1017ms | 86ms     | 1608 tps | 71 tps |
+| 16,384         | 1016ms | 83ms     | 1630 tps | 70 tps |
+| 32,768         | 1000ms | 93ms     | 1438 tps | 66 tps |
+| 65,536         | 1002ms | 108ms    | 1167 tps | 60 tps |
+| 131,072        | 1033ms | 865ms    | 37 tps   | 59 tps |
+
+**Every value loads, 128k included, and engine creation is flat** — the KV cache is cheap for this
+model because it is multi-query (one KV head) and shares KV across 20 of its 35 layers, leaving
+only three unshared global layers to scale with the window. The cost is **decode throughput**,
+which is the number a presenter actually feels, not the GPU memory you would expect.
+
+#### It also changes the answers, which is worth knowing before tuning it
+
+At `temperature: 0` the same prompt should give the same answer whatever was allocated. It does
+not. Measured with two independent runs at 4,096 as a drift control:
+
+- The two 4,096 runs agreed with each other **6/6**, so the method is sound and differences are
+  real rather than run-to-run noise.
+- **8,192 and 16,384 are byte-identical** — same answers, same token counts, same totals. There is
+  nothing to choose between them.
+- 4,096 differs from both, consistently. Across 13 questions on a fresh conversation each, 12
+  answers differed — but as _paraphrases_, with near-identical total output (2365 vs 2368 chars)
+  and correct refusals for off-deck questions on both. Neither is better.
+
+So there is a threshold somewhere between 4k and 8k where the numerics shift the greedy-decode
+path, and above 8k it stops mattering. **Conversation depth does not matter either**: the same
+question at turns 1, 7, 12, 17 and 22 returns a byte-identical answer, matching a fresh
+conversation, so history piling up does not degrade anything.
+
+8,192 is the choice, and NOT for per-turn quality — it is identical to anything larger. It is that
+a window the conversation can actually fill keeps the context underline meaningful. At 16k the
+meter reads ~5% all night and the broom never looks necessary; at 8k a first turn shows ~14% and
+the gauge means something. Do not raise it to buy headroom.
+
+Drop it to 4,096 if a device OOMs during load. If you do change it, watch decode throughput rather
+than load time, and re-run the drift control before believing any quality difference you think you
+see.
 
 **Note that `getTokenCount()` reads 0 on a fresh conversation.** The preface prefills lazily, so
 0 is honest — nothing has been spent yet.
@@ -362,7 +419,7 @@ dashes; a fenced reply with a preamble and a trailing sentence parsed; braces in
 value handled; missing required fields named.
 
 **The deck, unharmed.** All 35 slides swept both directions with the panel open: zero console
-errors, the robot never moving (`x: 42` on every slide), exactly one chat root and one panel, no
+errors, the robot never moving (one `x` for all 35 slides, title slide included), exactly one chat root and one panel, no
 stray patch stylesheet. `padding-bottom` reservation intact — one `slide--full` at 0px, 34 others
 at 122px. Export and print mode mount no chat: 35 toggle _elements_ exist because `Template`
 renders one per slide and export renders every slide, but **zero are visible and zero have a

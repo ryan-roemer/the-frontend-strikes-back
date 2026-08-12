@@ -31,11 +31,13 @@
  */
 .chat-toggle {
   pointer-events: auto;
-  /* Gap to the fullscreen button that follows it. Spectacle's FlexBox resolves
-   * its props through styled-system's flexbox group, which has no `gap`, so the
-   * spacing has to come from CSS -- and living on the robot rather than on the
-   * group keeps it here, in the deletable file. */
-  margin-right: 8px;
+  /* Gap to the fullscreen button that PRECEDES it. Spectacle's FlexBox resolves its
+   * props through styled-system's flexbox group, which has no `gap`, so the spacing
+   * has to come from CSS -- and living on the robot rather than on the group keeps
+   * it here, in the deletable file. It is `margin-left` for the same reason: the
+   * robot now comes second, and putting the gap on Spectacle's own button would
+   * leave a stray 8px behind if the chat were ever removed. */
+  margin-left: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -99,6 +101,9 @@
 }
 
 .chat-panel__bar {
+  /* The positioning context for the context-usage underline, which spans the whole
+   * bar rather than sitting in its flow. */
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -117,18 +122,19 @@
   cursor: grabbing;
 }
 
-.chat-panel__slide {
-  margin-left: auto;
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  color: var(--muted, #97a1b8);
-}
-
+/*
+ * The controls sit hard right.
+ *
+ * `margin-left: auto` used to live on a slide counter between the title and these,
+ * which is what pushed them over. Both the title text and the counter are gone --
+ * the window is unmistakably the assistant's without a label, and the deck's own
+ * chrome already shows the slide number -- so the reservation moves here.
+ */
 .chat-panel__actions {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  margin-left: auto;
 }
 
 .chat-panel__title {
@@ -160,23 +166,16 @@
   padding: 12px;
 }
 
-/* --- Model status row ---------------------------------------------------- */
+/* --- Model controls, inline in the header bar ----------------------------- */
 
-.chat-model {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
-}
-
-.chat-model__icons {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
+/*
+ * These used to be a bar of their own below the header, with its own padding, its own
+ * hairline border and its own collapse control. That is a whole strip of vertical
+ * space -- in a floating panel where the transcript is the point -- spent on three
+ * icons and a meter. They are now rendered straight into `.chat-panel__actions`, so
+ * there is no wrapper element and no `.chat-model` rule left: spacing comes from the
+ * action group's `gap`, and alignment from its `align-items`.
+ */
 
 .chat-model__state--ok {
   color: var(--chapter-accent, #78eec5);
@@ -212,33 +211,32 @@
   }
 }
 
-/*
- * The trash slot always occupies its space.
- *
- * Straight from joyce: a row whose icons appear and disappear shifts sideways
- * every time the state changes, and the eye reads that as a different control
- * rather than the same one. `visibility` rather than `display` so the box stays.
- */
-.chat-model__trash--placeholder {
-  visibility: hidden;
-}
-
 .chat-model__progress {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 12px;
   color: var(--chapter-accent, #78eec5);
 }
 
+/*
+ * Context usage, as an underline on the whole header bar.
+ *
+ * It was a 120px gauge competing for width in the old row. As an underline it reads
+ * the same information -- a bar filling left to right -- while costing no horizontal
+ * space at all, and it sits ON the hairline the header already draws so it adds no
+ * height either. `bottom: -1px` puts it over that 1px border rather than above it.
+ *
+ * `pointer-events: none` because the bar is the drag handle: an element lying across
+ * its full width would otherwise swallow the start of every drag.
+ */
 .chat-model__meter {
-  position: relative;
-  flex: 1;
-  min-width: 40px;
-  max-width: 120px;
-  height: 4px;
-  margin-left: auto;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: transparent;
   overflow: hidden;
+  pointer-events: none;
 }
 
 .chat-model__meter-fill {

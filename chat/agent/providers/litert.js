@@ -52,15 +52,57 @@ export const MODEL_URL = `https://huggingface.co/${MODEL.repo}/resolve/main/${MO
 export const MODEL_BYTES = 2008432640;
 
 /**
- * The KV-cache budget, NOT a model ceiling -- Gemma 4 itself does 32k.
+ * The context window we ask for, in tokens.
  *
- * This is a memory/context trade: the cache costs GPU memory on top of ~1.8 GB of weights.
- * 4096 is chosen against measured demand, not copied from the vendor example: the system
- * prompt is ~660 tokens and a turn adds ~160, so a long conversation fits with room to
- * spare, and the other 4096 tokens' worth of GPU memory buys nothing. Raise it if a device
- * has headroom to burn; the context meter is what tells you whether it is needed.
+ * There are four different "limits" in play here and they disagree, so all four are worth
+ * writing down:
+ *
+ *   1. The ARCHITECTURE does 128k. `google/gemma-4-E2B-it`'s config.json says
+ *      `max_position_embeddings: 131072`, with a 512-token sliding window.
+ *   2. The LITERT PACKAGING claims 32k -- but only in prose, in the
+ *      `litert-community/gemma-4-E2B-it-litert-lm` model card. Nothing enforces it.
+ *   3. The `.litertlm` FILE declares nothing. `LlmMetadata` has a `max_num_tokens` field
+ *      for exactly this purpose and it is absent from this build, which is why LiteRT-LM
+ *      has an open issue about being unable to report a model's real capacity. So there
+ *      is no cap to hit and no way to query one -- whatever we pass is what we get.
+ *   4. The RUNTIME DEFAULT, when this is left unset, is 4096.
+ *
+ * So the number has to come from measurement, and it did. Sweeping a deck-realistic
+ * prompt (~840 tokens of preface plus a question) across candidates on an Apple GPU:
+ *
+ *     maxNumTokens    create    avg ttft    prefill    decode
+ *          4,096      1154ms        88ms   1577 tps    72 tps
+ *          8,192      1017ms        86ms   1608 tps    71 tps
+ *         16,384      1016ms        83ms   1630 tps    70 tps
+ *         32,768      1000ms        93ms   1438 tps    66 tps
+ *         65,536      1002ms       108ms   1167 tps    60 tps
+ *        131,072      1033ms       865ms     37 tps    59 tps
+ *
+ * Every one of them loads -- 128k included -- and engine creation is flat, because the KV
+ * cache is cheap for this model: it is multi-query (one KV head) and shares KV across 20
+ * of its 35 layers, leaving only three unshared global layers to scale with the window.
+ * What it costs instead is DECODE THROUGHPUT, and that is the number a presenter feels.
+ *
+ * It also changes the ANSWERS, which is not obvious and is worth knowing before tuning
+ * this. At `temperature: 0` the same prompt gives byte-identical output at 8,192 and at
+ * 16,384 -- but 4,096 differs, consistently and reproducibly (two independent runs at
+ * 4,096 agreed with each other 6/6 and disagreed with both larger values). So the window
+ * is not a neutral allocation, and there is a threshold somewhere between 4k and 8k.
+ * Above 8k it stops mattering. The 4,096 answers are not WORSE, though -- across 13
+ * questions they were paraphrases, with near-identical total output and correct refusals
+ * either way.
+ *
+ * So 8,192 is chosen on a UX argument, not a quality one: a window the conversation can
+ * actually fill keeps the context underline meaningful. At 16k the meter reads ~5% all
+ * night and the broom never looks necessary; at 8k a first turn shows ~14%.
+ *
+ * NOTE, because it is the obvious thing to assume and it is FALSE: a long conversation
+ * does not degrade. The same question asked at turns 1, 7, 12, 17 and 22 returns a
+ * byte-identical answer, matching a fresh conversation. History piling up costs context
+ * space, and nothing else. So do not raise this hoping to fix a session that has gone
+ * soft, and do not lower it hoping to prevent one.
  */
-export const MAX_NUM_TOKENS = 4096;
+export const MAX_NUM_TOKENS = 8192;
 
 /** Bound on tearing down an abandoned stream, so a wedged teardown cannot block the queue. */
 const TEARDOWN_MS = 3000;

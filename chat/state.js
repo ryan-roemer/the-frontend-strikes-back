@@ -1,7 +1,7 @@
-/* global localStorage:false */
+/* global localStorage:false, location:false, URLSearchParams:false */
 
 /**
- * Whether the chat is on, and the fact that the answer survives a reload.
+ * Whether the chat is on.
  *
  * One boolean does two jobs, deliberately. "Enabled" and "panel visible" are the
  * same state: the panel is HIDDEN when disabled, never unmounted, so a
@@ -9,42 +9,57 @@
  * the whole reason the panel lives on its own root -- an unmount would take the
  * transcript with it.
  *
- * Persisting it also drives a model PROBE at mount -- but deliberately not a
- * preload. Under the Prompt API this flag warmed a session, because that session
- * was the OS's and cost only time. A LiteRT engine is ~2 GB of GPU memory, and
- * claiming it during page load races Spectacle's slide portal for no good reason:
- * the engine loads from a warm cache in ~1.2s, so the first question pays almost
- * nothing for waiting. See `warmUp()` in `agent/model-state.js`.
+ * CLOSED ON LOAD, ALWAYS. This deck is a talk first and an assistant second: the
+ * audience should see slides, and a floating window over slide 1 is the wrong
+ * first impression. The robot in the deck chrome is how it opens.
  *
- * Storage is best-effort. A deck presented from a locked-down profile (or with
- * storage disabled) still works; it just forgets the flag between reloads, which
- * is a far better failure than a deck that throws on load.
+ * That is why the flag is no longer PERSISTED across reloads either. It used to be,
+ * to save a click -- but a panel that reappears by itself after a refresh is a panel
+ * you have to remember to close before presenting, and forgetting costs you the
+ * opening slide in front of an audience. Toggling still works within a session; a
+ * reload is a clean slate.
+ *
+ * `?chat` (or `?chat=true`) opens it on load, for rehearsing the assistant itself
+ * without clicking every time.
  */
 
-const KEY = "chat:enabled";
+/** Retained only to clear a value written by an older build. */
+const LEGACY_KEY = "chat:enabled";
 
 const listeners = new Set();
 
-const read = () => {
+/**
+ * The URL is the only thing that can open the panel before a click.
+ *
+ * Accepts a bare `?chat` as well as `?chat=true`, because a flag you have to
+ * remember the value of is a flag you will get wrong at the podium.
+ */
+const fromUrl = () => {
   try {
-    return localStorage.getItem(KEY) === "true";
+    const params = new URLSearchParams(location.search);
+    if (!params.has("chat")) return false;
+    const value = params.get("chat");
+    return value === null || value === "" || value === "true" || value === "1";
   } catch {
     return false;
   }
 };
 
-let enabled = read();
+// Drop the persisted flag, so a profile that presented with the chat open once does
+// not keep reopening it. Best-effort: storage may be unavailable entirely.
+try {
+  localStorage.removeItem(LEGACY_KEY);
+} catch {
+  // Nothing to clean up, or no storage. Either way the default below is closed.
+}
+
+let enabled = fromUrl();
 
 export const isEnabled = () => enabled;
 
 export const setEnabled = (next) => {
   if (next === enabled) return;
   enabled = next;
-  try {
-    localStorage.setItem(KEY, String(next));
-  } catch {
-    // Non-fatal: the flag is a convenience, not state anything depends on.
-  }
   for (const fn of listeners) fn(enabled);
 };
 

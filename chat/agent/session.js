@@ -85,12 +85,12 @@ export const streamAnswer = async ({ text, onChunk, signal }) => {
     // DOWNLOADABLE must NOT be treated as "just load it", even though its state
     // meta says the button would. A keystroke is a valid user activation, but this
     // particular action is a 2 GB fetch, and the composer is reachable long before a
-    // presenter has looked at the status row. Starting that silently, from typing,
+    // presenter has looked at the header bar. Starting that silently, from typing,
     // is the single rudest thing this module could do.
     if (status === STATES.DOWNLOADABLE) {
       throw new Error(
         `The model isn't downloaded yet (${modelSize()}). Use the download button ` +
-          "in the panel footer when you're on a connection you trust.",
+          "in the panel header when you're on a connection you trust.",
       );
     }
 

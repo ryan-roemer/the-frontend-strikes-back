@@ -666,6 +666,39 @@ body::after {
   font-family: var(--mono);
 }
 
+/*
+ * Optically align the fullscreen icon with the robot beside it.
+ *
+ * Spectacle renders its fullscreen control as an `<svg>` left at `display: inline`,
+ * so the wrapper is taller than the icon by the font's descender -- 23.7px around a
+ * 19px glyph, measured -- and centring the WRAPPER therefore lifts the ICON about
+ * 2.4px above true centre. The robot next to it is a flex-centred button with no
+ * such gap, so the two read as misaligned even though both boxes centre perfectly.
+ *
+ * `display: block` drops the baseline, and the wrapper collapses to the icon.
+ */
+.spectacle-fullscreen-button svg {
+  display: block;
+}
+
+/*
+ * Position information, reserved but not shown, on the title slide.
+ *
+ * The deliberate decision is unchanged -- a counter and a progress bar reading 1-of-N
+ * are a stub rather than information, so the title slide does not display them. What
+ * changed is that they now keep their BOXES, because `.deck-chrome` bottom-aligns its
+ * contents and every one of these elements that vanished moved the two controls beside
+ * them. `visibility` rather than `display` is the whole point.
+ *
+ * Note the split this draws: position readouts are hidden here, CONTROLS are not. The
+ * fullscreen button and the robot render on every slide, because they are what a
+ * presenter reaches for and slide 1 is where fullscreen is needed most.
+ */
+.deck-meta__count--reserved,
+.deck-progress--reserved {
+  visibility: hidden;
+}
+
 #root .deck-meta__count {
   font-family: var(--mono);
   letter-spacing: 0.12em;

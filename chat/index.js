@@ -66,18 +66,16 @@ export const mountChat = () => {
   // one MutationObserver on the slide portal, childList only.
   startWatchdog();
 
-  // The persisted flag's payoff.
+  // Only when the panel is open on load, which now means only under `?chat` -- the
+  // panel is closed by default and no longer remembers being open. So on a normal
+  // deck load the model is not touched at all: no GPU probe, no Cache API lookup,
+  // nothing. The panel runs its own check the first time it is opened.
   //
-  // Enabled last time means the deck loads with a session already created, so the
-  // first question streams instead of waiting on setup. `warmUp()` stops short of
-  // starting a DOWNLOAD, which needs a user gesture -- so on a machine without the
-  // model this is a cheap availability check and nothing more.
+  // `warmUp()` stops at ON_DISK and never builds the engine, so even here this is a
+  // probe rather than a load -- see the comment on `warmUp()` for why claiming ~2 GB
+  // of GPU memory during page load is a bad trade.
   //
-  // Disabled means the model is not touched at all -- no session, and not even an
-  // `availability()` call. The panel runs that itself when it is first opened, so
-  // there is nothing to gain from asking now.
-  //
-  // Not awaited either way: the deck is already interactive and must not wait.
+  // Not awaited: the deck is already interactive and must not wait on this.
   if (isEnabled()) warmUp();
 
   return () => {

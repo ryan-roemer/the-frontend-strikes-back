@@ -1,4 +1,10 @@
-import { createElement, useCallback, useEffect, useState } from "react";
+import {
+  Fragment,
+  createElement,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import htm from "htm";
 import {
   STATES,
@@ -167,26 +173,34 @@ const InfoModal = ({ onClose }) => {
 /**
  * The model's state as icons, after joyce's `LoadingButton`.
  *
- * Three slots, always in the same order and always the same width:
+ * A FRAGMENT, not a row. These used to live in a second bar under the panel header,
+ * which cost a whole strip of vertical space to say something that is three icons
+ * wide -- so they are now rendered straight into the header's action group, and the
+ * bar they used to occupy is gone. Nothing here may assume it owns a container:
+ * spacing and alignment belong to the group it is dropped into.
  *
- *   1. STATUS  -- the state icon. Clicking it means whatever the current state
- *                 says it means (download / load / unload / retry), which is the
+ * Four slots, always in the same order and always the same width:
+ *
+ *   1. PERCENT -- download progress, and the only thing here that comes and goes.
+ *   2. STATUS  -- the state icon. Clicking it means whatever the current state says
+ *                 it means (download / load / unload / cancel / retry), which is the
  *                 pattern's whole trick: one control, no modes to explain.
- *   2. TRASH   -- discard the session AND the transcript. Distinct from the
- *                 header's broom, which recreates a session so you can keep
- *                 talking; this one tears down to nothing.
- *   3. INFO    -- what is knowable about the model.
+ *   3. TRASH   -- discard the session AND the transcript. Distinct from the header's
+ *                 broom, which recreates a conversation so you can keep talking;
+ *                 this one tears down to nothing.
+ *   4. INFO    -- what is knowable about the model.
  *
  * The trash slot is RESERVED even when there is nothing to discard -- a hidden
- * placeholder holds the width, exactly as joyce does it, so the row doesn't
- * shuffle sideways every time the state changes.
+ * placeholder holds the width, exactly as joyce does it, so the group doesn't shuffle
+ * sideways every time the state changes. That matters more now than it did in a bar
+ * of its own: these icons sit next to the close button, and a row that shifts under
+ * the cursor is a row you misclick.
  */
-export const ModelStatus = ({ onDiscardConversation }) => {
+export const ModelControls = ({ onDiscardConversation }) => {
   const state = useModelState();
   const [showInfo, setShowInfo] = useState(false);
   const meta = STATE_META[state.status] ?? STATE_META[STATES.UNSUPPORTED];
 
-  const context = contextInfo();
   const percent =
     state.progress != null ? Math.round(state.progress * 100) : null;
 
@@ -215,54 +229,13 @@ export const ModelStatus = ({ onDiscardConversation }) => {
     .join(" ");
 
   return html`
-    <div className="chat-model">
-      <div className="chat-model__icons">
-        ${meta.action
-          ? html`<button
-              type="button"
-              className=${`chat-icon-button chat-model__state chat-model__state--${meta.tone}`}
-              onClick=${onPrimary}
-              title=${statusLabel}
-              aria-label=${statusLabel}
-            >
-              <i className=${`ph-fill ${meta.icon}`} aria-hidden="true"></i>
-            </button>`
-          : html`<span
-              className=${`chat-icon-button chat-model__state chat-model__state--${meta.tone}`}
-              title=${statusLabel}
-              aria-label=${statusLabel}
-              role="img"
-            >
-              <i className=${`ph-fill ${meta.icon}`} aria-hidden="true"></i>
-            </span>`}
-        ${canDiscard
-          ? html`<button
-              type="button"
-              className="chat-icon-button chat-model__trash"
-              onClick=${discard}
-              title="Discard session and conversation"
-              aria-label="Discard session and conversation"
-            >
-              <i className="ph ph-trash" aria-hidden="true"></i>
-            </button>`
-          : html`<span
-              className="chat-icon-button chat-model__trash chat-model__trash--placeholder"
-              aria-hidden="true"
-            >
-              <i className="ph ph-trash"></i>
-            </span>`}
-        <button
-          type="button"
-          className="chat-icon-button"
-          onClick=${() => setShowInfo((open) => !open)}
-          title="Model info"
-          aria-label="Model info"
-          aria-expanded=${showInfo}
-        >
-          <i className="ph ph-info" aria-hidden="true"></i>
-        </button>
-      </div>
-
+    <${Fragment}>
+      ${
+        "" /* Percent leads the group, so the one transient readout appears at the
+              boundary between the panel's controls and the model's. It only exists
+              while downloading, and the icons after it do not move when it goes --
+              they are already right-aligned as a block. */
+      }
       ${percent != null
         ? html`<span
             className="chat-model__progress"
@@ -270,30 +243,93 @@ export const ModelStatus = ({ onDiscardConversation }) => {
             >${percent}%</span
           >`
         : null}
-      ${
-        "" /* Context meter. Amber at 75, red at 90 -- the point where the broom
-              in the header stops being optional. */
-      }
-      ${context
-        ? html`<span
-            className=${`chat-model__meter${
-              context.pct >= 90
-                ? " chat-model__meter--critical"
-                : context.pct >= 75
-                  ? " chat-model__meter--warn"
-                  : ""
-            }`}
-            title=${`Context: ${context.used.toLocaleString()} of ${context.total.toLocaleString()} tokens`}
+      ${meta.action
+        ? html`<button
+            type="button"
+            className=${`chat-icon-button chat-model__state chat-model__state--${meta.tone}`}
+            onClick=${onPrimary}
+            title=${statusLabel}
+            aria-label=${statusLabel}
           >
-            <span
-              className="chat-model__meter-fill"
-              style=${{ width: `${Math.min(100, context.pct)}%` }}
-            ></span>
-          </span>`
+            <i className=${`ph-fill ${meta.icon}`} aria-hidden="true"></i>
+          </button>`
+        : html`<span
+            className=${`chat-icon-button chat-model__state chat-model__state--${meta.tone}`}
+            title=${statusLabel}
+            aria-label=${statusLabel}
+            role="img"
+          >
+            <i className=${`ph-fill ${meta.icon}`} aria-hidden="true"></i>
+          </span>`}
+      ${
+        "" /* Rendered only when there is something to discard, with NO reserved slot.
+              joyce holds the box open so a row of icons never shifts, and that was
+              right while these lived in a bar of their own -- but inline in a
+              right-aligned group it reads as a broken icon: a 26px hole between the
+              state and info icons, which is exactly what it looks like. The shift it
+              was preventing costs nothing here, because the group is anchored on its
+              RIGHT edge: close, recentre and the broom hold their positions whatever
+              happens, and only the state icon slides. */
+      }
+      ${canDiscard
+        ? html`<button
+            type="button"
+            className="chat-icon-button chat-model__trash"
+            onClick=${discard}
+            title="Discard session and conversation"
+            aria-label="Discard session and conversation"
+          >
+            <i className="ph ph-trash" aria-hidden="true"></i>
+          </button>`
         : null}
+      <button
+        type="button"
+        className="chat-icon-button"
+        onClick=${() => setShowInfo((open) => !open)}
+        title="Model info"
+        aria-label="Model info"
+        aria-expanded=${showInfo}
+      >
+        <i className="ph ph-info" aria-hidden="true"></i>
+      </button>
       ${showInfo
         ? html`<${InfoModal} onClose=${() => setShowInfo(false)} />`
         : null}
-    </div>
+    <//>
   `;
+};
+
+/**
+ * Context usage, as an underline along the whole bar.
+ *
+ * Separate from the controls because it is not a control and does not belong in their
+ * flow: it spans the bar rather than occupying a slot in it, so it is positioned
+ * against the bar itself. Amber at 75, red at 90 -- the point where the broom stops
+ * being optional.
+ *
+ * Renders nothing without a session, so the bar simply has no underline until there
+ * is a context to report. That is honest rather than an empty gauge.
+ */
+export const ContextUnderline = () => {
+  // Subscribed for the side effect: `contextInfo()` is a plain read, and the revision
+  // bump on `touch()` is what makes it re-run after a turn.
+  useModelState();
+  const context = contextInfo();
+  if (!context) return null;
+
+  return html`<span
+    className=${`chat-model__meter${
+      context.pct >= 90
+        ? " chat-model__meter--critical"
+        : context.pct >= 75
+          ? " chat-model__meter--warn"
+          : ""
+    }`}
+    title=${`Context: ${context.used.toLocaleString()} of ${context.total.toLocaleString()} tokens (${context.pct}%)`}
+  >
+    <span
+      className="chat-model__meter-fill"
+      style=${{ width: `${Math.min(100, context.pct)}%` }}
+    ></span>
+  </span>`;
 };

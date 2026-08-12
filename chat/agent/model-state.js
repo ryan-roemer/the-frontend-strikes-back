@@ -452,7 +452,7 @@ export const cancelDownload = () => {
  *
  * The engine deliberately stays resident. It is ~2 GB of GPU memory, so freeing it looks
  * like the tidy thing to do -- but the buttons that come here are the header's broom and the
- * status row's trash, both of which exist to be pressed MID-TALK. Reloading 2 GB onto the
+ * header bar's trash, both of which exist to be pressed MID-TALK. Reloading 2 GB onto the
  * GPU from a button whose whole purpose is to let you carry on talking would make both
  * useless. Freeing the conversation is what actually matters anyway: that is where the
  * context window lives.

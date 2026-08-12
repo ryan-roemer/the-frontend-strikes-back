@@ -5,21 +5,24 @@ import { getSnapshot } from "../bus.js";
 /**
  * What the model is told.
  *
- * Budgeted against `MAX_NUM_TOKENS` in `providers/litert.js` -- 4,096, which is the
- * KV-cache budget we ask LiteRT for rather than a model ceiling (Gemma 4 itself does
- * 32k). Measured against a live session:
+ * Budgeted against `MAX_NUM_TOKENS` in `providers/litert.js` -- 8,192, which is the
+ * context window we ASK LiteRT for rather than any limit the model imposes. Measured
+ * against a live session:
  *
  *   system prompt   ~660 tokens, once  -- identity, deck facts, slide outline
  *   per turn        ~330 tokens        -- retrieved slides + the question
  *
- * so a first turn lands around 990 tokens, about a quarter of the window, and a long
- * conversation still has room. The context meter in the status row is the thing to
- * watch; the broom in the header is the answer when it goes amber.
+ * so a first turn prefills ~840 tokens and lands the meter around 14%, with roughly
+ * twenty turns before the broom is worth reaching for. The context underline on the
+ * header bar is the thing to watch; the broom next to it is the answer when it goes
+ * amber.
  *
  * An earlier version of this comment budgeted against a measured 9,216-token Prompt
- * API window and guessed ~900/~500. Both numbers are superseded, and the window is
- * now ours to choose rather than the browser's to impose -- raise `MAX_NUM_TOKENS` if
- * a machine has GPU memory to spare.
+ * API window and guessed ~900/~500. Both are superseded, and the window is now ours
+ * to choose rather than the browser's to impose -- see `MAX_NUM_TOKENS` for what the
+ * sweep found, including the part that is counter-intuitive: a bigger window costs
+ * decode throughput rather than the memory you would expect, and it changes the
+ * answers.
  *
  * The rules are written as short imperatives because a 2B model follows those and
  * ignores prose. "Say you don't know" is first because the failure that matters here

@@ -1,7 +1,6 @@
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import htm from "htm";
 import { setEnabled } from "../state.js";
-import { useDeck } from "../use-deck.js";
 import { useConversation } from "../use-conversation.js";
 import {
   STATES,
@@ -14,7 +13,7 @@ import { respond } from "../agent/plan.js";
 import { usePanelGeometry } from "./geometry.js";
 import { Transcript } from "./transcript.js";
 import { Composer } from "./composer.js";
-import { ModelStatus } from "./model-status.js";
+import { ContextUnderline, ModelControls } from "./model-status.js";
 import { Unavailable } from "./unavailable.js";
 import {
   reset as resetEdits,
@@ -29,7 +28,7 @@ const EmptyState = () => html`
   <div className="chat-empty">
     <p>Ask about this deck, or tell me what to change.</p>
     <ul>
-      <li>“What are the six takeaways?”</li>
+      <li>“Give me the short version of this talk.”</li>
       <li>“Make this heading bigger.”</li>
       <li>“Go to the WebMCP chapter.”</li>
     </ul>
@@ -58,7 +57,6 @@ const useEdits = () => {
  * and reopened.
  */
 export const Panel = ({ enabled }) => {
-  const deck = useDeck();
   const model = useModelState();
   const edits = useEdits();
   const panelRef = useRef(null);
@@ -108,12 +106,6 @@ export const Panel = ({ enabled }) => {
   const dead =
     model.status === STATES.UNSUPPORTED || model.status === STATES.UNAVAILABLE;
 
-  const position = deck.activeView
-    ? `${String(deck.activeView.slideIndex + 1).padStart(2, "0")} / ${String(
-        deck.slideCount,
-      ).padStart(2, "0")}`
-    : "--";
-
   return html`
     <section
       ref=${panelRef}
@@ -123,14 +115,21 @@ export const Panel = ({ enabled }) => {
       aria-label="Deck assistant"
     >
       <header className="chat-panel__bar" ...${dragHandlers}>
+        ${
+          "" /* Icon only. The window is unmistakably the assistant's, and the bar is
+                narrow enough that a title was crowding the controls that matter. */
+        }
         <span className="chat-panel__title">
           <i className="ph-fill ph-robot" aria-hidden="true"></i>
-          Deck assistant
-        </span>
-        <span className="chat-panel__slide" title="Current slide">
-          ${position}${deck.ready ? "" : " ·offline"}
         </span>
         <span className="chat-panel__actions">
+          ${
+            "" /* The model's own controls, inline. Percent, state, trash, info --
+                  see `ModelControls`. They lead the group so the panel's controls
+                  (undo, revert, broom, recentre, close) stay in the same order and
+                  the same place they have always been, hard right. */
+          }
+          <${ModelControls} onDiscardConversation=${clear} />
           ${edits.canUndo
             ? html`<button
                 type="button"
@@ -184,9 +183,13 @@ export const Panel = ({ enabled }) => {
             <i className="ph ph-x" aria-hidden="true"></i>
           </button>
         </span>
+        ${
+          "" /* Context usage, underlining the whole bar. Positioned against the bar
+                rather than placed in the flow, so it reads as a property of the
+                header instead of another control competing for width. */
+        }
+        <${ContextUnderline} />
       </header>
-
-      <${ModelStatus} onDiscardConversation=${clear} />
 
       ${dead
         ? html`<${Unavailable} status=${model.status} error=${model.error} />`
