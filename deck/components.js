@@ -28,6 +28,8 @@ import { themes } from "prism-react-renderer";
 import { colors, photoBackground } from "./theme.js";
 import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
+import { DeckBridge } from "../chat/bridge.js";
+import { ChatToggle } from "../chat/toggle.js";
 
 const html = htm.bind(createElement);
 
@@ -249,31 +251,67 @@ export const AccentRule = ({ className = "" }) => html`
  * for whichever of the two it was not measured against.
  */
 export const Template = ({ slideNumber, numberOfSlides } = {}) => {
-  // The title slide carries its own composition; chrome would only crowd it,
-  // and a bar at 1-of-N there is a stub rather than information.
-  if (slideNumber === 1) return null;
+  // The title slide carries its own composition; a counter and a bar at 1-of-N
+  // there are a stub rather than information, so both stay off it.
+  //
+  // This used to be `if (slideNumber === 1) return null`, and it cannot be that
+  // any more. Spectacle calls `template` as a PLAIN FUNCTION inside `Deck`'s own
+  // render rather than mounting it as a component, so anything with hooks in it
+  // borrows Deck's hook list -- and an early return here would change the hook
+  // count on the first navigation and take the deck down with it. `DeckBridge`
+  // has hooks. It is safe only because it is an ELEMENT with its own fiber, and
+  // only if it renders on every slide. Hence a branch on what the chrome
+  // CONTAINS, never on whether the template renders at all.
+  //
+  // The empty band left on slide 1 costs nothing: `.deck-chrome` inherits
+  // `pointer-events: none` from Spectacle's `TemplateWrapper` and paints no
+  // background, so it neither shows nor blocks anything.
+  const chrome = slideNumber !== 1;
 
   const progress = numberOfSlides
     ? Math.round((slideNumber / numberOfSlides) * 100)
     : 0;
 
   return html`
-    <${Box} className="deck-chrome" position="absolute" bottom="0px" width=${1}>
-      <${FlexBox}
-        className="deck-meta"
-        justifyContent="space-between"
-        alignItems="center"
+    <${Fragment}>
+      <${DeckBridge} />
+      <${Box}
+        className="deck-chrome"
+        position="absolute"
+        bottom="0px"
         width=${1}
       >
-        <${FlexBox} alignItems="center">
-          <${FullScreen} color=${colors.midnight[30]} size=${20} />
+        <${FlexBox}
+          className="deck-meta"
+          justifyContent="space-between"
+          alignItems="center"
+          width=${1}
+        >
+          ${
+            "" /* Robot BEFORE fullscreen so it keeps the same x on every slide: fullscreen is the icon that drops off the title slide, and a trailing robot would slide left when it went. */
+          }
+          <${FlexBox} alignItems="center">
+            <${ChatToggle} />
+            ${chrome
+              ? html`<${FullScreen} color=${colors.midnight[30]} size=${20} />`
+              : null}
+          <//>
+          ${chrome
+            ? html`<${Text}
+                className="deck-meta__count"
+                fontSize="18px"
+                margin="0px"
+              >
+                ${String(slideNumber).padStart(2, "0")} /
+                ${String(numberOfSlides).padStart(2, "0")}
+              </${Text}>`
+            : null}
         <//>
-        <${Text} className="deck-meta__count" fontSize="18px" margin="0px">
-          ${String(slideNumber).padStart(2, "0")} / ${String(numberOfSlides).padStart(2, "0")}
-        </${Text}>
-      <//>
-      <${Box} className="deck-progress" width=${1}>
-        <${Box} className="deck-progress__fill" width=${`${progress}%`} />
+        ${chrome
+          ? html`<${Box} className="deck-progress" width=${1}>
+              <${Box} className="deck-progress__fill" width=${`${progress}%`} />
+            <//>`
+          : null}
       <//>
     <//>
   `;

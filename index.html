@@ -29,6 +29,9 @@
       href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css"
     />
     <link rel="stylesheet" type="text/css" href="./deck/styles.css" />
+    <!-- Deck assistant. Self-contained in `chat/`; see the mount call at the
+         bottom of the module below. Both lines go away together. -->
+    <link rel="stylesheet" type="text/css" href="./chat/chat.css" />
     <style>
       /* Presenter notes are a dense reading pane, not part of the deck design. */
       .notes * {
@@ -800,6 +803,22 @@
           <${Presentation} />
         </${StyleSheetManager}>`,
       );
+
+      // Deck assistant, on its own React root outside the deck.
+      //
+      // Dynamic and caught so that mounting can fail without touching the talk:
+      // the chat reads `localStorage` and creates DOM, and none of that is worth
+      // a blank deck. It also defers evaluating the chat modules until after the
+      // deck has rendered.
+      //
+      // Removing the assistant is three edits, and they have to go TOGETHER:
+      // this call, the stylesheet link in <head>, and the `DeckBridge` /
+      // `ChatToggle` imports and elements in `Template`. Those last two are
+      // static imports -- deleting `chat/` while `components.js` still refers to
+      // it is the one combination that does break the deck.
+      import("./chat/index.js")
+        .then(({ mountChat }) => mountChat())
+        .catch((err) => console.warn("[chat] not mounted:", err.message));
     </script>
   </body>
 </html>
