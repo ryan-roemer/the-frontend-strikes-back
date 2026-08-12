@@ -1,67 +1,49 @@
-/* global LanguageModel:false, console:false, setTimeout:false, setInterval:false, clearInterval:false */
+/* global console:false, setTimeout:false, clearTimeout:false, AbortController:false */
+import {
+  MAX_NUM_TOKENS,
+  MODEL,
+  MODEL_BYTES,
+  MODEL_URL,
+  createChat,
+  deleteModel,
+  engineResident,
+  ensureEngine,
+  isModelCached,
+  probe,
+  wasmUrl,
+} from "./providers/litert.js";
+import {
+  cacheAvailable,
+  gb,
+  requestPersistence,
+  storageRoom,
+} from "./providers/litert-cache.js";
 
 /**
  * Where the on-device model is, as one small state machine.
  *
- * Shaped after joyce's `LoadingButton`: a states table, an icon per state, and a
- * primary action whose MEANING changes with the state. The important difference
- * is what the actions can actually do. joyce gates unload and delete-from-disk
- * behind `providerManagesMemory()` and deliberately excludes Chrome built-in AI
- * -- "the model is the OS's, not held in a page-owned engine" -- and its
- * `unloadLlmEngine` for that provider is a documented no-op.
+ * Shaped after joyce's `LoadingButton`: a states table, an icon per state, and a primary
+ * action whose MEANING changes with the state. What each affordance can actually do is the
+ * part worth reading, because it changed completely when the provider did.
  *
- * So the two affordances are remapped onto what a page genuinely controls:
+ * Under the Chrome Prompt API the model belonged to the browser. A page could ask whether it
+ * was available and could destroy its own session, but it could not download the model on
+ * purpose, could not watch real progress, and could not delete it -- the mapping table that
+ * used to live here said "delete from disk: NOT POSSIBLE from a page", and pointed at
+ * `chrome://on-device-internals` instead.
  *
- *   joyce                     here
- *   ------------------------  ----------------------------------------------
- *   cached (bytes on disk)    ON_DISK, verbatim: available, no session
- *   loaded -> unload memory   READY -> destroy() the session, freeing it and
- *                             its accumulated context
- *   delete from disk          NOT POSSIBLE from a page. Surfaced in the info
- *                             modal as chrome://on-device-internals instead.
+ * Under LiteRT the page owns the bytes. So the table is now:
  *
- * The machine is a module singleton rather than React state because the session
- * must outlive the panel being closed, and because `plan.js` needs it without
- * being a component.
+ *   cached (bytes on disk)     ON_DISK -- verified complete, engine may or may not be hot
+ *   loaded -> unload memory    READY -> destroy the conversation, freeing its context
+ *   delete from disk           A REAL BUTTON. See `deleteDownload()`.
  *
- * ---------------------------------------------------------------------------
- * TODO(PROMPT): the Chrome Prompt API does not currently work on this machine, and
- * the failure is the platform's, not this code's. Measured 2026-08-12, Chrome
- * 151.0.7922.76, and reproduced independently by the deck's author in a normal
- * Chrome profile with the Prompt API fully enabled:
+ * That is the biggest single gain from the swap and it is why this file no longer apologises
+ * for anything.
  *
- *   - `LanguageModel.availability(...)` returns "downloading" indefinitely -- for
- *     over ninety minutes, and for EVERY configuration tried: no arguments at all,
- *     `{}`, `expectedInputs` alone, with and without `languages: ["en"]`, and
- *     `outputLanguage`. So it is not this file's `PROMPT_OPTIONS`.
- *   - `LanguageModel.create(...)` never resolves. A bare call with no arguments and
- *     none of this code in the stack hung past 30s, repeatedly.
- *   - It briefly reported "available" twice and even served one real answer early
- *     on ("A browser is a software application that allows you to access and view
- *     websites on the internet"), then went back to "downloading". So the plumbing
- *     here is known to work; the platform is what is unreliable.
- *   - `chrome://on-device-internals` would say more, but it is gated behind the
- *     debug-WebUI flag at `chrome://chrome-urls`.
- *
- * Everything downstream of this file is provider-shaped on purpose and does not
- * care where tokens come from -- see `docs/chat-handoff.md` for the LiteRT.js /
- * Gemma swap this was left ready for. What the API's flakiness DID buy: the
- * download-vs-creating split, the create ceiling, the flap re-sampling, and the
- * abort plumbing all exist because of failures observed here.
- * ---------------------------------------------------------------------------
+ * The machine is a module singleton rather than React state because the session must outlive
+ * the panel being closed, and because `plan.js` needs it without being a component.
  */
-
-/**
- * Passed to BOTH `availability()` and `create()`.
- *
- * Availability is per-configuration: asking about the default configuration and
- * then creating a different one can report "available" and then fail. Keeping one
- * object for both is what makes the answer mean anything.
- */
-const PROMPT_OPTIONS = {
-  expectedInputs: [{ type: "text", languages: ["en"] }],
-  expectedOutputs: [{ type: "text", languages: ["en"] }],
-};
 
 export const STATES = {
   UNSUPPORTED: "unsupported",
@@ -74,56 +56,64 @@ export const STATES = {
   ERROR: "error",
 };
 
+/** How big the download is, in the copy, everywhere it might be triggered. */
+const SIZE = `${gb(MODEL_BYTES)} GB`;
+
 /** Presentation for each state: Phosphor icon, label, and what a click does. */
 export const STATE_META = {
   [STATES.UNSUPPORTED]: {
     icon: "ph-prohibit",
     tone: "off",
-    title: "Prompt API not available in this browser",
+    title: "This browser can't run WebGPU",
     action: null,
   },
   [STATES.UNAVAILABLE]: {
     icon: "ph-warning-circle",
     tone: "warn",
-    title: "This device can't run the on-device model",
+    title: "This device's GPU can't run the model",
     action: null,
   },
   [STATES.DOWNLOADABLE]: {
+    // The size is in the label because this click starts a multi-gigabyte fetch. A
+    // presenter who triggers that unknowingly on venue wifi has a genuine problem, and
+    // "click to download" alone does not warn anybody.
     icon: "ph-download-simple",
     tone: "idle",
-    title: "Model not downloaded — click to download",
+    title: `Model not downloaded — click to fetch it (${SIZE})`,
     action: "load",
   },
   [STATES.DOWNLOADING]: {
     icon: "ph-arrows-clockwise",
     tone: "busy",
-    title: "Downloading the on-device model… (click to re-check)",
-    // Clickable, unlike the other busy state. The download is Chrome's, not ours,
-    // so there is no event telling us it finished -- a manual re-check is the one
-    // thing a presenter can usefully do here.
-    action: "recheck",
+    // Clickable, unlike the other busy state -- and it now does something real. Under the
+    // Prompt API the download was Chrome's, so the only honest option was to re-check it.
+    // This download is ours, so it can be stopped.
+    title: "Downloading the model… (click to stop)",
+    action: "cancel",
   },
   [STATES.ON_DISK]: {
     icon: "ph-database",
     tone: "idle",
-    title: "On disk, not loaded — click to start a session",
+    title: "On disk — click to start a session",
     action: "load",
   },
-  // Distinct from DOWNLOADING, because conflating them tells a lie that shows.
-  // `create()` on an already-downloaded model still takes seconds, and Chrome
-  // fires a `downloadprogress` event with `loaded: 0` on that path too -- so the
-  // first cut of this file sat on "Downloading the on-device model... (0%)" while
-  // `availability()` cheerfully reported "available". Same spinner, true label.
+  // Distinct from DOWNLOADING, because conflating them tells a lie that shows. Both
+  // providers have made the same lie available in opposite directions: Chrome fired a
+  // download event with `loaded: 0` for a model already on disk, which showed
+  // "Downloading… (0%)" forever; LiteRT reports a cache hit as progress 1, which would show
+  // a frozen "100%" through the whole GPU load. Hence the rule in `doLoad()`: progress
+  // belongs to the download phase and NOTHING else.
   [STATES.CREATING]: {
     icon: "ph-arrows-clockwise",
     tone: "busy",
-    title: "Starting a session…",
+    title: "Loading the model onto the GPU…",
     action: null,
   },
   [STATES.READY]: {
     icon: "ph-check-circle",
     tone: "ok",
-    title: "Session live — click to unload it",
+    // The engine stays hot deliberately -- see `unload()`.
+    title: "Session live — click to free the conversation",
     action: "unload",
   },
   [STATES.ERROR]: {
@@ -136,20 +126,27 @@ export const STATE_META = {
 
 let state = {
   status: STATES.UNSUPPORTED,
-  /** 0..1 while downloading, else null. */
+  /** 0..1 DURING THE DOWNLOAD ONLY, else null. See the CREATING note above. */
   progress: null,
-  /** ms the last create() took, for the label -- joyce shows this too. */
+  /** Byte counts, e.g. "412 / 2008 MB". A percentage alone cannot distinguish slow from stalled. */
+  progressText: null,
+  /** ms the last load took, for the label -- joyce shows this too. */
   elapsed: null,
   error: null,
-  /** Raw `availability()` string, shown in the info modal. */
-  availability: null,
+  /** Whether the GPU engine is hot, which ON_DISK alone no longer tells you. */
+  engineResident: false,
   /** Bumped whenever the live session changes, so context readouts refresh. */
   revision: 0,
 };
 
-/** The durable chat session. Not in `state`: it is not renderable, and putting a
- *  live object in a snapshot invites components to hold stale references. */
-let session = null;
+/**
+ * The durable chat session. Not in `state`: it is not renderable, and putting a live object
+ * in a snapshot invites components to hold stale references.
+ */
+let chat = null;
+
+/** Last sampled token count. See `contextInfo()` for why this is cached rather than read. */
+let lastTokens = null;
 
 const listeners = new Set();
 
@@ -164,99 +161,55 @@ export const subscribe = (fn) => {
   return () => listeners.delete(fn);
 };
 
-export const getSession = () => session;
-export const isReady = () => state.status === STATES.READY && !!session;
+export const getSession = () => chat;
+export const isReady = () => state.status === STATES.READY && !!chat;
 
-const supported = () => typeof LanguageModel !== "undefined";
-
-/**
- * Re-sample `availability()` while a download is in progress.
- *
- * `availability()` FLAPS. Measured over several minutes of Chrome fetching Gemma:
- * it returned "available" while `create()` still hung past 25s, then "downloading"
- * again, repeatedly, before settling. A single sample taken at mount is therefore
- * not a fact about the model, it is a fact about one instant -- and the machine used
- * to keep that instant forever, refusing every question until the panel was closed
- * and reopened.
- *
- * Chrome fires no event when a download it started finishes (the `monitor` callback
- * only covers a download OUR `create()` triggered), so polling is the only honest
- * mechanism. It runs only while DOWNLOADING and stops itself the moment that
- * changes, so it costs nothing in the normal case.
- */
-const POLL_MS = 5000;
-
-let downloadPoll = null;
-
-const stopDownloadPoll = () => {
-  if (!downloadPoll) return;
-  clearInterval(downloadPoll);
-  downloadPoll = null;
-};
-
-const startDownloadPoll = () => {
-  if (downloadPoll || !supported()) return;
-  downloadPoll = setInterval(async () => {
-    if (state.status !== STATES.DOWNLOADING || session) {
-      stopDownloadPoll();
-      return;
-    }
-    const now = await LanguageModel.availability(PROMPT_OPTIONS).catch(
-      () => null,
-    );
-    if (now === "available") {
-      stopDownloadPoll();
-      set({ status: STATES.ON_DISK, availability: now, error: null });
-    }
-  }, POLL_MS);
-};
+/** Size and identity, for copy that should not hardcode either. */
+export const modelSize = () => SIZE;
 
 /**
- * Ask the platform where things stand, without creating anything.
+ * Ask where things stand, without downloading or building anything.
  *
- * Never promotes to READY: a live session is a thing we hold, not a thing to
- * discover, so an existing session short-circuits and everything else lands on
- * the availability answer.
+ * Cheap: a memoized GPU probe plus a Cache API lookup. Never promotes to READY -- a live
+ * session is a thing we hold, not a thing to discover.
  */
 export const refresh = async () => {
-  if (!supported()) {
-    set({ status: STATES.UNSUPPORTED, availability: null });
+  const gpu = await probe();
+  if (!gpu.supported) {
+    set({ status: STATES.UNSUPPORTED, error: gpu.reason });
     return state;
   }
-  if (session) {
+  if (!gpu.ok) {
+    set({ status: STATES.UNAVAILABLE, error: gpu.reason });
+    return state;
+  }
+  if (chat) {
     set({ status: STATES.READY });
     return state;
   }
-  // A create in flight already owns the status (CREATING / DOWNLOADING). The
-  // panel calls this every time it opens, and overwriting a live spinner with an
-  // availability answer would drop the row back to "click to start" while the
-  // session it would start is already being built.
+  // A load in flight already owns the status, and this early return matters far MORE than
+  // it did under the Prompt API: it now guards a window measured in minutes rather than
+  // seconds. The panel calls `refresh()` every time it opens, and without this, opening the
+  // panel mid-download would find no cache entry, report DOWNLOADABLE, and put a second
+  // multi-gigabyte fetch one click away.
   if (pendingLoad) return state;
-  try {
-    const availability = await LanguageModel.availability(PROMPT_OPTIONS);
-    const status =
-      availability === "available"
-        ? STATES.ON_DISK
-        : availability === "downloading"
-          ? STATES.DOWNLOADING
-          : availability === "downloadable"
-            ? STATES.DOWNLOADABLE
-            : STATES.UNAVAILABLE;
-    set({ status, availability, error: null });
-    if (status === STATES.DOWNLOADING) startDownloadPoll();
-    else stopDownloadPoll();
-  } catch (err) {
-    set({ status: STATES.ERROR, error: err.message });
-  }
+
+  const cached = await isModelCached();
+  set({
+    status: cached ? STATES.ON_DISK : STATES.DOWNLOADABLE,
+    error: null,
+    progress: null,
+    progressText: null,
+    engineResident: engineResident(),
+  });
   return state;
 };
 
 /**
  * The system prompt, supplied by the caller.
  *
- * A function rather than a string because the deck knowledge it embeds is
- * harvested from the live DOM, so it cannot be built at import time. Set by
- * `chat/index.js` at mount.
+ * A function rather than a string because the deck knowledge it embeds is harvested from the
+ * live DOM, so it cannot be built at import time. Set by `chat/index.js` at mount.
  */
 let systemPromptFn = () =>
   "You are a helpful assistant embedded in a slide deck.";
@@ -265,32 +218,222 @@ export const setSystemPrompt = (fn) => {
   systemPromptFn = fn;
 };
 
-/** In-flight `createSession()`, so concurrent callers share one attempt. */
+/** In-flight `doLoad()`, so concurrent callers share one attempt. */
 let pendingLoad = null;
 
 /**
- * Create the durable session.
+ * Bumped by anything that invalidates a load in flight (`unload`, `cancelDownload`,
+ * `deleteDownload`).
  *
- * Only called from a click, or from the preload when the model is already
- * ON_DISK. Never speculatively on a DOWNLOADABLE model: that download is
- * multi-gigabyte and requires transient user activation, so firing it on page
- * load would both fail and be rude. When it does run from a click, the click IS
- * the activation.
+ * `Engine.create()` hands back no handle until it resolves, so there is a window in which a
+ * cancel has nothing to cancel. Without this check a ~2 GB engine lands resident with
+ * nothing referencing it, or a conversation is created for a session the presenter has
+ * already dismissed.
  */
-export const load = async () => {
-  if (!supported()) {
-    set({ status: STATES.UNSUPPORTED });
+let loadGeneration = 0;
+
+/** Aborts the download's `fetch`. Null unless a download is in flight. */
+let downloadAbort = null;
+
+/**
+ * Ceiling on building the engine. NOT on the download -- see `doLoad()`.
+ *
+ * Measured: 3.0s cold, 1.2s from a warm cache. So this is not a performance budget, it is a
+ * wedge detector, and it is deliberately far above anything observed.
+ */
+const ENGINE_CEILING_MS = 120000;
+
+/**
+ * How long the download may produce no bytes before we call it dead.
+ *
+ * The download itself gets NO deadline: 2 GB on venue wifi is legitimately many minutes, and
+ * any fixed limit would be a lie told to a presenter who is merely being patient. An idle
+ * timer is the honest bound -- it fires only when nothing is actually arriving. Same shape
+ * as the per-chunk timer in `session.js`.
+ */
+const STALL_MS = 60000;
+
+const idleTimer = (ms, onIdle) => {
+  let timer = null;
+  return {
+    arm() {
+      clearTimeout(timer);
+      timer = setTimeout(onIdle, ms);
+    },
+    stop() {
+      clearTimeout(timer);
+    },
+  };
+};
+
+/**
+ * Download the model if needed, build the engine, open a conversation.
+ *
+ * Two phases, and keeping them apart is the whole design. Under the Prompt API a `create()`
+ * that was secretly waiting on a download surfaced as "the model took too long to start",
+ * which was both wrong and unactionable. Here the download is a state of its own, with real
+ * byte progress and no deadline, and only the GPU load is bounded.
+ */
+const doLoad = async () => {
+  const startedAt = Date.now();
+  const generation = ++loadGeneration;
+  const superseded = () => generation !== loadGeneration;
+
+  const gpu = await probe();
+  if (!gpu.supported) {
+    set({ status: STATES.UNSUPPORTED, error: gpu.reason });
     return null;
   }
-  if (session) return session;
+  if (!gpu.ok) {
+    set({ status: STATES.UNAVAILABLE, error: gpu.reason });
+    return null;
+  }
 
-  // Creating takes seconds, which is plenty of time for a second click, a
-  // `warmUp()` and a submitted question to all ask for a session. Handing back
-  // the in-flight promise means they wait on the same one instead of racing to
-  // create three and leaking two.
+  const cached = await isModelCached();
+  let stalled = false;
+
+  const stall = idleTimer(STALL_MS, () => {
+    stalled = true;
+    downloadAbort?.abort();
+  });
+
+  let armCeiling = () => {};
+  let stopCeiling = () => {};
+  const ceiling = new Promise((_, reject) => {
+    let timer = null;
+    armCeiling = () => {
+      clearTimeout(timer);
+      timer = setTimeout(
+        () => reject(new Error("The model timed out loading onto the GPU.")),
+        ENGINE_CEILING_MS,
+      );
+    };
+    stopCeiling = () => clearTimeout(timer);
+  });
+
+  if (cached) {
+    set({
+      status: STATES.CREATING,
+      progress: null,
+      progressText: null,
+      error: null,
+    });
+    armCeiling();
+  } else {
+    // Only from a deliberate click, so this is the one place where asking to be exempt from
+    // eviction is appropriate: activation exists, and on Firefox the permission prompt it
+    // may raise is at least in context rather than out of nowhere.
+    await requestPersistence();
+    downloadAbort = new AbortController();
+    set({
+      status: STATES.DOWNLOADING,
+      progress: 0,
+      progressText: "starting…",
+      error: null,
+    });
+    stall.arm();
+  }
+
+  try {
+    await Promise.race([
+      ensureEngine({
+        signal: downloadAbort?.signal ?? null,
+        onProgress: (ev) => {
+          if (superseded()) return;
+          if (ev.phase === "download") {
+            stall.arm();
+            set({
+              status: STATES.DOWNLOADING,
+              progress: ev.progress,
+              progressText: ev.text,
+            });
+            return;
+          }
+          stall.stop();
+          armCeiling();
+          // THE NULLS ARE MANDATORY. A cache hit reports progress 1, and carrying that into
+          // CREATING shows a frozen 100% for the whole GPU load.
+          set({
+            status: STATES.CREATING,
+            progress: null,
+            progressText: null,
+          });
+        },
+      }),
+      ceiling,
+    ]);
+
+    if (superseded()) return null;
+
+    chat = await createChat({ system: systemPromptFn() });
+
+    // The conversation is cheap (~2ms) but it is still possible for the presenter to have
+    // dismissed everything while the engine was loading.
+    if (superseded()) {
+      chat.destroy();
+      chat = null;
+      return null;
+    }
+
+    lastTokens = 0;
+    set({
+      status: STATES.READY,
+      progress: null,
+      progressText: null,
+      elapsed: Date.now() - startedAt,
+      error: null,
+      engineResident: true,
+      revision: state.revision + 1,
+    });
+    return chat;
+  } catch (err) {
+    if (superseded()) return null;
+
+    // A stall is a failure; a cancel is not. Reporting a red icon for a download the
+    // presenter stopped on purpose would be a worse lie than saying nothing.
+    const cancelled = !stalled && err.name === "AbortError";
+    const nowCached = await isModelCached().catch(() => false);
+
+    set({
+      status: cancelled
+        ? nowCached
+          ? STATES.ON_DISK
+          : STATES.DOWNLOADABLE
+        : STATES.ERROR,
+      progress: null,
+      progressText: null,
+      error: cancelled
+        ? null
+        : stalled
+          ? "The download stopped making progress. Check the network and try again."
+          : err.message,
+      engineResident: engineResident(),
+      revision: state.revision + 1,
+    });
+    return null;
+  } finally {
+    stall.stop();
+    stopCeiling();
+    downloadAbort = null;
+  }
+};
+
+/**
+ * Start a session.
+ *
+ * Only called from a click, or from a question typed while the model is already ON_DISK.
+ * Never speculatively on a DOWNLOADABLE model: that download is 2 GB, and firing it on page
+ * load would be both expensive and rude.
+ */
+export const load = async () => {
+  if (chat) return chat;
+
+  // Loading takes seconds at best and minutes at worst, which is ample time for a second
+  // click and a submitted question to both ask for a session. Handing back the in-flight
+  // promise means they wait on the same one instead of racing to build two engines.
   if (pendingLoad) return pendingLoad;
 
-  pendingLoad = createSession();
+  pendingLoad = doLoad();
   try {
     return await pendingLoad;
   } finally {
@@ -298,194 +441,196 @@ export const load = async () => {
   }
 };
 
-/**
- * Ceiling on a single `create()`.
- *
- * Not a nicety. `create()` blocks for as long as Chrome is fetching the model, and
- * measured here that outlasted 30s with no sign of finishing. Without a bound the
- * `pendingLoad` promise never settles, `refresh()` returns early forever because a
- * load is "in flight", and the row is stuck on a spinner with no way back -- the
- * state machine wedges permanently on a condition that resolves itself in minutes.
- * Timing out lets the machine drop back to whatever `availability()` now says.
- */
-const CREATE_CEILING_MS = 90000;
-
-const createSession = async () => {
-  const startedAt = Date.now();
-
-  // Whether a download is even possible decides how to read the monitor below.
-  // Asking first is cheap and turns a guess into a fact.
-  const before = await LanguageModel.availability(PROMPT_OPTIONS).catch(
-    () => null,
-  );
-  const canDownload = before === "downloadable" || before === "downloading";
-
-  set({
-    status: STATES.CREATING,
-    error: null,
-    progress: null,
-    availability: before,
-  });
-
-  try {
-    const created = await Promise.race([
-      LanguageModel.create({
-        ...PROMPT_OPTIONS,
-        initialPrompts: [{ role: "system", content: systemPromptFn() }],
-        monitor: (monitor) => {
-          monitor.addEventListener("downloadprogress", (event) => {
-            // Chrome fires this even when nothing is being fetched -- an
-            // already-available model reports `loaded: 0` once and then simply
-            // finishes creating. Trusting the event alone is what produced a
-            // permanent "Downloading... (0%)" on a model that was fully on disk,
-            // so the pre-create availability is the arbiter of what this means.
-            if (!canDownload) return;
-            set({ status: STATES.DOWNLOADING, progress: event.loaded });
-            startDownloadPoll();
-          });
-        },
-      }),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Session creation timed out")),
-          CREATE_CEILING_MS,
-        ),
-      ),
-    ]);
-
-    session = created;
-    stopDownloadPoll();
-    set({
-      status: STATES.READY,
-      progress: null,
-      elapsed: Date.now() - startedAt,
-      availability: "available",
-      revision: state.revision + 1,
-    });
-    return session;
-  } catch (err) {
-    // A download refused for want of a gesture is not a failure state -- the
-    // model is still perfectly downloadable, we just asked at the wrong moment.
-    // Reporting ERROR here would put a red icon on a deck that only needs a
-    // click, which on stage is a materially worse lie than the truth.
-    const needsActivation =
-      err.name === "NotAllowedError" || /activation|gesture/i.test(err.message);
-
-    // A timeout says nothing about the model, only that we stopped waiting -- so
-    // ask the platform where things stand instead of guessing. Usually this is a
-    // download that started underneath us, and "downloading" is the honest answer.
-    let status = needsActivation ? STATES.DOWNLOADABLE : STATES.ERROR;
-    if (/timed out/i.test(err.message)) {
-      const now = await LanguageModel.availability(PROMPT_OPTIONS).catch(
-        () => null,
-      );
-      status =
-        now === "downloading" || now === "downloadable"
-          ? STATES.DOWNLOADING
-          : now === "available"
-            ? STATES.ON_DISK
-            : STATES.ERROR;
-    }
-
-    set({
-      status,
-      progress: null,
-      error: err.message,
-      revision: state.revision + 1,
-    });
-    if (status === STATES.DOWNLOADING) startDownloadPoll();
-    return null;
-  }
+/** Stop a download in progress. Newly possible: this download is ours. */
+export const cancelDownload = () => {
+  loadGeneration += 1;
+  downloadAbort?.abort();
 };
 
 /**
- * Destroy the session, keeping the model on disk.
+ * Free the conversation, keeping the ENGINE hot and the bytes on disk.
  *
- * This is the honest analogue of joyce's unload-from-memory: it frees the session
- * and everything accumulated in its context window. The model itself belongs to
- * the OS and stays where it is.
+ * The engine deliberately stays resident. It is ~2 GB of GPU memory, so freeing it looks
+ * like the tidy thing to do -- but the buttons that come here are the header's broom and the
+ * status row's trash, both of which exist to be pressed MID-TALK. Reloading 2 GB onto the
+ * GPU from a button whose whole purpose is to let you carry on talking would make both
+ * useless. Freeing the conversation is what actually matters anyway: that is where the
+ * context window lives.
+ *
+ * Synchronous, because `model-status.js` calls it from a click without awaiting.
  */
 export const unload = () => {
-  if (!session) return;
-  try {
-    session.destroy();
-  } catch (err) {
-    console.warn("[chat] session.destroy() failed:", err.message);
+  // Bumped even when there is no conversation yet: during CREATING `chat` is still null, so
+  // an early return here would silently leave a load running that nobody wants.
+  loadGeneration += 1;
+
+  if (chat) {
+    try {
+      chat.destroy();
+    } catch (err) {
+      console.warn("[chat] destroying the conversation failed:", err.message);
+    }
+    chat = null;
   }
-  session = null;
+  lastTokens = null;
+
+  const hot = engineResident();
   set({
-    status: supported() ? STATES.ON_DISK : STATES.UNSUPPORTED,
+    status: hot ? STATES.ON_DISK : STATES.DOWNLOADABLE,
     elapsed: null,
+    progress: null,
+    progressText: null,
+    engineResident: hot,
     revision: state.revision + 1,
   });
+  // Only reachable if the engine was never built; the Cache API is the authority on which
+  // of the two states above is true.
+  if (!hot) refresh();
 };
 
 /**
- * Throw away the session and start a fresh one.
+ * Throw away the conversation and start a fresh one.
  *
- * The broom, not the trash: the point is to keep talking with an empty context
- * window, which at 90% usage is the only way to continue. Recreating rather than
- * reusing is also how a context reset actually happens -- a Prompt API session's
- * history is owned by the session, so there is nothing to clear in place.
+ * The broom, not the trash: the point is to keep talking with an empty context window, which
+ * at 90% usage is the only way to continue. A `Conversation` owns its history, so there is
+ * nothing to clear in place -- exactly as with a Prompt API session. The difference is the
+ * price: measured at 2ms, because the engine stays hot and a new conversation prefills its
+ * preface lazily.
  */
 export const restart = async () => {
-  const had = !!session;
-  unload();
-  if (had) return load();
-  return null;
+  if (!chat) return load();
+  await chat.restart();
+  lastTokens = 0;
+  set({ elapsed: null, revision: state.revision + 1 });
+  return chat;
+};
+
+/** Delete the downloaded model. The affordance the Prompt API could not offer at all. */
+export const deleteDownload = async () => {
+  loadGeneration += 1;
+  if (chat) {
+    chat.destroy();
+    chat = null;
+  }
+  lastTokens = null;
+  const removed = await deleteModel();
+  set({
+    status: STATES.DOWNLOADABLE,
+    elapsed: null,
+    error: null,
+    progress: null,
+    progressText: null,
+    engineResident: false,
+    revision: state.revision + 1,
+  });
+  return removed;
+};
+
+/**
+ * Sample the context usage.
+ *
+ * `getTokenCount()` is async but `contextInfo()` must be synchronous, so the number is
+ * cached here and the cache is refreshed out of band. Two renders per turn, which is
+ * cheaper than it sounds because the second only changes one number.
+ */
+let sampling = false;
+
+const sampleContext = () => {
+  if (!chat || sampling) return;
+  sampling = true;
+  chat
+    .tokenCount()
+    .then((n) => {
+      sampling = false;
+      if (n == null || !chat) return;
+      lastTokens = n;
+      set({ revision: state.revision + 1 });
+    })
+    .catch(() => {
+      sampling = false;
+    });
 };
 
 /**
  * Announce that the session's context moved.
  *
- * Context usage lives on the session object and changes without any state
- * transition, so nothing would re-render the meter after a turn. `session.js`
- * calls this when a stream finishes; the bumped revision is what pulls a fresh
- * `contextInfo()` through the subscribers.
+ * Context usage changes without any state transition, so nothing would re-render the meter
+ * after a turn. `session.js` calls this when a stream finishes; the bumped revision pulls a
+ * fresh `contextInfo()` through the subscribers, and the resample updates the number behind
+ * it.
  */
-export const touch = () => set({ revision: state.revision + 1 });
-
-/** Live context usage, straight off the session. */
-export const contextInfo = () => {
-  if (!session) return null;
-  // Chrome renamed these mid-flight; both reference repos carry the same shim.
-  const used = session.contextUsage ?? session.inputUsage ?? null;
-  const total = session.contextWindow ?? session.inputQuota ?? null;
-  if (used == null || total == null || !total) return null;
-  return { used, total, pct: Math.round((used / total) * 100) };
+export const touch = () => {
+  set({ revision: state.revision + 1 });
+  sampleContext();
 };
 
-/** Everything the info modal can honestly show. */
+/**
+ * Live context usage.
+ *
+ * Synchronous because it is called in a component body, so it reads the cached sample rather
+ * than the model. `total` is not discovered from anywhere -- it is the KV-cache budget we
+ * asked for. Reads 0 on a fresh conversation, which is honest: the preface prefills lazily,
+ * so nothing has been spent yet.
+ */
+export const contextInfo = () => {
+  if (!chat || lastTokens == null) return null;
+  return {
+    used: lastTokens,
+    total: MAX_NUM_TOKENS,
+    pct: Math.round((lastTokens / MAX_NUM_TOKENS) * 100),
+  };
+};
+
+/** Everything the info modal can honestly show -- which is now a great deal more. */
 export const modelInfo = async () => {
+  const gpu = await probe();
   const info = {
-    supported: supported(),
-    availability: state.availability,
     status: state.status,
     elapsed: state.elapsed,
     error: state.error,
     context: contextInfo(),
-    params: null,
+    model: MODEL,
+    size: SIZE,
+    bytes: MODEL_BYTES,
+    url: MODEL_URL,
+    backend: "GPU_ARTISAN",
+    maxNumTokens: MAX_NUM_TOKENS,
+    gpu,
+    cacheAvailable,
+    engineResident: engineResident(),
+    cached: false,
+    wasm: null,
+    storage: null,
+    benchmark: null,
   };
-  if (!supported()) return info;
   try {
-    // Not on every provider; treat as a bonus rather than a contract.
-    info.params = (await LanguageModel.params?.()) ?? null;
-  } catch {
-    info.params = null;
+    info.wasm = wasmUrl();
+  } catch (err) {
+    info.wasm = `unresolved: ${err.message}`;
   }
+  info.cached = await isModelCached().catch(() => false);
+  info.storage = await storageRoom(MODEL_BYTES).catch(() => null);
+  if (chat) info.benchmark = await chat.benchmark();
   return info;
 };
 
 /**
  * Drive the machine as far as it goes without a click.
  *
- * Called at mount when the persisted `chatEnabled` flag is true. ON_DISK is
- * promoted to READY so the first question streams immediately -- that is the
- * whole point of persisting the flag. DOWNLOADABLE deliberately stops, and the
- * download icon is then the explanation of why the preload didn't finish.
+ * Called at mount when the persisted `chatEnabled` flag is true, and it STOPS at ON_DISK --
+ * it does not build the engine.
+ *
+ * This is a deliberate reversal. Under the Prompt API, warming up meant promoting ON_DISK to
+ * READY so the first question streamed immediately, and the session it created was the OS's,
+ * costing ~9.5s. The same promotion under LiteRT means claiming ~2 GB of GPU memory during
+ * page load, racing Spectacle's 35-slide portal mount and react-spring's animations. Safari
+ * enforces per-tab memory limits by KILLING THE TAB rather than throwing, so the worst case
+ * is not a slow deck, it is no deck at all, before slide 1.
+ *
+ * The engine loads in ~1.2s from a warm cache, so the first question pays almost nothing for
+ * this. That is a very cheap price for not gambling the talk.
  */
 export const warmUp = async () => {
   await refresh();
-  if (state.status === STATES.ON_DISK) await load();
   return state;
 };

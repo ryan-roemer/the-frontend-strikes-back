@@ -1,0 +1,289 @@
+/* global caches:false, fetch:false, navigator:false, console:false, Response:false, TransformStream:false */
+
+/**
+ * The model bytes: download, cache, verify, delete.
+ *
+ * LiteRT-LM caches nothing itself -- `Engine.create({ model })` takes a URL, a Blob or a
+ * ReadableStream and reads it once. So we own the download, which is not a burden but the
+ * point: it is what gives the status row real byte-level progress, a working "on disk?"
+ * answer, and -- unlike the Prompt API, where the model belonged to the browser -- the
+ * ability to delete it again.
+ *
+ * Two rules govern everything here.
+ *
+ * 1. NOTHING BUFFERS THE WHOLE MODEL. It is 2 GB. Every path is a stream or a Blob handed
+ *    to the engine by reference; the JS heap never holds more than one chunk.
+ * 2. A CACHED ENTRY IS NOT TRUSTED UNTIL ITS SIZE IS CHECKED. This is the trap the
+ *    reference implementation left open: an aborted, quota-killed or partially-evicted
+ *    `cache.put` leaves a SHORT entry, `cache.match` happily returns it, and the engine
+ *    then fails on truncated bytes with a message about wasm sections. That reads as a
+ *    permanent, inexplicable breakage with no way out. Size is checked on write AND on
+ *    read, and a bad entry is deleted rather than reported.
+ *
+ * This module knows nothing about LiteRT. It takes a URL and a byte count. That is
+ * deliberate -- it makes the download testable without a 2 GB model or a GPU.
+ */
+
+const CACHE_NAME = "deck-litert-models-v1";
+
+/**
+ * Absent in some WebKit contexts. There we stream from the network on every load, which
+ * works and is merely slow -- so it is a degradation, not a failure.
+ */
+export const cacheAvailable = typeof caches !== "undefined";
+
+/** Decimal MB/GB, because that is what the OS, the browser and HuggingFace all show. */
+const mb = (bytes) => Math.round(bytes / 1e6);
+export const gb = (bytes) => (bytes / 1e9).toFixed(1);
+
+/**
+ * Quota errors are not reliably identifiable by name.
+ *
+ * Chrome and Safari throw `QuotaExceededError`, but Firefox has been observed throwing a
+ * bare `TypeError` or `AbortError` from `cache.put` under storage pressure. Since the
+ * consequence of a false negative is a hard failure after a completed 2 GB download, and
+ * the consequence of a false positive is merely running uncached, the message is worth
+ * sniffing too.
+ */
+const isQuotaError = (err) =>
+  err?.name === "QuotaExceededError" ||
+  /quota|storage|space|exceed/i.test(String(err?.message ?? err));
+
+/**
+ * Is there room, and should we even try to cache?
+ *
+ * Returns a verdict rather than throwing, because "no room" is not an error: streaming
+ * uncached is a perfectly good fallback and the presenter should be told, not stopped.
+ *
+ * Neither Safari's nor Firefox's `estimate()` is trustworthy -- Safari reports an
+ * aspirational quota and then throws on `put` anyway, Firefox reports a group limit. So
+ * this is the first of two defences, not the only one; see `getModelSource`.
+ */
+export const storageRoom = async (expectedBytes) => {
+  if (!navigator.storage?.estimate) return { ok: true, unknown: true };
+  try {
+    const { quota, usage } = await navigator.storage.estimate();
+    if (!quota) return { ok: true, unknown: true };
+    const free = quota - (usage ?? 0);
+    if (free >= expectedBytes) return { ok: true, free, quota };
+    return {
+      ok: false,
+      free,
+      quota,
+      reason:
+        `needs ${mb(expectedBytes)} MB but only ${mb(free)} MB of the ` +
+        `${mb(quota)} MB origin quota is free`,
+    };
+  } catch {
+    return { ok: true, unknown: true };
+  }
+};
+
+/**
+ * Ask to be exempt from eviction. Call this ONLY from the download click.
+ *
+ * Chrome grants it silently for an engaged origin. Firefox shows a permission doorhanger --
+ * browser chrome appearing mid-talk is worse than the eviction it prevents, so this must
+ * never run from a mount-time probe. Safari does not implement it at all. A denial costs a
+ * re-download later, which the size check will catch cleanly, so the result is ignored.
+ */
+export const requestPersistence = async () => {
+  if (!navigator.storage?.persist) return false;
+  try {
+    if (await navigator.storage.persisted?.()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return false;
+  }
+};
+
+/** Open the cache, or null if the API is missing or refuses. */
+const openCache = async () => {
+  if (!cacheAvailable) return null;
+  try {
+    return await caches.open(CACHE_NAME);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Is the model on disk, complete and usable?
+ *
+ * The size check is what makes this answer mean something. A truncated entry reports
+ * `false` and is deleted on the spot, so the status row shows "download" -- a deliberate
+ * click -- rather than "on disk" followed by a load that can never succeed.
+ */
+export const isCached = async (url, expectedBytes) => {
+  const cache = await openCache();
+  if (!cache) return false;
+  try {
+    const hit = await cache.match(url);
+    if (!hit) return false;
+    const size = (await hit.blob()).size;
+    if (size === expectedBytes) return true;
+    console.warn(
+      `[chat] discarding an incomplete cached model (${mb(size)} of ${mb(expectedBytes)} MB)`,
+    );
+    await cache.delete(url);
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+/** Drop the model from disk. The affordance the Prompt API could not offer. */
+export const deleteCached = async (url) => {
+  const cache = await openCache();
+  if (!cache) return false;
+  try {
+    return await cache.delete(url);
+  } catch (err) {
+    console.warn("[chat] could not delete the cached model:", err.message);
+    return false;
+  }
+};
+
+/**
+ * Wrap a body stream so every chunk reports progress.
+ *
+ * Throttled on TIME, not on percent. At 2 GB a one-percent step is one update per 20 MB,
+ * which on venue wifi is a frozen number for minutes. And the byte counts are always in
+ * the text, because a percentage alone cannot distinguish a slow download from a stalled
+ * one -- which is the single question a presenter watching this actually has.
+ */
+const withProgress = (body, totalBytes, onProgress) => {
+  if (!onProgress) return body;
+
+  let loaded = 0;
+  let lastReportAt = 0;
+
+  return body.pipeThrough(
+    new TransformStream({
+      transform(chunk, controller) {
+        // Enqueue first, unconditionally. Every early return below must be incapable of
+        // dropping a chunk, or the cached model is silently short.
+        controller.enqueue(chunk);
+        loaded += chunk.byteLength;
+
+        const now = Date.now();
+        const isLast = totalBytes && loaded >= totalBytes;
+        if (now - lastReportAt < 250 && !isLast) return;
+        lastReportAt = now;
+
+        onProgress({
+          loaded,
+          text: totalBytes
+            ? `${mb(loaded)} / ${mb(totalBytes)} MB`
+            : `${mb(loaded)} MB`,
+          progress: totalBytes ? loaded / totalBytes : 0,
+        });
+      },
+    }),
+  );
+};
+
+/**
+ * A source for `Engine.create({ model })`, downloading and caching as needed.
+ *
+ * Four paths, in order of preference:
+ *
+ *   cache hit          -> a Blob out of the Cache API. The engine streams it; no heap copy.
+ *   cache miss         -> stream the download into the cache, then read it back as a Blob.
+ *                         Two disk passes, but the bytes never land in the JS heap.
+ *   no room / no API   -> the progress-wrapped network stream, straight to the engine.
+ *                         Works every time, costs a re-download on the next run.
+ *   cache write failed -> same as above, after a re-fetch. See the warning below.
+ *
+ * @param {string} url
+ * @param {object} opts
+ * @param {number} opts.expectedBytes  Exact size. Load-bearing: this is the integrity check.
+ * @param {Function} [opts.onProgress] Called with `{ loaded, text, progress }`.
+ * @param {AbortSignal} [opts.signal]  Cancels the fetch; the caller owns the stall timer.
+ * @returns {Promise<Blob|ReadableStream>}
+ */
+export const getModelSource = async (
+  url,
+  { expectedBytes, onProgress = null, signal = null } = {},
+) => {
+  let cache = await openCache();
+
+  if (cache) {
+    const hit = await cache.match(url);
+    if (hit) {
+      const blob = await hit.blob();
+      if (blob.size === expectedBytes) return blob;
+      // Checked again here rather than trusting `isCached`: the entry can be evicted or
+      // rewritten between the two calls, and handing truncated bytes to the engine costs
+      // a minute of GPU load before failing with a message about wasm sections.
+      await cache.delete(url);
+      throw new Error(
+        `The cached model was incomplete (${mb(blob.size)} of ${mb(expectedBytes)} MB) and has ` +
+          "been discarded. Download it again.",
+      );
+    }
+
+    // First of two quota defences. Deciding up front is much better than discovering it
+    // afterwards, because the failure path below has to re-download.
+    const room = await storageRoom(expectedBytes);
+    if (!room.ok) {
+      console.warn(`[chat] not caching the model: ${room.reason}`);
+      cache = null;
+    }
+  }
+
+  const response = await fetch(url, signal ? { signal } : undefined);
+  if (!response.ok) {
+    throw new Error(
+      `Could not download the model (${response.status} ${response.statusText}).`,
+    );
+  }
+
+  const header = response.headers.get("content-length");
+  const totalBytes = header ? Number(header) : expectedBytes;
+  const stream = withProgress(response.body, totalBytes, onProgress);
+
+  // Nothing to cache into: hand the engine the live network stream.
+  if (!cache) return stream;
+
+  try {
+    // `put` consumes the stream, so the bytes go network -> disk without ever being fully
+    // materialized in memory.
+    await cache.put(url, new Response(stream, { headers: response.headers }));
+  } catch (err) {
+    // Never leave a partial entry behind -- `isCached` would have to clean it up later,
+    // and until it did the status row would claim the model was on disk.
+    await cache.delete(url).catch(() => {});
+    if (!isQuotaError(err)) throw err;
+
+    // Second quota defence, for the browsers whose `estimate()` lied. This costs a second
+    // 2 GB download, which is why the pre-check above is the primary defence and this is
+    // the last resort -- but it does mean a small origin quota degrades to "works, slowly"
+    // instead of "cannot run the model at all".
+    console.warn(
+      "[chat] the model would not fit in the cache; streaming it uncached instead:",
+      err.message,
+    );
+    const retry = await fetch(url, signal ? { signal } : undefined);
+    if (!retry.ok) {
+      throw new Error(
+        `Could not download the model (${retry.status} ${retry.statusText}).`,
+      );
+    }
+    return withProgress(retry.body, totalBytes, onProgress);
+  }
+
+  const stored = await cache.match(url);
+  const blob = stored ? await stored.blob() : null;
+  if (!blob || blob.size !== expectedBytes) {
+    // A short entry here means the download itself was truncated -- a dropped connection
+    // that still resolved, or an eviction racing the write. Delete it, so the next attempt
+    // starts from a clean miss rather than a poisoned hit.
+    await cache.delete(url).catch(() => {});
+    throw new Error(
+      `The download finished but was incomplete (${blob ? mb(blob.size) : 0} of ` +
+        `${mb(expectedBytes)} MB). Try again.`,
+    );
+  }
+  return blob;
+};

@@ -22,12 +22,20 @@ import { useCallback, useRef, useState } from "react";
  * STOPPING DOES NOT WAIT FOR THE RESPONDER.
  *
  * The first version aborted the controller and let the `finally` clear `busy` when
- * the promise settled. That is wrong whenever the promise never settles -- and with
- * the Prompt API hanging inside `LanguageModel.create()`, it never did: the stop
+ * the promise settled. That is wrong whenever the promise never settles -- and
+ * under the Chrome Prompt API, which hung inside `create()`, it never did: the stop
  * button aborted a signal nobody was listening to and the panel stayed busy
  * forever. So `stop()` now does the bookkeeping itself, immediately, and a run
  * token makes any late-arriving result from the abandoned turn get discarded
  * instead of appearing minutes later under a question the user has moved on from.
+ *
+ * That design survived the move to LiteRT because it turned out to be load-bearing
+ * for a different reason. LiteRT DOES cancel promptly -- but `conversation.cancel()`
+ * permanently poisons the conversation it is called on, so the provider has to
+ * rebuild one behind our back before the next turn (see `providers/litert.js`).
+ * Clearing `busy` here without waiting is what lets that happen out of sight, and
+ * it is why the composer is usable ~11ms after the click rather than after a
+ * teardown and a rebuild. Measured.
  */
 export const useConversation = (respond) => {
   const [entries, setEntries] = useState([]);

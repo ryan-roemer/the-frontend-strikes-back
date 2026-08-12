@@ -9,16 +9,23 @@ import {
  * The shapes the model is allowed to produce.
  *
  * Two passes, ROUTE then FILL, rather than one `anyOf` union. The union is the
- * natural schema and the wrong one here: on-device constrained decoding handles
- * `anyOf` unevenly, and a weak model that picks the wrong branch emits a
- * perfectly VALID object that does the wrong thing to a live deck. Routing first
- * turns the hard decision into a single token from an enum of nine, and the fill
- * pass then sees a schema with two or three required fields.
+ * natural schema and the wrong one here: a weak model that picks the wrong branch
+ * emits a perfectly VALID object that does the wrong thing to a live deck. Routing
+ * first turns the hard decision into one word from a list of nine, and the fill
+ * pass then sees a shape with two or three required fields.
  *
- * The live-enum trick is the real reliability lever. Element refs, property names,
- * class names and var names are spliced in per turn, so a hallucinated reference is
- * not merely rejected after the fact -- it is undecodable. That is worth more on a
- * 3B model than any amount of prompt wording.
+ * The live enums are still the reliability lever. Element refs, property names,
+ * class names and var names are spliced in per turn, and they do two jobs: they are
+ * the allowlist `planner.js` validates against, and -- because they are rendered
+ * into the prompt verbatim -- they are most of what tells the model what exists on
+ * this slide at all.
+ *
+ * What they no longer do is make a bad value IMPOSSIBLE. Under the Prompt API these
+ * schemas were `responseConstraint`s, so a hallucinated ref was undecodable rather
+ * than merely wrong. LiteRT-LM has no constrained decoding, so the same enums are
+ * now enforced after generation -- see the header of `planner.js` for what that
+ * costs and how it is contained. This file did not have to change for the swap,
+ * which is the point of it being data.
  */
 
 export const ROUTE_SCHEMA = {
@@ -46,9 +53,9 @@ export const ROUTE_SCHEMA = {
  * Per-op schemas, built against the current inventory.
  *
  * `answer` is absent on purpose: routing to it short-circuits the second pass
- * entirely, because prose belongs in a streamed, unconstrained turn. A
- * `responseConstraint` on an answer would neither stream nor survive its own
- * `maxLength`.
+ * entirely, because prose belongs in a streamed turn on the durable conversation.
+ * Asking for an answer as a schema-shaped field would neither stream nor survive
+ * its own `maxLength`.
  */
 export const opSchema = ({ refs = [], slideCount = 35 }) => ({
   set_text: {

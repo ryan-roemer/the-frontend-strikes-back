@@ -1,17 +1,21 @@
-# Deck assistant — handoff
+# Deck assistant — the model layer
 
 The deck has a chat assistant in [`chat/`](../chat/): a robot button in the deck chrome opens a
-floating window that answers questions about the talk and edits the running deck. Everything works
-**except the model**. The Chrome Prompt API does not currently function on this machine, and the
-next step is to swap the provider for LiteRT.js + Gemma 4.
+floating window that answers questions about the talk and edits the running deck. It runs
+**Gemma 4 E2B on the GPU, in the page**, via [LiteRT-LM](https://developers.google.com/edge/litert-lm/js).
 
-This document is for that spike. It covers what the Prompt API does wrong, where the seam is, and
-what Joyce's LiteRT provider already knows that you should not rediscover.
+This document is the record of that model layer: why it is not the Chrome Prompt API, what the
+swap cost and bought, and the measured numbers to re-derive if anything changes.
+
+> **Pre-flight, before any talk.** The model is a 2 GB download. Fetch it on a connection you
+> trust and confirm the status row reads "on disk", then open the panel and ask one question.
+> See [§7](#7-pre-flight).
 
 ---
 
-## 1. Why the Prompt API is being replaced
+## 1. Why not the Chrome Prompt API
 
+The assistant was built against `LanguageModel` first, and everything except the model worked.
 Measured 2026-08-12 on Chrome 151.0.7922.76, and reproduced independently in a normal Chrome
 profile with the Prompt API fully enabled:
 
@@ -23,217 +27,376 @@ profile with the Prompt API fully enabled:
 | `LanguageModel.create(…)`, any config, none of our code in the stack                       | never resolves; hung past 30s repeatedly        |
 | `LanguageModel.params()`                                                                   | **not a function** — absent in 151              |
 
-Two things this rules out: it is not our `PROMPT_OPTIONS` (a bare no-argument call fails the same
-way), and it is not the deck (a direct call from the page console fails identically).
+Two things that ruled out: not our options (a bare no-argument call failed the same way), and
+not the deck (a direct call from the page console failed identically). It was not _permanently_
+broken either, which is what made it expensive to diagnose — it reported `"available"` twice and
+once served a real answer.
 
-It is not _permanently_ broken either, which is what made it expensive to diagnose. It reported
-`"available"` twice, and early on served one genuine answer — _"A browser is a software application
-that allows you to access and view websites on the internet."_ So the plumbing in `chat/agent/` is
-known to work end to end; the platform is what is unreliable.
-
-`chrome://on-device-internals` would say more, but it is gated behind the debug-WebUI toggle at
-`chrome://chrome-urls`.
-
-Every `TODO(PROMPT)` in the tree points back to this section. They are in
-[`chat/agent/model-state.js`](../chat/agent/model-state.js),
-[`chat/agent/session.js`](../chat/agent/session.js), and
-[`chat/agent/planner.js`](../chat/agent/planner.js).
+**A postscript worth keeping.** `LanguageModel` is still _defined_ in Chrome 151, just
+non-functional. After the swap, `planner.js` still held a `typeof LanguageModel === "undefined"`
+guard, which therefore passed, and every single turn paid a dead 20-second `create()` before
+falling back to answering. A `typeof` check is not a health check.
 
 ### What the flakiness bought
 
-Four pieces of the design exist _because_ of failures observed here, and they are worth keeping
-whatever the provider:
+Four pieces of the design exist _because_ of failures observed there, and all four survived the
+provider change — three of them because they turned out to be load-bearing for entirely
+different reasons:
 
-- **`CREATING` is a separate state from `DOWNLOADING`.** Chrome fires `downloadprogress` with
-  `loaded: 0` even for a model fully on disk, so trusting the event alone showed
-  "Downloading… (0%)" while `availability()` said `available`.
-- **A ceiling on `create()` (90s).** Without it a hung create left `pendingLoad` set forever,
-  `refresh()` early-returned on "a load is in flight", and the machine wedged permanently. It now
-  times out and re-reads availability. Verified: recovers to a clickable `on-disk`.
-- **Re-sampling a flapping signal.** One sample at mount is a fact about an instant, not the model.
-- **Abort threaded all the way down.** See §4.
-
----
-
-## 2. The seam you are replacing
-
-Only **two files** talk to `LanguageModel`. Everything else is provider-agnostic.
-
-```
-chat/agent/model-state.js   lifecycle: availability, create, destroy, progress, context usage
-chat/agent/planner.js       constrained decoding on throwaway sessions
-```
-
-Their consumers depend on exactly this much:
-
-| Consumer                  | Needs                                                                                                                                   |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `chat/agent/session.js`   | `getSession()`, `isReady()`, `load()`, `refresh()`, `getState()`, `touch()`, and a session exposing `promptStreaming(text, { signal })` |
-| `chat/agent/plan.js`      | `decode({ system, message, schema, label, signal }) → object`                                                                           |
-| `chat/ui/model-status.js` | `STATES`, `STATE_META`, `getState()`, `subscribe()`, `load()`, `unload()`, `refresh()`, `contextInfo()`, `modelInfo()`                  |
-
-So a LiteRT provider needs to satisfy: **an 8-state machine, a streaming session, and constrained
-decoding.** The first two map cleanly. The third does not — see §5, it is the real design question.
-
-### Suggested shape
-
-Rather than editing `model-state.js` in place, add a provider layer under it, the way Joyce does
-(`llm.js` routes to `providers/{chrome,web-llm,litert}.js` behind one contract). Joyce's contract is
-already close to what this deck needs:
-
-```js
-getCapabilities() → { supportsMultiTurn, supportsTokenTracking, usesMessageArray }
-createHandler({ model, systemContext, temperature, maxTokens }) → { sendMessage(input), destroy() }
-```
-
-where `sendMessage` is an async generator yielding `{ type: "data", content }` then
-`{ type: "done", finishReason, usage }`. `chat/agent/session.js` already consumes an accumulated-text
-stream, so adapting is a small loop.
+- **`CREATING` is a separate state from `DOWNLOADING`.** Chrome fired `downloadprogress` with
+  `loaded: 0` for a model already on disk, showing "Downloading… (0%)" forever. LiteRT offers the
+  mirror-image lie: a cache hit reports progress `1`, which would show a frozen **100%** through
+  the whole GPU load. Hence the rule in `model-state.js`: progress belongs to the download phase
+  and nothing else.
+- **A ceiling on session creation.** Now scoped to the GPU load only, and the download
+  deliberately has none — see [§4](#4-two-phases-and-why-the-download-has-no-deadline).
+- **Re-sampling a flapping signal.** Deleted, and this one is a genuine simplification: we own
+  the download now, so the state is a fact rather than a sample.
+- **Abort threaded all the way down, and `stop()` not waiting for the responder.** See
+  [§5](#5-the-abort-contract).
 
 ---
 
-## 3. What Joyce already knows
+## 2. The shape of the model layer
 
-Joyce's `experiment/litert` branch has a working provider. Read these before writing anything:
+```
+chat/agent/providers/litert-cache.js   bytes: download, cache, verify, delete
+chat/agent/providers/litert.js         wasm, GPU probe, engine, conversations, generate()
+chat/agent/model-state.js              the 8-state machine
+chat/agent/session.js                  streamed prose on the durable conversation
+chat/agent/planner.js                  a JSON Schema -> an object, without constrained decoding
+```
 
-| File                                              | Why                                                                     |
-| ------------------------------------------------- | ----------------------------------------------------------------------- |
-| `public/local/data/api/providers/litert.js`       | The provider. Engine creation, streaming, OOM detection, token counting |
-| `public/local/data/api/providers/litert-cache.js` | HuggingFace download + Cache API storage, `isCached`, `deleteCached`    |
-| `public/shared-config.js:165-215`                 | Pinned wasm URL, the model tiers, and the hard-won notes below          |
-| `public/index.html:58-75`                         | Import map entry and the Link-header 404 gotcha                         |
+Everything above `model-state.js` is provider-agnostic and did not change: `plan.js`,
+`schema.js`, `use-conversation.js` and the whole `chat/edit/` layer are untouched by the swap.
 
-### Findings to inherit rather than repeat
+Two invariants in the provider are easy to destroy by tidying, and both are commented where they
+live:
 
-- **Only five genuine web-optimized `.litertlm` files exist on all of HuggingFace**, all Gemma 4,
-  and the smallest is 2 GB. Joyce ships two: `gemma-4-E2B-it-web` (2,008 MB) and
-  `gemma-4-E4B-it-web` (2,969 MB), both from ungated `litert-community/…` repos.
-- **The `-web` packaging is load-bearing, not cosmetic.** The `GPU_ARTISAN` backend streams the file
-  section by section; plain `.litertlm` builds fail outright with
-  `Streaming LlmExecutorMetadata section is not supported yet`.
-- **Gemma 3 LiteRT repos are `gated: auto`** and 401 without a token — unusable.
-- **Small CPU-backend models are a dead end.** Qwen3-0.6B int4 loads in 15.5s, but prefill runs at
-  4–8 tok/s, which turns a few thousand tokens of context into minutes before the first token.
-- **`maxTokens: 8192` is a KV-cache budget, not a model ceiling** (Gemma 4 does 32k). Bigger costs
-  GPU memory on top of ~1.8 GB of weights. Drop to 4096 if a device OOMs on load.
-- **Pin the wasm and the package together.** `LITERT_WASM_URL` must match the `@litert-lm/core`
-  version in the import map (`0.15.0`).
-- **Safari has no async iteration on `ReadableStream`** — Joyce uses an explicit `getReader()` loop
-  and cancels both conversation and reader if the generator is abandoned mid-answer.
-- **A WebGPU OOM is a thrown error, not an event.** Joyce regex-matches
-  `/out of memory|\boom\b|rangeerror|allocation failed|device.*lost/i`.
+- **`Backend.GPU_ARTISAN` is the only usable backend.** `Backend.GPU` has no compiled executor
+  and **crashes the tab** rather than erroring; `CPU_ARTISAN` is not in the web build; `CPU`
+  copies the whole model into the wasm heap, which is impossible at 2 GB. GPU_ARTISAN streams
+  the file section by section, which is also why the model must be a `-web` build.
+- **The stream must stay an async generator over an explicit reader.** Safari has no
+  `Symbol.asyncIterator` on `ReadableStream`, and `session.js` consumes with `for await`. Return
+  `sendMessageStreaming(...)` directly and Chrome stays green while Safari breaks silently.
 
-### Cost to this deck
+### The model
 
-This is the thing to weigh first. The deck's entire dependency story is _"the import map is the
-lockfile"_ (see [dependencies.md](dependencies.md)) and it currently ships **zero** new dependencies
-for the assistant. LiteRT means one CDN entry, a separately-pinned wasm directory, and a **2 GB
-model download** on the presenting machine. For a conference talk that is a real pre-flight step,
-not a detail — and the talk's own thesis is about what the browser can do without a server, so a
-2 GB first-run cost is worth being deliberate about.
+`gemma-4-E2B-it-web.litertlm`, from the ungated `litert-community/gemma-4-E2B-it-litert-lm`,
+**2,008,432,640 bytes** — verified against HuggingFace's `content-length`, and used as an exact
+integrity check rather than an approximate size.
+
+Of the whole of HuggingFace, only five genuinely web-packaged `.litertlm` files exist, all Gemma
+4, and this is the smallest. The `-web` packaging is load-bearing: a plain `.litertlm` fails with
+`Streaming LlmExecutorMetadata section is not supported yet`. Gemma 3's LiteRT repos are
+`gated: auto` and 401 without a token.
 
 ---
 
-## 4. The abort contract (do not lose this)
+## 3. Running on every desktop browser
 
-The stop button was broken in a way worth understanding before you touch the provider, because the
-same trap is there for LiteRT.
+This is the part the Prompt API could never have delivered, and it is now the honest claim: the
+assistant needs **WebGPU and nothing else**. No vendor API, no flag, no `SharedArrayBuffer`, and
+therefore no COOP/COEP headers — which is usually what stops wasm ML from working on a static
+host. WebGPU became Baseline in January 2026.
 
-Aborting has to work in three places, and originally only the third did:
+The GPU gate is deliberately small (`probe()` in `providers/litert.js`), and two plausible checks
+are deliberately absent:
 
-1. **Inside the router's `create()`/`prompt()`.** `plan.js` was not passing `signal` into
-   `decode()`, so stop did nothing while the router was thinking — the turn ran to completion and
-   only then noticed.
-2. **Inside a `create()` that never settles.** This is the platform failure. Aborting a signal
-   nobody is listening to leaves `busy` true forever.
+- **Not `maxBufferSize`.** GPU_ARTISAN streams the model, so no single buffer holds 2 GB.
+  WebGPU's default limit is 256 MiB, so a gate framed as "enough for the weights" would reject
+  every conformant device on earth.
+- **Not `navigator.deviceMemory`.** Chromium-only, so gating on it silently rejects Safari and
+  Firefox — the exact outcome this change exists to avoid.
+
+What it does check: a secure context (a deck served from a LAN IP has no `navigator.gpu` at all,
+and that is a normal way to present), an adapter, and that the adapter is not a software
+fallback. `shader-f16` is recorded for the info modal rather than required, because it is the
+first thing to look at if GPU_ARTISAN ever fails somewhere WebGPU is otherwise fine.
+
+**Verified on Chrome 151 / macOS** (Apple, metal-3, `shader-f16`). **Safari 26 and Firefox are
+coded for but unverified here** — see [§7](#7-pre-flight). Firefox is the bigger unknown: it is
+not in the upstream LiteRT measured set at all.
+
+### Storage, across three vendors
+
+The 2 GB cache write is where browsers differ most, so there are two defences and an integrity
+check:
+
+- **A storage estimate before the fetch.** If it will not fit, skip the cache and stream
+  straight to the engine — "works, re-downloads next time" beats "cannot run the model".
+- **A `QuotaExceededError` fallback after it.** Safari reports an aspirational quota and then
+  throws anyway; Firefox reports a group limit and has been seen throwing a bare `TypeError`.
+  Matched on name _and_ message, because vendors disagree.
+- **An exact byte-count check on write and on read.** A truncated cache entry is the nastiest
+  failure available: `cache.match` returns it happily, the engine then fails on partial bytes
+  with a message about wasm sections, and it looks permanent and inexplicable. A short entry is
+  deleted rather than reported.
+- **`navigator.storage.persist()` only from the download click.** Chrome grants it silently;
+  Firefox raises a permission doorhanger, and browser chrome appearing mid-talk is worse than the
+  eviction it prevents.
+
+---
+
+## 4. Two phases, and why the download has no deadline
+
+`load()` separates DOWNLOADING from CREATING, and the separation is the whole design.
+
+Under the Prompt API, a `create()` secretly waiting on a download surfaced as "the model took too
+long to start" — wrong and unactionable. Worse, the outer 60s bound in `session.js` was _shorter_
+than the 90s ceiling in `model-state.js`, so the inner one could never be the thing that
+reported.
+
+Now:
+
+- **The download gets no deadline.** 2 GB on venue wifi is legitimately many minutes, and any
+  fixed limit is a lie told to a presenter who is merely being patient. What replaces it is a
+  **stall detector** — an idle timer that fires only when no bytes are arriving — plus a real
+  cancel button, because this download is ours.
+- **Only the GPU load is bounded**, and generously: measured at 3.0s cold and ~1.2s from a warm
+  cache, against a 120s ceiling that exists to catch a wedge.
+- **`session.js` refuses before it ever calls `load()`.** A question typed while the model is
+  downloading gets told so, with byte counts. A question typed while it is merely DOWNLOADABLE is
+  refused too, with the size — a keystroke is a valid user activation, but silently starting a
+  2 GB fetch from typing is the rudest thing this layer could do.
+
+`warmUp()` no longer builds an engine. Under the Prompt API the persisted flag warmed a session
+that belonged to the OS; the same promotion here claims ~2 GB of GPU memory during page load,
+racing Spectacle's 35-slide portal mount. Safari enforces per-tab memory limits by **killing the
+tab**, so the worst case was not a slow deck but no deck, before slide 1. The engine loads in
+~1.2s warm, so the first question pays almost nothing for the change.
+
+---
+
+## 5. The abort contract
+
+Aborting has to work in three places, and the same trap exists for LiteRT as for Chrome:
+
+1. **Inside the router.** `plan.js` passes `signal` into `decode()`, which races every call
+   against both a timeout and the signal.
+2. **Inside a load that never settles.**
 3. **Mid-stream**, with a partial answer to keep.
 
-The fix has two halves, and a new provider must preserve both:
+Two halves of the fix, both still required:
 
-- **Thread `signal` everywhere.** `planner.js` races every call against both a timeout _and_ the
-  signal, hands `signal` to Chrome so generation is actually cancelled, and destroys a session that
-  arrives after an abort. `plan.js` passes `signal` to both decode passes and rethrows `AbortError`
-  instead of falling back to answering.
-- **`stop()` does not wait for the responder.** [`chat/use-conversation.js`](../chat/use-conversation.js)
-  bumps a **run token**, records the partial, and clears `busy` immediately. Any late result from the
-  abandoned turn sees a stale token and is discarded. This is what makes stop work against a
-  responder that never settles — and with LiteRT you will have the same need, because a WebGPU
-  generation is not always promptly cancellable.
+- **Thread `signal` everywhere.** LiteRT has **no `AbortSignal` support anywhere in its API**;
+  `conversation.cancel()` is the only mechanism, so a signal that does not reach that call does
+  nothing at all — generation continues, burning the GPU, until it finishes on its own.
+- **`stop()` does not wait for the responder.** [`use-conversation.js`](../chat/use-conversation.js)
+  bumps a run token, records the partial, and clears `busy` immediately.
 
-Verified for both cases: `busy` clears, the partial is kept and marked `stopped`, the composer is
-immediately reusable, and nothing leaks in later.
+### `cancel()` poisons the conversation — and how that is survived
 
----
+The single most surprising measured fact in this layer:
 
-## 5. The open design question: constrained decoding
+> **One `conversation.cancel()`, from any cause, permanently kills that conversation.** Every
+> later `sendMessageStreaming` on it rejects with `Error: Task cancelled`. It does not recover
+> with time. **`clone()` inherits the poison _and_ loses the history** — a clone of a cancelled
+> conversation reports 0 tokens.
 
-This is the one thing that does **not** port, and it decides how much work the spike is.
+If that reads familiar, it is nearly the Chrome 151 bug this file used to document in its
+constrained-decoding section: a second `responseConstraint` prompt failing with `kErrorUnknown`,
+with `clone()` tainted too. Different API, same shape.
 
-The edit pipeline is built on the Prompt API's `responseConstraint`. Its value is not politeness —
-element refs, style properties, class names and var names are spliced into the schema as `enum`s
-**per turn**, so a hallucinated reference is not merely rejected, it is _undecodable_. On a 3B model
-that is worth more than any prompt wording, and it is what makes it safe to let a small model edit a
-live deck. See [`chat/agent/schema.js`](../chat/agent/schema.js).
+Untreated, that makes the stop button a one-shot: press it once and the assistant is mute for the
+rest of the talk. What saves it is that a cancelled conversation is still **readable** —
+`getHistory()` and `getTokenCount()` both work. So the provider replaces a poisoned conversation
+with a fresh one carrying its history forward as the preface. Verified: a replacement still
+recalls a fact established before the cancel, where a control conversation with no history does
+not. It costs ~2ms, and the healing is deferred to the next turn, inside the generation lock, so
+it cannot race the generation still unwinding.
 
-**LiteRT-LM has no equivalent.** Joyce never needed one (grep its LLM layer: no
-`responseConstraint`, no `json_schema`, no tool calling). So you must pick:
+### One generation at a time
 
-1. **Prompt-and-validate.** Ask for JSON, parse, validate against the same allowlists
-   `chat/edit/apply.js` already enforces, and repair once on failure. Cheapest. The safety net
-   already exists — `apply.js` re-validates every op regardless of the schema, precisely so a
-   mismatch is a refusal rather than a broken slide. Expect a materially worse hit rate on refs.
-2. **Grammar-constrained sampling, if LiteRT exposes it.** Check whether `@litert-lm/core` supports
-   a logit processor or GBNF-style grammar. If it does, this is the faithful port.
-3. **Keep two providers.** Prompt API for constrained op decoding _when it works_, LiteRT for prose.
-   Honest but doubles the surface, and rests on the API being reliable, which is the thing in doubt.
-
-Recommendation: start with (1), and keep [`chat/agent/planner.js`](../chat/agent/planner.js) as the
-only place that knows how a schema becomes an object. Its whole public surface is one function —
-`decode({ system, message, schema, label, signal })` — so swapping strategies later is contained.
-
-Note also why planner sessions are ephemeral: in Chrome 151 a _second_ `responseConstraint` prompt
-on a session that already served one rejects with `kErrorUnknown`, `clone()` inherits the taint, and
-`append()` does not help (documented in `web-agents/public/app/agents/prompt-api.js:198-224`). That
-constraint is Chrome-specific and a LiteRT provider is free to reuse one conversation.
+There is a lock around every generation, and it has no counterpart upstream. Because `stop()`
+deliberately does not wait, a second `sendMessageStreaming` can be issued while the previous
+stream is still cancelling — and the engine has one main executor, shared with the router's
+throwaway conversations. Teardown is bounded, because a lock nobody releases is worse than the
+overlap it prevents.
 
 ---
 
-## 6. What is already verified, and stays verified
+## 6. Constrained decoding: what replaced it
 
-None of this depends on the model, so it should not need re-testing after the swap:
+The edit pipeline was built on `responseConstraint`. Its value was not politeness: `schema.js`
+splices the live element refs, style properties, class names and var names into the schema as
+`enum`s **per turn**, so a hallucinated reference was not rejected after the fact — it was
+_undecodable_.
 
-- **The deck is unharmed.** 35-slide sweep both directions, zero console errors, the robot never
-  moving (`x: 43` on every slide), exactly one `DeckBridge` throughout. `--chrome-h` reservation
-  intact: one `slide--full` at 0px, 34 others at 122px. Export/print mode mounts no chat at all.
-  `/styles` untouched.
-- **The edit layer**, driven by hand-built ops with no model: text edits surviving navigation, the
-  chapter-accent override beating `applyChapterStyles()`, three-deep undo restoring exact
-  originals, reset emptying the sheet, and the dangerous mixed-content case keeping its inline `<i>`
-  icon (`iconsBefore: 1, iconsAfter: 1`).
-- **The full route→fill→apply pipeline**, with `LanguageModel` stubbed: every op, refusals for
-  unknown refs and disallowed properties, and a fill-pass failure reported rather than swallowed.
-- **Deck knowledge**: 35 slides harvested, 27 carrying a chapter, retrieval picking sensible slides.
+**LiteRT-LM has no equivalent.** Verified against the 0.15.0 type declarations rather than
+guessed: `SessionConfig` offers `samplerParams {type, k, p, temperature, seed}`, `stopTokenIds`,
+`numOutputCandidates`, `samplerBackend` and `maxOutputTokens`, and that is all — no grammar, no
+JSON schema, no response format, no logit bias. (There is a prompt-level `AutoToolChat` under
+`@litert-lm/core/orchestration`, but it is unconstrained, so it buys nothing here.)
 
-Test scripts live in the session scratchpad, not the repo. They drive Chrome over CDP on `:9222`
-against the dev server on `:3000`. **Kill any backgrounded test driver before running another** —
-one left running polluted several measurements by typing into the same tab.
+So [`planner.js`](../chat/agent/planner.js) does **prompt-and-validate**: render the schema into
+the prompt, generate at `temperature: 0`, extract the first brace-balanced object, validate,
+snap near misses, repair once. It remains the only module that knows how a schema becomes an
+object.
 
-### Numbers worth keeping
+The principle throughout: **a value that does not validate is dropped, never coerced into
+something plausible.** `chat/edit/apply.js` re-validates every op independently and resolves
+every ref against the live DOM, so a dropped field becomes a readable refusal rather than a wrong
+edit. That safety net predates this change and is exactly why prompt-and-validate is survivable.
 
-| Quantity                                      | Value                                                              |
-| --------------------------------------------- | ------------------------------------------------------------------ |
-| Prompt API real input window                  | **9,216 tokens** — not the nominal 32k. Matches Joyce's "~9K" note |
-| System prompt (deck facts + 35-slide outline) | ~660 tokens                                                        |
-| Per-turn retrieval + question                 | ~160 tokens                                                        |
-| Session creation, warm                        | ~9.5s                                                              |
-| Longest harvested slide                       | 310 chars (cap is 600 — nothing truncates)                         |
+### What the validator must do, because `apply.js` does not
 
-The token budget is the number to re-derive first for Gemma 4: at `maxTokens: 8192` the arithmetic
-is similar, so the ~660-token system prompt should still fit comfortably.
+Two of these were **latent bugs** that constrained decoding had been masking:
+
+- **Type coercion.** `apply.js` passes values straight through, so `on: "false"` is a truthy
+  string and `toggle_class` would _add_ the class the user asked to remove. Never `Boolean(value)`.
+- **`additionalProperties: false`.** `plan.js` does `apply({ op, ...filled })`, spreading
+  `filled` **last** — so a reply containing `"op": "reset"` would override the routed op and wipe
+  every edit. Stripping to declared keys is the fix, not tidiness.
+- **`maxLength`**, rejected rather than truncated: a mid-word cut landing on a live slide is worse
+  than a refusal. The 140-character cap is a layout guard for a fixed 1366×768 canvas.
+- **Range clamping**, applied _before_ `apply.js` sees the value, because receipts are generated
+  from what was applied — clamping afterwards would print "→ slide 47" for a 35-slide deck.
+
+### Snapping, and where it is refused
+
+Every rung of the ladder requires a **unique** winner, which is what makes it safe rather than
+clever: `text-align`/`text-transform`/`text-decoration` all contain `text-`, so a bare `text-`
+must fail rather than pick the first; `background-color` contains `color`, so `color` must win by
+exact match and never by substring. Distance is capped at 1, because at 2 genuinely distinct
+values merge.
+
+**Refs are never snapped.** They are opaque generated ids (`e1`, `e2`, …), so every distance-1
+neighbour of a ref is _another real element_ — snapping `e3` to `e8` would edit the wrong thing
+on a live slide and read to the audience as a deck bug. Every snap is logged.
+
+### The router does not ask for JSON
+
+`ROUTE_SCHEMA` is a single enum, so asking a 2B model for `{"op":"set_text"}` spends tokens on
+syntax it can get wrong. It asks for one bare word with an 8-token cap and matches it. Zero or
+ambiguous matches default to `answer`, which is the documented safe fallback and cannot damage
+the deck — one generation, not a repair round.
+
+### What prompting cannot fix, and what it must
+
+A grammar would never have caught the failure actually observed: "Go to slide 12" decoding as
+`where: "prevSlide"`, a perfectly valid enum member and the wrong answer. Only the prompt can, so
+`plan.js` now carries a one-line hint per op. That is the real shape of this trade — losing
+constrained decoding costs prompt work, not just validation.
 
 ---
 
-## 7. Architecture, in one screen
+## 7. Pre-flight
+
+Do this before a talk, on the machine you will present from:
+
+1. **Download the model** from the panel's status row, on a connection you trust. ~46s on a fast
+   link; assume much longer on venue wifi.
+2. **Confirm "on disk"** in the status row, and open the info modal to check the GPU row.
+3. **Ask one question**, and press stop mid-answer once.
+4. **If you are presenting from something other than Chrome**, do all of the above there. Safari
+   26 and Firefox 145+ are coded for and unverified. If GPU_ARTISAN does not run on Firefox, that
+   is the thing you want to discover now.
+5. **Consider the wasm.** It is ~20 MB from jsDelivr, fetched when the engine is built, so a
+   blocked or throttled CDN means a cached model that still cannot run. A cold run at the venue
+   is the only way to know.
+
+---
+
+## 8. Measured numbers
+
+Chrome 151, macOS, Apple GPU (metal-3, `shader-f16`), `maxNumTokens: 4096`.
+
+| Quantity                              | Value                              |
+| ------------------------------------- | ---------------------------------- |
+| Model download (fast link)            | 46.2s for 2,008 MB                 |
+| Engine create, cold                   | 3.0s                               |
+| Engine create, warm cache             | ~1.2s                              |
+| New conversation (even with history)  | ~2ms — the preface prefills lazily |
+| Restart (the broom)                   | ~2ms, context back to 0            |
+| Reload after trash (engine stays hot) | ~4ms                               |
+| Time to first token                   | 74–330ms                           |
+| Prefill                               | ~1,900–2,000 tokens/sec            |
+| Decode                                | ~70 tokens/sec                     |
+| A full answer turn                    | ~0.9–1.2s                          |
+| Router decode                         | ~120–150ms                         |
+| Fill decode                           | ~280–600ms                         |
+| `busy` cleared after pressing stop    | 11ms                               |
+| System prompt                         | ~660 tokens                        |
+| Per-turn retrieval + question         | ~330 tokens                        |
+| First turn's context                  | ~990 of 4,096 tokens (24%)         |
+
+`maxNumTokens` is a **KV-cache budget we choose**, not a model ceiling — Gemma 4 does 32k. 4096
+is sized against measured demand; the cache costs GPU memory on top of ~1.8 GB of weights. Raise
+it if a machine has headroom, drop it to 2048 if one OOMs.
+
+**Note that `getTokenCount()` reads 0 on a fresh conversation.** The preface prefills lazily, so
+0 is honest — nothing has been spent yet.
+
+---
+
+## 9. Verified
+
+Chrome 151 over CDP, against the dev server. Test drivers live in the session scratchpad, not the
+repo. **Kill any backgrounded driver before running another** — one left running polluted several
+measurements by typing into the same tab.
+
+**The model layer.** Cold download with byte-accurate progress; integrity check accepting a good
+entry; engine create; multi-turn history; abort mid-stream keeping its partial; **abort then
+immediately asking again**, twice in a row; two streams launched with no await between them
+serialising rather than colliding; restart forgetting history and staying usable, twice; delete
+and re-download.
+
+**The chat path, through the real panel.** Deck-aware answers ("This talk is about the frontend
+striking back with WebMCP and the agent-ready browser…"); the context meter moving 0 → 993 →
+1,277; stop keeping its partial and flagging it `stopped` with the composer usable in 11ms and
+nothing leaking in late; the broom; the trash leaving the engine hot; the info modal's rows.
+
+**The edit path, live.** `goto` → `→ slide 12`; `set_style` → `font-size e1 → 36px`; `set_var` →
+`--chapter-accent → orange (chapter)`; undo stepping the patch log back; reset emptying it.
+
+**The edit path, adversarially — 34/34.** Deterministic cases through the exported
+`parseInto(raw, schema)`, so a failure is a real defect rather than a bad day for a 2B model:
+`on: "false"`/`0`/`"off"` → `false` and `"maybe"` dropped; `slideIndex "7"` → `7`, `47` clamped to
+35, `0` clamped to 1, `"abc"` dropped; a 300-character `set_text` dropped and reported while 140
+is kept; an injected `"op": "reset"` and every undeclared key stripped; a hallucinated `e9` and a
+near-miss `e4` both refused rather than snapped; `font_size` and `Font Size` → `font-size`;
+`color` beating `background-color`; ambiguous `text-` dropped; a CSS var accepted without its
+dashes; a fenced reply with a preamble and a trailing sentence parsed; braces inside a string
+value handled; missing required fields named.
+
+**The deck, unharmed.** All 35 slides swept both directions with the panel open: zero console
+errors, the robot never moving (`x: 42` on every slide), exactly one chat root and one panel, no
+stray patch stylesheet. `padding-bottom` reservation intact — one `slide--full` at 0px, 34 others
+at 122px. Export and print mode mount no chat: 35 toggle _elements_ exist because `Template`
+renders one per slide and export renders every slide, but **zero are visible and zero have a
+layout box** (`chat.css` hides them in paged mode as belt-and-braces for printing the live deck,
+which never runs `mountChat()`'s own bail-out). Presenter mode keeps its bridge. `/styles`
+untouched. Zero real console errors in every mode.
+
+### Known-good, known-unverified
+
+- **Answer quality is a 2B model's.** Most answers are good and grounded; some are weak, and it
+  occasionally declines a question the deck does answer. The plumbing is not the limit here.
+- **A stale-ref refusal is reachable by firing instructions faster than a human can.** Spectacle
+  navigates via a React state update, so an instruction issued within ~700ms of a `goto` builds
+  its inventory against the old slide and applies against the new one. `apply.js` refuses safely
+  and readably, which is the designed outcome.
+- **Safari and Firefox are unverified.** See [§7](#7-pre-flight).
+
+---
+
+## 10. A bug found on the way
+
+`chat/deck-adapter.js` did `!!deckNav.advanceSlide()`, but **Spectacle's relative-navigation
+functions return `undefined`**. So `nav.nextSlide()` always reported failure, `apply.js`'s
+`if (!moved)` turned it into "I couldn't move the deck.", and the deck advanced while the receipt
+said it had not. `toSlide` never had the bug because it returns `true` explicitly after `skipTo`.
+
+Pre-existing and unrelated to the provider swap, but it was making a delivered path lie, so it is
+fixed. Reporting success is the honest answer rather than a convenient one: Spectacle clamps at
+both ends, so a call at the last slide is a no-op and not a failure — and there is nothing to
+detect anyway, because the move lands via a state update rather than synchronously.
+
+---
+
+## 11. Architecture, in one screen
 
 ```
 index.html  ──┬── root  →  Deck  →  Template  →  <DeckBridge/>  ──┐
@@ -245,9 +408,9 @@ index.html  ──┬── root  →  Deck  →  Template  →  <DeckBridge/>  
   portal carries a `transform: scale()` and `overflow: hidden`, `TemplateWrapper` is
   `pointer-events: none`, and presenter/overview mode remounts everything inside it.
 - **`DeckBridge` is the only hook-using code in the deck tree.** Spectacle calls `template` as a
-  _plain function_ during `Deck`'s own render, so hooks written directly in `Template` borrow Deck's
-  hook list — which is why `Template` can no longer early-return. The bridge is safe only as an
-  _element_, and only if it renders on every slide.
+  _plain function_ during `Deck`'s own render, so hooks written directly in `Template` borrow
+  Deck's hook list — which is why `Template` can no longer early-return. The bridge is safe only
+  as an _element_, and only if it renders on every slide.
 - **First bridge wins.** Overview mode renders the template once per slide — 35 `DeckBridge`
   instances. Ownership is claimed by the first to mount.
 - **Closing the panel hides it, never unmounts it.** That is the whole disable-without-losing-state

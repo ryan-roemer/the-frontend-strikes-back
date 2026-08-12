@@ -276,27 +276,43 @@ const syncTo = (slideIndex, stepIndex = 0) => {
 
 const clamp = (value, max) => Math.min(Math.max(value, 0), Math.max(0, max));
 
+/**
+ * Spectacle's relative-navigation functions return UNDEFINED, not a boolean.
+ *
+ * So `!!deckNav.advanceSlide()` was always false, and `apply.js`'s `if (!moved)` turned every
+ * working "next slide" into "I couldn't move the deck." -- the deck advanced and the receipt
+ * said it had not. `toSlide` never had the bug because it returns `true` explicitly after
+ * `skipTo`.
+ *
+ * Reporting success is the honest answer rather than a convenient one: Spectacle clamps at
+ * both ends, so a call at the last slide is a no-op and not a failure. There is nothing to
+ * detect either, because the move lands via a React state update rather than synchronously --
+ * comparing the index before and after would read the old value and report failure again.
+ */
+const relative = (fn, fallback) => () => {
+  const { nav: deckNav } = getSnapshot();
+  if (!deckNav) return fallback();
+  fn(deckNav);
+  return true;
+};
+
 export const nav = {
-  next: () => {
-    const { nav: deckNav } = getSnapshot();
-    if (deckNav) return !!deckNav.stepForward();
-    return syncTo(currentIndex() + 1);
-  },
-  prev: () => {
-    const { nav: deckNav } = getSnapshot();
-    if (deckNav) return !!deckNav.stepBackward();
-    return syncTo(Math.max(0, currentIndex() - 1));
-  },
-  nextSlide: () => {
-    const { nav: deckNav } = getSnapshot();
-    if (deckNav) return !!deckNav.advanceSlide();
-    return syncTo(currentIndex() + 1);
-  },
-  prevSlide: () => {
-    const { nav: deckNav } = getSnapshot();
-    if (deckNav) return !!deckNav.regressSlide();
-    return syncTo(Math.max(0, currentIndex() - 1));
-  },
+  next: relative(
+    (d) => d.stepForward(),
+    () => syncTo(currentIndex() + 1),
+  ),
+  prev: relative(
+    (d) => d.stepBackward(),
+    () => syncTo(Math.max(0, currentIndex() - 1)),
+  ),
+  nextSlide: relative(
+    (d) => d.advanceSlide(),
+    () => syncTo(currentIndex() + 1),
+  ),
+  prevSlide: relative(
+    (d) => d.regressSlide(),
+    () => syncTo(Math.max(0, currentIndex() - 1)),
+  ),
   /**
    * Jump to a slide, 1-based for the model's benefit.
    *

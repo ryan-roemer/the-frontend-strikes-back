@@ -66,8 +66,11 @@ export const Panel = ({ enabled }) => {
   const { entries, streaming, busy, error, send, stop, clear } =
     useConversation(respond);
 
-  // Re-check availability whenever the panel is opened. A model that finished
-  // downloading mid-talk should promote itself without a reload.
+  // Re-check whenever the panel is opened, so a model that finished downloading
+  // mid-talk promotes itself without a reload. Cheap: a memoized GPU probe and a
+  // Cache API lookup. `refresh()` returns early while a load is in flight, which
+  // matters here -- opening the panel mid-download must not offer to start a
+  // second 2 GB fetch.
   useEffect(() => {
     if (enabled) refresh();
   }, [enabled]);
@@ -92,8 +95,11 @@ export const Panel = ({ enabled }) => {
     }
   }, []);
 
-  /** The broom: empty context, keep talking. Recreates the session because a
-   *  Prompt API session owns its history -- there is nothing to clear in place. */
+  /** The broom: empty context, keep talking. Recreates the conversation because a
+   *  conversation owns its history -- there is nothing to clear in place. That was
+   *  true of a Prompt API session and is equally true of a LiteRT one; what changed
+   *  is the price, now ~2ms, because the engine stays hot and the new conversation
+   *  prefills its preface lazily. */
   const newChat = useCallback(() => {
     clear();
     restart();

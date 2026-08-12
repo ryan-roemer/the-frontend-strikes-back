@@ -69,10 +69,43 @@ const ROUTE_SYSTEM = [
   "If it is not clearly an instruction to change or move something, choose answer.",
 ].join("\n");
 
+/**
+ * Per-op guidance for the fill pass.
+ *
+ * This did not exist while the Prompt API's `responseConstraint` was doing the work, and it
+ * has to now. But note WHY, because it is not simply "the constraint is gone": a constraint
+ * only ever stopped values that were outside the schema. It could never have stopped the
+ * failure actually observed here -- "Go to slide 12" decoding as `where: "prevSlide"`, which
+ * is a perfectly valid enum member and the wrong answer. No grammar catches that. Only the
+ * prompt can.
+ *
+ * Kept to one line per op deliberately. The fill preface is rebuilt every turn and prefill is
+ * ~2000 tokens/sec, so this is nearly free, but it is still context competing with the element
+ * table that the refs depend on.
+ */
+const FILL_HINTS = {
+  set_text: "Rewrite only the wording. Keep it short enough to fit the slide.",
+  set_style:
+    "Pick the one CSS property that matches the request: size means font-size, " +
+    "colour means color, bolder means font-weight.",
+  set_var:
+    'Deck-wide colours use scope "deck"; a single chapter uses scope "chapter".',
+  toggle_class:
+    'Set "on" to true to apply the class and false to remove it. "stop", "undo" ' +
+    'and "less" mean false.',
+  goto:
+    'A specific number means where "slide" plus that slideIndex. A named chapter means ' +
+    'where "chapter". Only use "next"/"prev"/"nextSlide"/"prevSlide" when the ' +
+    "instruction says nothing about which slide.",
+  deck_action:
+    "fullscreen toggles fullscreen; heading_style changes the heading treatment.",
+};
+
 const fillSystem = (op, context) =>
   [
     `You are filling in the details of a "${op}" instruction for a slide deck.`,
     "Use ONLY the element ids listed below. Reply with the fields the schema asks for.",
+    FILL_HINTS[op],
     "",
     context.text,
     recentEdits(),

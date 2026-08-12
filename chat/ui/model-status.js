@@ -1,14 +1,14 @@
-/* global navigator:false */
 import { createElement, useCallback, useEffect, useState } from "react";
 import htm from "htm";
 import {
   STATES,
   STATE_META,
+  cancelDownload,
   contextInfo,
+  deleteDownload,
   getState,
   load,
   modelInfo,
-  refresh,
   subscribe,
   unload,
 } from "../agent/model-state.js";
@@ -27,7 +27,11 @@ const useModelState = () => {
 
 const InfoModal = ({ onClose }) => {
   const [info, setInfo] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const reload = useCallback(() => {
+    modelInfo().then(setInfo);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -37,39 +41,81 @@ const InfoModal = ({ onClose }) => {
     };
   }, []);
 
-  const copyInternals = useCallback(() => {
-    navigator.clipboard
-      ?.writeText("chrome://on-device-internals")
-      .then(() => setCopied(true))
-      .catch(() => setCopied(false));
-  }, []);
+  /**
+   * Delete the downloaded model.
+   *
+   * This button could not exist under the Prompt API -- the model belonged to the
+   * browser, so the honest thing to show was copyable text pointing at
+   * `chrome://on-device-internals`. We own the bytes now, so the affordance is
+   * real, and it is the one that matters most when something has gone wrong: a
+   * failed load with no way to clear the cache is otherwise unrecoverable without
+   * devtools.
+   */
+  const onDelete = useCallback(async () => {
+    setBusy(true);
+    try {
+      await deleteDownload();
+      reload();
+    } finally {
+      setBusy(false);
+    }
+  }, [reload]);
 
+  const adapter = info?.gpu?.adapter;
   const rows = info
     ? [
         ["Status", STATE_META[info.status]?.title ?? info.status],
-        ["availability()", info.availability ?? "—"],
+        ["Model", `${info.model.label} · ${info.model.quantization}`],
+        ["File", `${info.model.file} (${info.size})`],
+        ["Backend", `${info.backend} · WebGPU`],
+        [
+          "GPU",
+          adapter
+            ? [adapter.vendor, adapter.architecture]
+                .filter(Boolean)
+                .join(" ") || "available"
+            : (info.gpu?.reason ?? "—"),
+        ],
+        ["shader-f16", adapter ? (adapter.shaderF16 ? "yes" : "no") : "—"],
+        [
+          "Downloaded",
+          info.cached
+            ? "yes, verified complete"
+            : info.cacheAvailable
+              ? "no"
+              : "no (this browser has no Cache API)",
+        ],
+        ["Engine", info.engineResident ? "loaded on the GPU" : "not loaded"],
         [
           "Context",
           info.context
             ? `${info.context.used.toLocaleString()} / ${info.context.total.toLocaleString()} (${info.context.pct}%)`
             : "no session",
         ],
-        ["Session created in", formatElapsed(info.elapsed) ?? "—"],
-        // `LanguageModel.params()` is absent in Chrome 151 (verified: not a
-        // function). Two rows of "—" read as a bug in this panel rather than a
-        // gap in the platform, so say which it is and take the space back.
-        ...(info.params
+        ["Loaded in", formatElapsed(info.elapsed) ?? "—"],
+        // Real numbers from the runtime, and a far better row than the Prompt API's
+        // `params()` -- which was absent in Chrome 151 anyway. Omitted rather than
+        // shown as zeroes on a conversation that has not generated yet: "0 in, 0 out
+        // · 0 tok/s" reads as a broken readout rather than an idle one.
+        ...(info.benchmark?.lastDecodeTokenCount
           ? [
               [
-                "topK",
-                `${info.params.defaultTopK} (max ${info.params.maxTopK})`,
-              ],
-              [
-                "temperature",
-                `${info.params.defaultTemperature} (max ${info.params.maxTemperature})`,
+                "Last turn",
+                `${info.benchmark.lastPrefillTokenCount ?? "?"} in, ` +
+                  `${info.benchmark.lastDecodeTokenCount} out · ` +
+                  `${Math.round(info.benchmark.lastDecodeTokensPerSecond ?? 0)} tok/s`,
               ],
             ]
-          : [["params()", "not exposed by this browser"]]),
+          : []),
+        ...(info.storage?.quota
+          ? [
+              [
+                "Storage",
+                `${(info.storage.free / 1e9).toFixed(1)} GB free of ` +
+                  `${(info.storage.quota / 1e9).toFixed(1)} GB`,
+              ],
+            ]
+          : []),
         ...(info.error ? [["Last error", info.error]] : []),
       ]
     : [];
@@ -97,21 +143,22 @@ const InfoModal = ({ onClose }) => {
         )}
       </dl>
       ${
-        "" /* Honest about the one thing the trash cannot do. A page can neither
-              delete the model nor navigate to a chrome:// URL, so this is
-              copyable text rather than a link that would silently do nothing. */
+        "" /* The page owns the bytes, so this is a real button rather than the
+              apology and copyable chrome:// URL that used to live here. */
       }
       <p className="chat-modal__note">
-        The model belongs to the browser, so a page can't delete it from disk.
-        Manage it at
-        <code>chrome://on-device-internals</code>
-        <button
-          type="button"
-          className="chat-text-button"
-          onClick=${copyInternals}
-        >
-          ${copied ? "copied" : "copy"}
-        </button>
+        ${info?.cached
+          ? html`This deck downloaded the model, so it can delete it too.
+              <button
+                type="button"
+                className="chat-text-button"
+                onClick=${onDelete}
+                disabled=${busy}
+              >
+                ${busy ? "deleting…" : `delete ${info.size}`}
+              </button>`
+          : html`The model is fetched from HuggingFace on first use and cached
+            in this browser. Nothing is sent anywhere.`}
       </p>
     </div>
   `;
@@ -146,7 +193,7 @@ export const ModelStatus = ({ onDiscardConversation }) => {
   const onPrimary = useCallback(() => {
     if (meta.action === "load") load();
     else if (meta.action === "unload") unload();
-    else if (meta.action === "recheck") refresh();
+    else if (meta.action === "cancel") cancelDownload();
   }, [meta.action]);
 
   const discard = useCallback(() => {
@@ -158,7 +205,10 @@ export const ModelStatus = ({ onDiscardConversation }) => {
 
   const statusLabel = [
     meta.title,
-    percent != null ? `(${percent}%)` : null,
+    // Byte counts, not just a percentage. At 2 GB a percentage cannot distinguish a
+    // slow download from a stalled one, which is the only question worth answering
+    // while watching this on stage.
+    state.progressText ? `— ${state.progressText}` : null,
     formatElapsed(state.elapsed) ? `(${formatElapsed(state.elapsed)})` : null,
   ]
     .filter(Boolean)
@@ -214,7 +264,11 @@ export const ModelStatus = ({ onDiscardConversation }) => {
       </div>
 
       ${percent != null
-        ? html`<span className="chat-model__progress">${percent}%</span>`
+        ? html`<span
+            className="chat-model__progress"
+            title=${state.progressText ?? ""}
+            >${percent}%</span
+          >`
         : null}
       ${
         "" /* Context meter. Amber at 75, red at 90 -- the point where the broom

@@ -9,9 +9,12 @@
  * the whole reason the panel lives on its own root -- an unmount would take the
  * transcript with it.
  *
- * Persisting it also drives the model preload: a deck that loads with the chat
- * already on can create the `LanguageModel` session before the first keystroke,
- * so the first question streams immediately instead of waiting on session setup.
+ * Persisting it also drives a model PROBE at mount -- but deliberately not a
+ * preload. Under the Prompt API this flag warmed a session, because that session
+ * was the OS's and cost only time. A LiteRT engine is ~2 GB of GPU memory, and
+ * claiming it during page load races Spectacle's slide portal for no good reason:
+ * the engine loads from a warm cache in ~1.2s, so the first question pays almost
+ * nothing for waiting. See `warmUp()` in `agent/model-state.js`.
  *
  * Storage is best-effort. A deck presented from a locked-down profile (or with
  * storage disabled) still works; it just forgets the flag between reloads, which

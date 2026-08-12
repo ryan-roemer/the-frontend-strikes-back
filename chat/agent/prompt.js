@@ -5,18 +5,26 @@ import { getSnapshot } from "../bus.js";
 /**
  * What the model is told.
  *
- * Budgeted against a MEASURED 9,216-token input window (`contextWindow` on a live
- * session in Chrome 151 -- not the nominal 32k). The split:
+ * Budgeted against `MAX_NUM_TOKENS` in `providers/litert.js` -- 4,096, which is the
+ * KV-cache budget we ask LiteRT for rather than a model ceiling (Gemma 4 itself does
+ * 32k). Measured against a live session:
  *
- *   system prompt  ~900 tokens, once   -- identity, deck facts, slide outline
- *   per turn       ~500 tokens         -- retrieved slides + the question
+ *   system prompt   ~660 tokens, once  -- identity, deck facts, slide outline
+ *   per turn        ~330 tokens        -- retrieved slides + the question
  *
- * which leaves the great majority of the window for the conversation itself.
+ * so a first turn lands around 990 tokens, about a quarter of the window, and a long
+ * conversation still has room. The context meter in the status row is the thing to
+ * watch; the broom in the header is the answer when it goes amber.
  *
- * The rules are written as short imperatives because a 3B model follows those and
- * ignores prose. "Say you don't know" is first because the failure that matters
- * here is confident invention: this deck is shown to an audience, and a made-up
- * takeaway said with confidence is worse than an admission.
+ * An earlier version of this comment budgeted against a measured 9,216-token Prompt
+ * API window and guessed ~900/~500. Both numbers are superseded, and the window is
+ * now ours to choose rather than the browser's to impose -- raise `MAX_NUM_TOKENS` if
+ * a machine has GPU memory to spare.
+ *
+ * The rules are written as short imperatives because a 2B model follows those and
+ * ignores prose. "Say you don't know" is first because the failure that matters here
+ * is confident invention: this deck is shown to an audience, and a made-up takeaway
+ * said with confidence is worse than an admission.
  */
 
 const RULES = [

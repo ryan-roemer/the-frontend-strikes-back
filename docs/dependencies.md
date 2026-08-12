@@ -91,6 +91,47 @@ nobody else. See [§5](#5-the-react-19-compat-shim).
 | `styled-system`                  | 5.1.5         | Latest — see [§6](#6-things-deliberately-not-upgraded)                                  |
 | `use-resize-observer`            | 9.1.0         | Deliberately **not** bumped — see [§6](#6-things-deliberately-not-upgraded)             |
 | `@emotion/is-prop-valid`         | 1.4.0         | Only for the styled-components v6 bridge                                                |
+| `@litert-lm/core`                | 0.15.0        | The deck assistant's on-device model. Loads a wasm runtime — see below                  |
+
+### `@litert-lm/core` and its wasm
+
+The only dependency the deck loads for a reason other than rendering slides: it runs Gemma 4
+on the GPU for the assistant in [`chat/`](../chat/). Two things about it are unlike everything
+else in this table.
+
+**It fetches a wasm runtime separately from its JavaScript, and the two must match.** The
+reference implementation this was ported from keeps a second hardcoded URL next to its import
+map entry, with a "bump both together" comment — a rule that works right up until somebody
+forgets. This deck derives it instead, so the claim at the top of this document stays true and
+there is exactly one pin:
+
+```js
+// chat/agent/providers/litert.js
+const LITERT_WASM_URL = new URL(
+  "./wasm",
+  import.meta.resolve("@litert-lm/core"),
+).href;
+```
+
+`import.meta.resolve` returns the import-map-resolved URL, and `+esm` sits at the package root
+alongside `wasm/`, so `./wasm` lands on the right directory. It shipped in Chrome 105, Firefox
+106 and Safari 16.4 — all far older than any browser with WebGPU, so every browser that can
+run the model at all has it. The derivation asserts the resolved URL still looks like a
+versioned jsDelivr path, because the one thing it couples to is that URL _layout_: repointing
+this entry at another CDN, or at a `/dist/index.mjs`-style path, would otherwise silently
+derive a wrong `./wasm`.
+
+**It is the deck's only lazily-loaded dependency.** Nothing above is fetched until a presenter
+asks for it: `mountChat()` imports the chat dynamically, and the wasm and the ~2 GB model come
+later still, on an explicit click. A deck presented without ever opening the assistant pays
+nothing for it.
+
+**The model is not a dependency in this table's sense.** `gemma-4-E2B-it-web.litertlm` is
+2,008,432,640 bytes, fetched from HuggingFace on first use and cached in the Cache API. It is
+version-pinned by repo and filename in `chat/agent/providers/litert.js`, verified by exact byte
+count on both write and read, and deletable from the panel's info modal. **Downloading it is a
+pre-flight step for a talk, not a detail** — do it on a connection you trust, then confirm the
+status row says "on disk" before you go anywhere near a stage.
 
 `spectacle@10.2.1` **cannot** run on React 19: it sets `defaultProps` on function components
 in 19 places, which React 19 removed support for. `10.2.3` has zero (`curl …/+esm | grep -c
@@ -325,6 +366,21 @@ versions in the network tab even when the dedupe is working perfectly. Preloads 
 fetches, not specifier resolutions, so they skip remapping. Those bytes are downloaded but
 never instantiated — wasted preload, not a second React. Confirm with the hook-identity check
 in [§4](#4-the-react-singleton-rule) rather than trusting the network panel.
+
+**…and the same headers produce a harmless 404 in the console.** `@litert-lm/core`'s bundle
+serves `Link: </npm/@litertjs/wasm-utils@2.5.3/+esm>; rel=modulepreload`. Browsers resolve
+`Link` headers against the **document** URL rather than the module's, so the browser requests
+`<origin>/npm/@litertjs/wasm-utils…` from the dev server and gets a 404. The real import inside
+the bundle resolves against `cdn.jsdelivr.net` and works fine. Worth knowing precisely because
+this deck is a talk about the browser and somebody in the audience will have devtools open:
+it is a wasted preload, not a broken dependency.
+
+**LiteRT's C++ runtime logs to `console.error`.** Creating the engine emits six lines that look
+alarming and are not — `INFO: [environment.cc:36] Creating LiteRT environment…`, a `WARNING`
+about the NPU accelerator not registering, and accelerator registrations. They are the
+runtime's own log levels written to the error channel, they appear only when the engine is
+built, and there is no option to silence them. Filter them out (`/^(INFO|WARNING|ERROR):\s*\[/`)
+before concluding a "zero console errors" check has failed.
 
 **Production builds strip React's warnings.** jsDelivr serves `NODE_ENV=production`, so
 developer warnings simply do not appear. The `class`/`style` bug above was silently wrong under

@@ -4,7 +4,7 @@ import {
   getState,
   isReady,
   load,
-  refresh,
+  modelSize,
   STATE_META,
   STATES,
   touch,
@@ -14,30 +14,20 @@ import { answerTurn } from "./prompt.js";
 /**
  * Talking to the durable session.
  *
- * Streaming only. `promptStreaming` is what makes an on-device model feel usable:
- * Gemma Nano's time-to-first-token is short but its throughput is not, so a
- * non-streamed answer reads as a hang.
+ * Streaming only. It is what makes an on-device model feel usable: measured on Gemma
+ * 4 E2B over WebGPU, time-to-first-token is ~50ms warm but decode runs at ~65
+ * tokens/sec, so a non-streamed answer of any length reads as a hang.
  *
- * Chunks are handed on ACCUMULATED rather than as deltas. Both reference repos do
- * this, and the reason is worth keeping: the UI then renders a self-contained
- * string every time, so a dropped or reordered chunk cannot desync the display,
- * and partial markdown still renders.
- *
- * TODO(PROMPT): unverified end to end against a real model beyond one early answer.
- * `LanguageModel.create()` currently hangs on this platform under every
- * configuration -- see the block comment in `model-state.js`. This module's shape
- * (streamed, abortable, idle-timed) is what a LiteRT.js provider should also
- * present; see `docs/chat-handoff.md`.
+ * The PROVIDER yields deltas; this module accumulates them and hands `onChunk` the
+ * accumulated string. Both reference repos do it here rather than in the provider,
+ * and the reason is worth keeping: the UI then renders a self-contained string every
+ * time, so a dropped or reordered chunk cannot desync the display, and partial
+ * markdown still renders.
  */
 
 /** Long enough for a slow first token on a cold model, short enough that a
  *  wedged session doesn't look like a wedged deck. */
 const TIMEOUT_MS = 45000;
-
-/** Ceiling on session creation. Measured at ~9.5s on a warm model, so this is
- *  generous -- it exists to catch a `create()` that is secretly waiting on a
- *  download rather than to bound the normal path. */
-const CREATE_TIMEOUT_MS = 60000;
 
 /**
  * Reject if the model produces nothing for this long.
@@ -73,37 +63,40 @@ const aborted = () => new DOMException("Aborted", "AbortError");
  */
 export const streamAnswer = async ({ text, onChunk, signal }) => {
   if (!isReady()) {
-    // A DOWNLOAD is not something to wait out behind a spinner.
-    //
-    // Measured: with Chrome mid-download, `availability()` sits on "downloading"
-    // and a bare `LanguageModel.create()` -- no code of ours involved -- had not
-    // resolved after 30s. A multi-gigabyte fetch can take many minutes, so
-    // queueing the question means typing dots forever and no way to tell a slow
-    // model from a wedged one.
-    //
-    // But re-sample BEFORE refusing. `availability()` flaps between "available"
-    // and "downloading" while Chrome works, so a DOWNLOADING on record may just be
-    // a stale sample -- refusing on it rejected every question for minutes after
-    // the model had become usable. One fresh check is cheap.
-    if (getState().status === STATES.DOWNLOADING) await refresh();
-
-    // Re-read AFTER the refresh. Reading these before it is what made the fix
-    // above do nothing: the refreshed status said ON_DISK while the captured one
-    // still said DOWNLOADING, and the captured one is what the branches used.
-    const { status } = getState();
+    const { status, progressText } = getState();
     const meta = STATE_META[status];
 
+    // A DOWNLOAD is not something to wait out behind a spinner. 2 GB on venue wifi
+    // is legitimately many minutes, so queueing the question means typing dots with
+    // no way to tell a slow model from a wedged one.
+    //
+    // This state is now AUTHORITATIVE, which it was not before. Under the Prompt API
+    // `availability()` flapped between "available" and "downloading" while Chrome
+    // worked, so this branch had to re-sample before refusing or it rejected every
+    // question for minutes after the model had become usable. We own the download
+    // now, so the state is a fact and the re-sample is gone.
     if (status === STATES.DOWNLOADING) {
-      const { progress } = getState();
-      const pct = progress != null ? ` (${Math.round(progress * 100)}%)` : "";
       throw new Error(
-        `The on-device model is still downloading${pct}. Ask again once it finishes.`,
+        `The model is still downloading${progressText ? ` (${progressText})` : ""}. ` +
+          "Ask again once it finishes.",
+      );
+    }
+
+    // DOWNLOADABLE must NOT be treated as "just load it", even though its state
+    // meta says the button would. A keystroke is a valid user activation, but this
+    // particular action is a 2 GB fetch, and the composer is reachable long before a
+    // presenter has looked at the status row. Starting that silently, from typing,
+    // is the single rudest thing this module could do.
+    if (status === STATES.DOWNLOADABLE) {
+      throw new Error(
+        `The model isn't downloaded yet (${modelSize()}). Use the download button ` +
+          "in the panel footer when you're on a connection you trust.",
       );
     }
 
     // CREATING is different: it is seconds, and a question typed the moment the
-    // deck loads is the normal case. `load()` hands back the in-flight attempt,
-    // so this waits on that one rather than starting a second.
+    // deck loads is the normal case. `load()` hands back the in-flight attempt, so
+    // this waits on that one rather than starting a second.
     const creating = status === STATES.CREATING;
 
     // Otherwise only try when the state says a click would have worked;
@@ -113,19 +106,27 @@ export const streamAnswer = async ({ text, onChunk, signal }) => {
       throw new Error(meta?.title ?? "The on-device model is not available");
     }
 
-    // Bounded, because `create()` can itself block on a download that started
-    // after we checked.
-    await Promise.race([
-      load(),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("The model took too long to start")),
-          CREATE_TIMEOUT_MS,
-        ),
-      ),
-    ]);
+    // UNBOUNDED, deliberately. `load()` owns a ceiling on the only phase that can
+    // hang -- the GPU load -- and refuses outright rather than waiting on a
+    // download. A second bound here used to be SHORTER than the one inside
+    // `model-state.js`, so it always fired first and the inner one could never
+    // report; and any bound big enough for a first run would have to be minutes,
+    // which is not a timeout, it is a hang with extra steps. What guarantees the UI
+    // escapes a load that never settles is `use-conversation.js` `stop()`, which
+    // clears `busy` without waiting for this to return.
+    await load();
+
+    // Re-read after the await: a download may have started underneath us, in which
+    // case `error` is null and the generic message below would be wrong.
+    const after = getState();
     if (!isReady()) {
-      throw new Error(getState().error ?? "Could not start a model session");
+      if (after.status === STATES.DOWNLOADING) {
+        throw new Error(
+          `The model is downloading${after.progressText ? ` (${after.progressText})` : ""}. ` +
+            "Ask again once it finishes.",
+        );
+      }
+      throw new Error(after.error ?? "Could not start a model session");
     }
   }
 
@@ -136,7 +137,7 @@ export const streamAnswer = async ({ text, onChunk, signal }) => {
   let accumulated = "";
 
   try {
-    const stream = session.promptStreaming(answerTurn(text), {
+    const stream = session.stream(answerTurn(text), {
       signal: guard.signal,
     });
     for await (const chunk of stream) {
