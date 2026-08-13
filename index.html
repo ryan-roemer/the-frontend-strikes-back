@@ -32,14 +32,6 @@
     <!-- Deck assistant. Self-contained in `chat/`; see the mount call at the
          bottom of the module below. Both lines go away together. -->
     <link rel="stylesheet" type="text/css" href="./chat/chat.css" />
-    <style>
-      /* Presenter notes are a dense reading pane, not part of the deck design. */
-      .notes * {
-        padding: 0 !important;
-        line-height: 1 !important;
-        font-size: 20px !important;
-      }
-    </style>
     <title>The Frontend Strikes Back</title>
   </head>
   <body>
@@ -580,11 +572,6 @@
               * **Tool calling**: the model can't actually call our tools... yet.
               * **Availability**: flags, model downloads, cold starts.
               * TODO: MORE POINTS
-
-              Notes: \
-                One line each, don't linger. Compared to cloud foundation models it's \
-                an entirely different world. The tool-calling shim gets its own slide in \
-                ch. 4, where it's doing real work.
             `}
           </${MarkdownSlideSet}>
           ${
@@ -747,8 +734,7 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * ${em("Never cut this slide")}. It's the only one that says what to do.
-                  * Callback to the cold open: one takeaway for each half of the room.
+                  * TODO: Callback to the cold open: one takeaway for each half of the room.
                   * TODO: your closing line on the title. Then stop and let it sit.
                 `}
               </${Markdown}>
@@ -837,7 +823,8 @@
       // Dynamic and caught so that mounting can fail without touching the talk:
       // the chat reads `localStorage` and creates DOM, and none of that is worth
       // a blank deck. It also defers evaluating the chat modules until after the
-      // deck has rendered.
+      // deck has rendered -- which `chat/harvest/` needs rather than merely
+      // prefers, since it walks the fiber tree this render produces.
       //
       // Removing the assistant is three edits, and they have to go TOGETHER:
       // this call, the stylesheet link in <head>, and the `DeckBridge` /

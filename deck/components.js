@@ -336,14 +336,71 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
   `;
 };
 
-const MdNotes = ({ notes }) =>
-  !notes
+/**
+ * Flatten a note's indentation before Spectacle ever sees it.
+ *
+ * Spectacle dedents markdown with `indentNormalizer`, which takes the SHORTEST
+ * leading-whitespace run across every line -- and then guards the strip with
+ * `prefix ? line.replace(prefix, '') : line`. So a single line at column zero
+ * makes the prefix `""`, which is falsy, and NOTHING is dedented.
+ *
+ * `DemoSlide` hits that exactly. It composes its note from two template
+ * literals, and one of them opens on the same line as its own backtick:
+ *
+ *                   * 75 sec. Same app as ch. 2.                    <- column 14
+ *
+ *     BACKUP: Cut to the recorded clip. Do NOT debug --             <- column 0
+ *                   this is a 75-second cameo.                      <- column 14
+ *
+ * The bullets stay at fourteen spaces, which is past markdown's four-space
+ * threshold, so they parse as an INDENTED CODE BLOCK -- and Spectacle renders
+ * that through its code pane. All three demo slides were showing their speaker
+ * notes as syntax-highlighted source.
+ *
+ * THE FIRST LINE DOES NOT VOTE, which is what makes this work on a plain note:
+ * it follows a backtick or a `${"${}"}` and is flush by construction, so letting it
+ * into the minimum is what drags the prefix to zero. Every other line is
+ * measured, so relative indentation -- nested bullets, wrapped continuations --
+ * survives.
+ *
+ * THAT RULE IS NOT ENOUGH FOR A COMPOSED NOTE, which is why `DemoSlide` calls
+ * this on each piece BEFORE joining rather than leaning on the pass below. A
+ * flush line only gets a free pass for being first; once the backup moved to the
+ * end of the note, its column-zero line sat in the middle, voted, and took the
+ * prefix back to zero. Dedenting the pieces separately is the general answer --
+ * each one is measured against its own indentation, which is the only thing it
+ * was ever consistent with.
+ *
+ * Kept on `MdNotes` as well because that is the one funnel every hand-written
+ * note passes through, so a component that composes a note and forgets still
+ * gets the simple case right. Notes on markdown slides take a different path
+ * entirely (the `Notes:` line) and never arrive here.
+ */
+const dedentNote = (text) => {
+  const lines = String(text).split("\n");
+  const indents = lines
+    .slice(1)
+    .filter((line) => line.trim())
+    .map((line) => line.match(/^ */)[0].length);
+  const pad = indents.length ? Math.min(...indents) : 0;
+
+  return lines
+    .map((line, i) => (i ? line.slice(pad) : line))
+    .join("\n")
+    .trim();
+};
+
+const MdNotes = ({ notes }) => {
+  const text = notes ? dedentNote(notes) : "";
+
+  return !text
     ? null
     : html`<${Notes}>
   <${Markdown} className="notes">
-    ${notes}
+    ${text}
   </${Markdown}>
 </${Notes}>`;
+};
 
 // Slide components
 
@@ -771,12 +828,40 @@ export const MatrixSlide = ({ chapter, title, rows = [], notes }) => html`
 `;
 
 /**
+ * The fallback plan, as it appears in the speaker notes.
+ *
+ * An EMOJI rather than a Phosphor icon, because this line is markdown on its way
+ * to the notes pane, not JSX -- `Icon` would arrive as literal `<i>` markup. The
+ * extinguisher is deliberately an old one (Emoji 11, 2018): `takeaways.js`
+ * records the deck already losing dingbats to tofu on a projector and nowhere
+ * else, and a note nobody can read is worse than a note with no mark on it.
+ *
+ * A URL becomes a LINK. A bare URL only autolinks under GFM, which is not what
+ * Spectacle parses with, and the whole point of a backup is that it is reachable
+ * without anyone retyping it mid-talk. Matched whole-string: prose that merely
+ * mentions a URL is left alone.
+ */
+const BACKUP_MARK = "🧯";
+
+const isUrl = (text) => /^https?:\/\/\S+$/.test(text);
+
+const backupNote = (backup) => {
+  // Dedented BEFORE the label goes on, so the prefix cannot skew the measurement
+  // -- see `dedentNote` for why a composed note has to be flattened piecewise.
+  const content = dedentNote(backup);
+  const body = isUrl(content) ? `[${content}](${content})` : content;
+
+  return `**${BACKUP_MARK} BACKUP:** ${body}`;
+};
+
+/**
  * A hand-off to a live demo.
  *
  * Its real job is the `backup` prop. Three times in this talk the slides stop
  * and a live app takes over, and the one thing that must not be improvised on
- * stage is what to do when the demo fails -- so the fallback plan is pushed into
- * the speaker notes, above everything else, at the moment it would be needed.
+ * stage is what to do when the demo fails -- so the fallback plan rides along in
+ * the speaker notes, closing them, where it is the last thing read before the
+ * demo starts.
  */
 // TODO(Ryan): Check this `backup` thing and see about video backups for live demos.
 export const DemoSlide = ({
@@ -814,7 +899,7 @@ export const DemoSlide = ({
       }
     <//>
     <${MdNotes}
-      notes=${[backup && `**IF IT BREAKS:** ${backup}`, notes]
+      notes=${[notes && dedentNote(notes), backup && backupNote(backup)]
         .filter(Boolean)
         .join("\n\n")}
     />

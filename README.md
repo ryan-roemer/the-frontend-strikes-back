@@ -39,6 +39,7 @@ the remaps and scopes work, which upgrades are deliberately blocked, and how to 
 | `?exportMode=true`    | All slides stacked, deck styling intact — print this to PDF   |
 | `?printMode=true`     | All slides stacked, light ink-saving theme for paper handouts |
 | `?chat`               | Open the deck assistant on load (see below)                   |
+| `?dump`               | Show the whole deck as one Markdown document (see below)      |
 
 Transitions are also disabled automatically under `prefers-reduced-motion`.
 
@@ -65,3 +66,19 @@ offered and explains itself when WebGPU is unavailable.
 > each provider. See the pre-flight in [docs/chat-handoff.md](docs/chat-handoff.md), which is also
 > the record of what each provider can and cannot do, and the measured numbers behind those
 > choices.
+
+### The deck as Markdown
+
+[`chat/harvest/`](chat/harvest/) reads the running deck — every heading, bullet, code block and
+speaker note — and emits it as one Markdown document. `?dump` shows it over the deck; in the
+console, `window.deckDump` offers `.markdown()`, `.slides()` and `.log()`.
+
+It reads React's fiber tree rather than the DOM, which is what makes structure survive: Spectacle
+renders `Heading` and `Text` both as `styled.div`, so a rendered slide has no headings to find,
+no lists to nest, and code panes only as Prism spans. The fiber tree has the components, the code
+panes' original source, the markdown slides' original markdown, and the speaker notes — which are
+in no DOM at all, because `Notes` renders `null` outside presenter mode.
+
+Speaker notes are fenced in `<speaker-notes>` tags so a consumer can drop them wholesale; they
+carry TODOs and presenter-private asides. Nothing here is wired into the assistant's prompt yet —
+`chat/agent/prompt.js` is still the seam, and this is the other half of it.

@@ -907,13 +907,79 @@ body::after {
  *
  * The notes pane is dense plain text in a separate view; the deck's list and
  * heading treatments above would only get in its way.
+ *
+ * EVERY RULE HERE IS `#root`-SCOPED, and that is the fix rather than a tidy-up.
+ * Notes styling used to be split across two files at two specificities, and all
+ * three rules lost the fight they were in:
+ *
+ *   - `.notes ul > li::before { content: none }` (0,1,2) lost to
+ *     `#root ul > li::before` (1,0,2), so the deck's marker was never switched
+ *     off.
+ *   - `.notes ul { list-style: disc }` (0,1,1) lost to `#root ul` (1,0,1), so
+ *     the plain disc meant to replace it never arrived either.
+ *   - `.notes * { padding: 0 !important }` -- in a <style> block in index.html,
+ *     which is why it was easy to miss from here -- beat `#root ul > li
+ *     { padding-left: 1.1em }`, because `!important` outranks any specificity.
+ *
+ * The result on screen was the worst combination available: the deck's marker
+ * rendered, the 1.1em gutter reserved for it did not, and `::before` is
+ * `position: absolute; left: 0` -- so every bullet painted directly on top of
+ * the first character of its own text.
+ *
+ * Scoping to `#root` lets these win on specificity, so no `!important` is
+ * needed. That matters beyond neatness: `!important` is what let a blanket
+ * padding reset silently outrank a rule about list gutters that it had no
+ * business touching.
  */
-.notes ul > li::before {
+#root .notes * {
+  padding: 0;
+  line-height: 1;
+  font-size: 20px;
+}
+
+/*
+ * The deck's chapter-colored marker off, a plain disc on.
+ *
+ * The gutter lives on the `ul` rather than the `li` here, unlike the deck's own
+ * lists above: a native disc is drawn by the browser in the list's padding,
+ * where the deck's `::before` was absolutely positioned inside each item's.
+ * More specific than the reset above, so it survives it.
+ */
+#root .notes ul {
+  list-style: disc;
+  padding-left: 1.1em;
+}
+
+#root .notes ul > li::before {
   content: none;
 }
 
-.notes ul {
-  list-style: disc;
+/* A markdown slide's notes are the one thing here Spectacle does not style.
+ *
+ * The two paths through `Notes` are not equivalent. `MdNotes` wraps its text in
+ * Spectacle's `Markdown`, which applies that component's DEFAULT component map,
+ * so a hand-written slide's notes arrive as `Text` and `ListItem` -- styled, in
+ * Inter, matching the deck. A markdown slide's `Notes:` line never reaches that
+ * path: Spectacle converts it to raw HTML with no component map at all, so it
+ * lands as a bare `<p>` and inherits the system-font stack that Spectacle's own
+ * notes pane sets on itself. Six of the seven markdown slides were rendering
+ * their notes in the browser's UI font at a different size to every other slide.
+ *
+ * `<p>` IS A PRECISE SELECTOR HERE, unlikely as that sounds. This deck renders
+ * no paragraphs anywhere else: Spectacle's `Text` is a styled div, and markdown
+ * slides map `p` through `MARKDOWN_COMPONENTS` to that same `Text`. So the only
+ * `<p>` that can exist is one Spectacle emitted for a note.
+ *
+ * Chosen over the notes pane's own class, which is a generated `sc-*` hash --
+ * the same trap `.spectacle-v7-slide` is called out for at the top of this file.
+ *
+ * The `Notes:` line must be ONE logical line (see `mdSlideProps` in
+ * components.js), so a paragraph is the only tag this path can produce. If that
+ * ever stops being true, lists and inline code need entries here too.
+ */
+#root p {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 20px;
 }
 
 /* --- Paged output: ?printMode=true / ?exportMode=true ---------------------
