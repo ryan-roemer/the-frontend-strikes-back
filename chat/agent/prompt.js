@@ -80,7 +80,13 @@ export const answerTurn = (question) => {
     where,
     `QUESTION: ${question}`,
     "",
-    "(Answer from the excerpts above, including any code shown there. Be brief. If the answer is genuinely not above, say so.)",
+    // "and the deck information" is load-bearing and was briefly lost while this line was
+    // being reworded for code. Without it the model reads "the excerpts" as the ONLY source
+    // and refuses things the system prompt already told it: "what are the takeaways?" came
+    // back as "I do not have the takeaways listed in the provided excerpt", with all six
+    // sitting in `deckFacts()` above.
+    "(Answer from the excerpts and the deck information above, including any code shown there." +
+      " Be brief. If the answer is genuinely not above, say so.)",
   ]
     .filter(Boolean)
     .join("\n");

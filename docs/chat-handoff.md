@@ -680,3 +680,98 @@ mutation survives every re-render where React's own value is unchanged. Three ti
 3. **Patch log + replay.** `rebuild()` = restore baselines, regenerate the sheet, replay in order.
    Undo rebuilds from the log rather than applying inverses, so apply/undo/redo/reset and
    remount-recovery are one code path.
+
+---
+
+## 13. Picking this up next
+
+### The one principle worth internalising first
+
+**Anything deterministic belongs in code, not in the prompt.** This came up four separate times
+and prompting lost every time:
+
+| Problem                           | What failed                                           | What worked                                                      |
+| --------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| `"now red"` after a colour change | telling the model the antecedent in the system prompt | resolving the pronoun in `plan.js` and rewriting the instruction |
+| `"the first bullet"`              | numbered roles + a hint to use them                   | ordinal + noun → ref, resolved in code                           |
+| `replace … with "one"`            | a hint to use quoted text verbatim                    | extracting the quoted string in code                             |
+| `font-size: bigger` / `larger`    | asking for real CSS values                            | `CSS.supports` + resolving against the element's own size        |
+
+When the next edit misbehaves, ask "is there a deterministic answer here?" before touching a
+prompt. If there is, the model should be handed the answer rather than the question.
+
+The corollary: **prompts are the last resort, and one of them is now load-bearing.**
+`ROUTE_SYSTEM`'s `set_style` / `set_var` split carries real weight — a grammar would never have
+caught `"Go to slide 12"` decoding as `where: "prevSlide"`, because that is a valid enum member
+and the wrong answer. Look there first when an instruction picks the wrong op.
+
+### Rough edges, known and unfixed
+
+Ordered by how likely they are to matter on stage.
+
+- **Safari 26 and Firefox are coded for but never run.** Everything is verified on Chrome 151 /
+  macOS only. Firefox is the bigger unknown — it is not in the upstream LiteRT measured set at
+  all, and GPU_ARTISAN's shaders want `shader-f16`. See [§8](#8-pre-flight); do this early,
+  because a failure there is a renegotiation, not a bug fix.
+- **Exported PDFs have never had page numbers.** In paged mode Spectacle passes
+  `slideNumber = 1` for every slide, so `chrome` is false throughout and all 35 counters read
+  `01 /35` and are hidden. Pre-existing, unrelated to the assistant, and visible now only
+  because the counter is rendered-then-hidden rather than omitted. Real bug, untouched.
+- **Answer quality is a 2 B model's**, and the variance is in _which_ questions land rather than
+  in the plumbing. `"what are the takeaways?"` and code questions are reliable; vague ones
+  ("what does the first bullet say?") often draw an "I don't know" even when retrieval picked
+  the right slides. Before blaming a prompt, check whether the content actually reached it —
+  the CDP drivers below print exactly that.
+- **`goto` occasionally mis-fills.** `"Go to slide 12"` is consistent, `"go to slide 9"` was once
+  `nextSlide`. The hint in `FILL_HINTS.goto` is already explicit; this is model variance, and
+  the deterministic fix (parse the number in code) is the obvious next application of the
+  principle above.
+- **`"the chapter accent colour"` now resolves to `deck` scope**, because `FILL_HINTS.set_var`
+  requires the words "this chapter". Defensible for an ambiguous instruction, and undo works,
+  but it is a behaviour change from earlier in the build.
+- **Emoji counts are not respected** — "20 random emojis" yields 10–27. The JSON itself is
+  reliable now; the counting is not.
+- **A stale-ref refusal is reachable by firing instructions faster than a human can.** Spectacle
+  navigates via a React state update, so an instruction issued within ~700ms of a `goto` builds
+  its inventory against the old slide. `apply.js` refuses safely, which is the designed outcome.
+- **LiteRT logs six `INFO`/`WARNING` lines to `console.error`** per engine create. Benign, not
+  silenceable, and they will be visible to anyone with devtools open during the talk. Filter
+  `/^(INFO|WARNING|ERROR):\s*\[/` before concluding a console check has failed.
+- **Roles can repeat across parents.** The intro slide's second bullet contains a link, so
+  `text 2` labels both the bullet and the link inside it. `resolveNamedTarget` matches the
+  position baked into the role and takes the first (outer) hit, which is right, but the labels
+  are not unique identifiers — refs are.
+
+### What is deliberately NOT built
+
+- **Multiple edits per instruction.** One op per turn is the pipeline's shape. A two-edit
+  instruction now does the first and says the rest was not done. Supporting both properly means
+  a loop over ops in `plan.js` and a way to report several receipts.
+- **Editing code panes.** Read-only on purpose: Prism and CodeMirror own that DOM and re-render
+  it. See [§2](#2-the-shape-of-the-model-layer).
+- **Grammar-constrained decoding.** LiteRT-LM 0.15.0 has none — verified against the type
+  declarations, not assumed. If a future version adds a logit processor or GBNF, `planner.js` is
+  the only module that would change; its whole surface is one `decode()`.
+
+### Verifying a change
+
+The CDP drivers used throughout this work live in the **session scratchpad and are
+ephemeral** — a new session will not have them. They are ~60 lines each and quick to rebuild;
+what is worth keeping is the list of what to check and the expected values, which is
+[§10](#10-verified) plus these:
+
+| Check                                                          | Expected                                                            |
+| -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Answers over 5 turns on ONE conversation                       | 5/5 usable; context levels off (~1.9k), does not climb past 4k      |
+| `plan.respond` on a question mentioning "title"/"row"/"bullet" | streams, `patches` stays 0 — must not become an edit                |
+| `replace the first bullet with "one"` on slide 3               | `text e2 → "one"`, element actually reads `one`                     |
+| Every memory-dropping path (broom / trash / delete)            | transcript bubbles → 0; a plain `refresh()` keeps them              |
+| 35-slide sweep with the panel open                             | one robot `x`, zero real console errors, export/print mount no chat |
+| `parseInto` adversarial cases                                  | 34/34                                                               |
+
+The shape of a driver: connect to the already-running Chrome on `:9222`, find or open a
+`localhost:3000` tab, `Runtime.evaluate` an async IIFE that dynamically imports the real modules
+(`/chat/agent/plan.js` and friends) and returns JSON. **Reload the page between code edits** —
+ES modules are cached per page, so an edit is invisible without it, which cost real confusion
+twice. And **kill a backgrounded driver before starting another**: one left running typed into
+the same tab and polluted several measurements.
