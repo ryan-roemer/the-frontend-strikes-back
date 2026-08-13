@@ -38,5 +38,30 @@ the remaps and scopes work, which upgrades are deliberately blocked, and how to 
 | `?slideIndex=N`       | Jump directly to a slide                                      |
 | `?exportMode=true`    | All slides stacked, deck styling intact — print this to PDF   |
 | `?printMode=true`     | All slides stacked, light ink-saving theme for paper handouts |
+| `?chat`               | Open the deck assistant on load (see below)                   |
 
 Transitions are also disabled automatically under `prefers-reduced-motion`.
+
+## Deck assistant
+
+The robot button in the deck chrome opens a chat panel backed by a model running **entirely on
+your machine**. It is self-contained in [`chat/`](chat/) and mounted dynamically, so the deck
+works with it removed.
+
+Two providers, switchable live from the panel header:
+
+| Provider   | Runtime                                                                       | Model                                         | Needs                       |
+| ---------- | ----------------------------------------------------------------------------- | --------------------------------------------- | --------------------------- |
+| **Gemma**  | [LiteRT-LM](https://developers.google.com/edge/litert-lm/js)                  | Gemma 4 E2B — a 2 GB download the page owns   | WebGPU, any desktop browser |
+| **Chrome** | [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) `LanguageModel` | Gemini Nano — Chrome's, invisible to the page | Chrome only                 |
+
+The panel is closed by default and deliberately does not remember being open, so a normal deck
+load touches no model at all. `?chat` opens it. Nothing is sent anywhere.
+
+The Chrome pill only appears when the browser exposes `LanguageModel`; the Gemma pill is always
+offered and explains itself when WebGPU is unavailable.
+
+> **Before presenting:** fetch the Gemma model on a connection you trust and ask one question on
+> each provider. See the pre-flight in [docs/chat-handoff.md](docs/chat-handoff.md), which is also
+> the record of what each provider can and cannot do, and the measured numbers behind those
+> choices.

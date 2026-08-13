@@ -99,6 +99,13 @@ The only dependency the deck loads for a reason other than rendering slides: it 
 on the GPU for the assistant in [`chat/`](../chat/). Two things about it are unlike everything
 else in this table.
 
+**Only one of the assistant's two providers appears here at all**, and that asymmetry is the
+point rather than an omission. The Chrome Prompt API provider adds **nothing** to this
+table — no import-map entry, no wasm, no model bytes — because the runtime and the weights are
+the browser's. What it costs instead is everything the page gives up by not owning them: no
+progress, no cancel, no delete, and a status that has been measured to flap. See
+[chat-handoff.md](chat-handoff.md) §1.
+
 **It fetches a wasm runtime separately from its JavaScript, and the two must match.** The
 reference implementation this was ported from keeps a second hardcoded URL next to its import
 map entry, with a "bump both together" comment — a rule that works right up until somebody

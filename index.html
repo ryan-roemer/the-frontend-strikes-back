@@ -587,6 +587,33 @@
                 ch. 4, where it's doing real work.
             `}
           </${MarkdownSlideSet}>
+          ${
+            "" /* TODO: Demo? — this deck IS the demo for this chapter.
+             *
+             * The robot button opens a chat panel running a model on this machine, with
+             * TWO swappable providers: Gemma 4 E2B on WebGPU (LiteRT-LM, a 2 GB model this
+             * page owns) and Gemini Nano (Chrome Prompt API, the browser's, invisible to
+             * us). One click switches mid-conversation.
+             *
+             * A `<${DemoSlide} chapter=${3} .../>` belongs HERE -- after the wrinkles,
+             * before the takeaway -- so the room sees the wrinkles rather than reads them:
+             *
+             *   1. Open the panel. "This deck has been able to run a model all along."
+             *   2. Ask on Gemma. It streams, on the GPU, in the page.
+             *   3. Flip the pill to Chrome. Transcript clears -- two models, two memories.
+             *   4. Ask again, and point at what changed in the CHROME, not the answer:
+             *      download row gone, delete button gone, context meter 8,192 -> 9,216.
+             *
+             * Unlike ch. 2 and ch. 4 this needs no network and no tab switch, and a
+             * provider failing on stage IS takeaway 5 -- so there is a working demo either
+             * way. Budget 60s, not the 2 min the other demos get.
+             *
+             * Undecided, and NOT free: it costs the 30s this chapter is currently the
+             * cheapest place to cut from. The plan is to pay for it by collapsing the
+             * five-row matrix above into one verdict slide, which the kill list already
+             * calls for and which has not been done yet. Full brainstorm, with the
+             * arguments against, in docs/outline.md ch. 3. */
+          }
           <${TakeawaySlide}
             chapter=${3}
             title="Takeaway"
