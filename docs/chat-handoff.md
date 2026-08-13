@@ -22,6 +22,11 @@ pass, a patch log). Both were removed to make room for the two-provider work; th
 deliberately deck-unaware. The read-only deck bridge (`bus.js`, `bridge.js`, `use-deck.js`) is
 still wired and still unconsumed, because it is the seam those features come back through.
 
+> **Since then:** deck reading is back, in [`chat/harvest/`](../chat/harvest/) — a fiber-tree walk
+> that emits the whole deck as Markdown, including speaker notes the DOM harvest could not see.
+> It is not wired into the model: `agent/prompt.js` is still the seam and still returns a fixed
+> line. See [deck-context-handoff.md](deck-context-handoff.md) for what exists and what comes next.
+
 ---
 
 ## 1. The two providers, and where the abstraction leaks
@@ -438,8 +443,11 @@ Panel → useConversation(streamAnswer)
 
 ### What is deliberately NOT built
 
-- **Deck as context.** Removed on purpose; the bridge is still wired for it. Retrieval fed
-  excerpts per turn and must not accumulate — see [§6](#6-the-transcript-is-the-providers).
+- **Deck as context, _in the prompt_.** Extraction is built again — see
+  [`chat/harvest/`](../chat/harvest/) and [deck-context-handoff.md](deck-context-handoff.md) — but
+  nothing reaches the model yet. `agent/prompt.js` is untouched and still the seam. Whatever wires
+  it up inherits the rule that retrieval fed excerpts per turn and they must not accumulate: see
+  [§6](#6-the-transcript-is-the-providers).
 - **Deck as mutable.** Also removed. If it returns, the durability constraint that mattered
   most: **never `textContent`** — it removes nodes React's fiber still references, and the next
   commit touching that subtree can throw `NotFoundError` from `removeChild` and unmount the

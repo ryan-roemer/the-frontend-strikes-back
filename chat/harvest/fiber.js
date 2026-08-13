@@ -78,6 +78,17 @@ export const rootFiber = () => {
  * Return `SKIP` from `visit` to keep a subtree's children unvisited. That is
  * how `Markdown` is handled: its props hold the source, and descending into
  * what Spectacle built from that source would report the same content twice.
+ *
+ * `walk(node)` IS NOT "THIS SUBTREE". It visits `node`, then `node.sibling`, and
+ * so on to the end of that sibling list -- so passing an arbitrary fiber sweeps
+ * everything to its RIGHT as well as everything under it. That is deliberate and
+ * every caller here wants it: they pass `parent.child`, meaning "all children of
+ * parent". It reads as a subtree walk though, and flattening one node's text
+ * with it silently returns that node's text plus all its later siblings' --
+ * measured, while prototyping a per-node inventory: an audience card came back
+ * as "If you build frontendsAgents are becoming users of your app.", two
+ * separate `Text` fibers glued together, and it looked like the deck had merged
+ * them rather than the walk. For one node's own subtree, recurse `child` only.
  */
 export const walk = (fiber, visit, depth = 0) => {
   let node = fiber;

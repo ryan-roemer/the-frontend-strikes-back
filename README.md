@@ -81,4 +81,5 @@ in no DOM at all, because `Notes` renders `null` outside presenter mode.
 
 Speaker notes are fenced in `<speaker-notes>` tags so a consumer can drop them wholesale; they
 carry TODOs and presenter-private asides. Nothing here is wired into the assistant's prompt yet —
-`chat/agent/prompt.js` is still the seam, and this is the other half of it.
+`chat/agent/prompt.js` is still the seam, and this is the other half of it. Next steps, and the
+measurements behind them, are in [docs/deck-context-handoff.md](docs/deck-context-handoff.md).
