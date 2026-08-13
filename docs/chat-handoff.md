@@ -254,6 +254,30 @@ Two of these were **latent bugs** that constrained decoding had been masking:
 - **Range clamping**, applied _before_ `apply.js` sees the value, because receipts are generated
   from what was applied — clamping afterwards would print "→ slide 47" for a 35-slide deck.
 
+### Values that are valid and still wrong — the receipt-lies family
+
+A schema can only check shape, and `apply.js` used to accept any non-empty string as a CSS
+value. Three separate turns produced **"Done." for a change nothing on the slide reflected**,
+which is worse than a refusal because the presenter stops looking. All three are fixed in
+`apply.js`, and they are worth knowing as a family because the next one will look like them:
+
+- **`font-size: bigger`.** Not a CSS value at all, so the declaration was dropped on parse.
+  Now checked with `CSS.supports(prop, value)` — native, so there is no property table to
+  maintain here.
+- **`font-size: larger`.** Valid CSS, and it made the title-slide subtitle **smaller** —
+  46px → 19.2px — because `larger` resolves against the PARENT (16px), not the element. So
+  relative sizes are resolved against the element's own computed size before being stored,
+  and the receipt reports the px the slide actually got.
+- **`color` on the display title.** `.title-display` is painted by a gradient clipped to the
+  glyphs (`background-clip: text`, with both `color` and `-webkit-text-fill-color`
+  transparent), so setting `color` changed the computed value and nothing else.
+  `-webkit-text-fill-color` wins wherever both are set, so a colour change now emits both
+  declarations — for every element, since on ordinary text it resolves to the same colour.
+  Recolouring gradient text replaces a deliberate design treatment, so the receipt says so.
+
+The general rule: **ask the browser, don't trust the string.** `CSS.supports` and
+`getComputedStyle` answer these questions exactly, and both were already available.
+
 ### Snapping, and where it is refused
 
 Every rung of the ladder requires a **unique** winner, which is what makes it safe rather than
@@ -265,6 +289,54 @@ values merge.
 **Refs are never snapped.** They are opaque generated ids (`e1`, `e2`, …), so every distance-1
 neighbour of a ref is _another real element_ — snapping `e3` to `e8` would edit the wrong thing
 on a live slide and read to the audience as a deck bug. Every snap is logged.
+
+### Follow-ups: "it" is resolved in code, not by the model
+
+"change the subtitle to pink" then **"now red"** is how people actually speak, and the second
+instruction names nothing. It routed to `set_var` and recoloured the whole deck.
+
+The first attempt was to tell the model the antecedent in the system prompt — measured, it
+ignored it and kept recolouring the deck, because `ROUTE_SYSTEM` also said `set_var` was for
+instructions naming no element. Two changes fixed it:
+
+- **`set_style` is the default for appearance changes**, including bare follow-ups; `set_var`
+  now requires the instruction to say "the deck" / "every slide" / "this chapter" in as many
+  words. The narrower, safer op wins ties.
+- **`plan.js` resolves the pronoun itself.** It remembers the last successful target and
+  rewrites the instruction before either pass sees it: `INSTRUCTION: Now red` gains
+  `(This continues the previous change. "it" means the subtitle, element e3.)` Pronoun
+  resolution against "the thing just changed" is deterministic, so it belongs in code, and
+  the resolved referent belongs in the INSTRUCTION where a small model attends to it.
+
+Three guards, all of them load-bearing: an **explicit** target always wins over the remembered
+one (or "now make the TITLE red" keeps hitting the subtitle); the referent is dropped when the
+slide changes, because a ref is an index into ONE slide's inventory and `e3` elsewhere is a
+different element; and undo/reset clear it, since the thing "it" referred to has just been
+un-done.
+
+### Getting JSON at all: a continuation cue, not another instruction
+
+The worst fill failure is not a bad field, it is **no `{` anywhere** — the model answers in
+prose and the turn dies on "the reply contained no JSON object" however good the validator is.
+Observed on "Replace the main heading with 20 random emojis", and state-dependent: it
+reproduced only with a populated `RECENT EDITS` digest in the preface, not from a cold start,
+which is why it looked intermittent.
+
+The fix is one line: the fill message ends with `JSON:`. A **continuation cue** makes an
+opening brace the natural next token, instead of asking the model to remember a rule from the
+top of a long preface. Nine emoji turns across three slides, cold and after three prior
+edits: 9/9.
+
+Deliberately **not** a worked example. A sample object with placeholder values is the other
+standard trick, and a 2B model copies placeholders — it would answer `ref: "e1"` for every
+turn, or set the text to whatever stand-in the example used.
+
+The repair pass also distinguishes the two failures now. Repeating "reply with the corrected
+JSON object" at something that produced prose tends to produce more prose, so a no-JSON reply
+gets its own instruction: begin with `{`, end with `}`, no other words.
+
+This applies to the fill pass only. The router asks for a bare word, so a `JSON:` cue there
+would be actively harmful.
 
 ### The router does not ask for JSON
 

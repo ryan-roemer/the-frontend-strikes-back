@@ -288,8 +288,13 @@ export const respond = async ({ text, onChunk, signal }) => {
     });
   } catch (err) {
     if (err.name === "AbortError" || signal?.aborted) throw err;
+    // What the presenter can do about it, not what went wrong inside. "the reply contained
+    // no JSON object" is true, unactionable, and about our plumbing rather than their deck;
+    // naming an element is the thing that actually rescues one of these.
     return {
-      text: `I understood that as a ${op.replace(/_/g, " ")}, but couldn't work out the details (${err.message}).`,
+      text:
+        `I understood that as “${op.replace(/_/g, " ")}” but couldn't work out the ` +
+        "details. Try naming the element — for example “change the title to …”.",
     };
   }
 

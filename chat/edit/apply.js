@@ -74,6 +74,33 @@ const resolveSize = (el, prop, value) => {
   return `${Math.round(current * factor)}px`;
 };
 
+/**
+ * Is this element's text painted by a background rather than by `color`?
+ *
+ * The deck's display title is: `background-clip: text` with a gradient, and both `color`
+ * and `-webkit-text-fill-color` set to transparent, so the glyphs show the gradient
+ * through. Setting `color` on it therefore does exactly nothing visible -- the computed
+ * value changes and the slide does not, which produced a "Done." receipt for a change
+ * nobody could see.
+ */
+const paintedByBackground = (el) => {
+  if (!el) return false;
+  const cs = getComputedStyle(el);
+  const clip = cs.webkitBackgroundClip || cs.backgroundClip;
+  return clip === "text" && (cs.backgroundImage || "none") !== "none";
+};
+
+/**
+ * The declarations needed to make a colour change actually show.
+ *
+ * `-webkit-text-fill-color` WINS over `color` wherever both are set, so it has to be part
+ * of any colour change or gradient-painted text ignores us. Emitted for every element, not
+ * just the gradient ones: on ordinary text it resolves to the same colour and changes
+ * nothing, which is a much better deal than sniffing the element and getting it wrong.
+ */
+const colourDeclarations = (value) =>
+  `color: ${value}; -webkit-text-fill-color: ${value}`;
+
 const activeIndex = () => getSnapshot().activeView?.slideIndex ?? null;
 
 /** Resolve a ref to an element plus a durable locator, or explain why not. */
@@ -127,12 +154,23 @@ const OPS = {
       return fail(`"${value}" isn't a value ${prop} accepts.`);
     }
 
+    const label = `${prop} ${ref} → ${resolved}`;
     setCss(
       `[data-chat-ref="${ref}"]`,
-      `${prop}: ${resolved}`,
-      `${prop} ${ref} → ${resolved}`,
+      prop === "color" ? colourDeclarations(resolved) : `${prop}: ${resolved}`,
+      label,
     );
-    return { ok: true, label: `${prop} ${ref} → ${resolved}` };
+    return {
+      ok: true,
+      label,
+      // Worth saying out loud: recolouring gradient-painted text replaces a deliberate
+      // design treatment rather than tweaking a value, and the presenter should know that
+      // is what just happened to their title.
+      note:
+        prop === "color" && paintedByBackground(el)
+          ? `Done — ${ref} was painted with a gradient, so its colour now overrides that.`
+          : null,
+    };
   },
 
   /** A custom property, at deck / chapter / element scope. */

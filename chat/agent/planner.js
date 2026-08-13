@@ -508,11 +508,25 @@ export const decode = async ({
   }
 
   const contract = contractFor(schema);
+
+  /**
+   * The message ends with a `JSON:` cue.
+   *
+   * A continuation cue rather than another instruction, and it is the single most effective
+   * thing here: it makes an opening brace the natural next token instead of asking the model
+   * to remember a rule from the top of a long preface. The failure it addresses is total --
+   * a reply containing no `{` at all, which loses the turn to "the reply contained no JSON
+   * object" no matter how good the validator is.
+   *
+   * Not a worked EXAMPLE, deliberately. A sample object with placeholder values is the other
+   * standard trick and a 2B model copies placeholders: it would answer `ref: "e1"` for every
+   * turn, or set text to whatever stand-in the example used.
+   */
   const ask = (note) =>
     guarded(
       generate({
         system: [system, "", contract, note].filter(Boolean).join("\n"),
-        message,
+        message: `${message}\nJSON:`,
         maxOutputTokens: FILL_MAX_TOKENS,
         signal,
       }),
@@ -528,10 +542,18 @@ export const decode = async ({
   // not information a model can act on, whereas "prop was size, which is not in the list" is.
   // Each generation gets its own timeout; the caller's signal bounds the pair, which the
   // run-token stop in `use-conversation.js` makes safe.
+  //
+  // A reply with no JSON at all is a different failure from a reply with a bad field, and
+  // repeating "the corrected JSON object" at something that produced prose tends to produce
+  // more prose. So that case gets its own instruction.
+  const producedNothing = !first.value || !Object.keys(first.value).length;
   const second = parseInto(
     await ask(
-      `Your previous reply was not usable: ${first.problems.join("; ")}. ` +
-        "Reply again with only the corrected JSON object.",
+      producedNothing
+        ? "Your previous reply was not JSON. Output must begin with { and end with }, " +
+            "contain only the fields listed above, and include no other words."
+        : `Your previous reply was not usable: ${first.problems.join("; ")}. ` +
+            "Reply again with only the corrected JSON object.",
     ),
     schema,
   );
