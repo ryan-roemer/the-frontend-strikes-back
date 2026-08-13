@@ -57,7 +57,11 @@ export const ROUTE_SCHEMA = {
  * Asking for an answer as a schema-shaped field would neither stream nor survive
  * its own `maxLength`.
  */
-export const opSchema = ({ refs = [], slideCount = 35 }) => ({
+export const opSchema = ({
+  refs = [],
+  slideCount = 35,
+  hasChapter = true,
+}) => ({
   set_text: {
     type: "object",
     additionalProperties: false,
@@ -89,7 +93,17 @@ export const opSchema = ({ refs = [], slideCount = 35 }) => ({
       name: { enum: CSS_VARS },
       value: { type: "string", maxLength: 48 },
       // An enum, not a selector. The model must never author a selector.
-      scope: { enum: ["deck", "chapter", "element"] },
+      //
+      // "chapter" is offered only when the current slide is IN one. The title slide is
+      // not, and a chapter-scoped change there can only ever be refused -- so
+      // "Make the whole deck accent orange" was landing on `scope: "chapter"` and
+      // getting an error about chapters, on a slide where the option was meaningless.
+      // Same reasoning as the live ref enum: a choice that cannot work should not be
+      // on the list. `apply.js` defaults a missing scope to "deck", so dropping an
+      // invalid one lands on the right answer rather than nothing.
+      scope: {
+        enum: hasChapter ? ["deck", "chapter", "element"] : ["deck", "element"],
+      },
       ref: { enum: refs },
     },
   },

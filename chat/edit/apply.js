@@ -1,3 +1,4 @@
+/* global CSS:false, getComputedStyle:false */
 import {
   CSS_VARS,
   HEADING_TREATMENTS,
@@ -39,6 +40,40 @@ import {
 
 const fail = (message) => ({ ok: false, message });
 
+/**
+ * Turn "bigger" into a size that is actually bigger.
+ *
+ * CSS's own `larger` and `smaller` resolve against the PARENT's font size, not the
+ * element's. Measured: the title slide's subtitle computes to 46px inside a 16px
+ * container, so `font-size: larger` took it to 19.2px -- "make it bigger" shrank it by
+ * more than half, with a receipt cheerfully reporting success. Valid CSS, wrong answer,
+ * and the kind of thing an audience notices before the presenter does.
+ *
+ * So relative sizes are resolved here against the element's OWN computed size. That
+ * makes the value concrete before it is stored, which also means the receipt reports the
+ * px the slide actually got rather than a keyword whose meaning depends on where it
+ * landed.
+ *
+ * Deliberately font-size only. It is the property where "bigger" is asked for, and the
+ * one where the parent-relative trap bites; anything else keeps the plain refusal, which
+ * is a readable outcome rather than a guess.
+ */
+const RELATIVE_SIZES = {
+  bigger: 1.2,
+  larger: 1.2,
+  smaller: 1 / 1.2,
+  tinier: 1 / 1.2,
+};
+
+const resolveSize = (el, prop, value) => {
+  if (prop !== "font-size") return value;
+  const factor = RELATIVE_SIZES[value.toLowerCase()];
+  if (!factor || !el) return value;
+  const current = parseFloat(getComputedStyle(el).fontSize);
+  if (!Number.isFinite(current) || current <= 0) return value;
+  return `${Math.round(current * factor)}px`;
+};
+
 const activeIndex = () => getSnapshot().activeView?.slideIndex ?? null;
 
 /** Resolve a ref to an element plus a durable locator, or explain why not. */
@@ -73,21 +108,48 @@ const OPS = {
   /** One CSS property on one element, via the chat's stylesheet. */
   set_style: ({ ref, prop, value }) => {
     if (!STYLE_PROPS.includes(prop)) return fail(`I can't change "${prop}".`);
-    const { error } = target(ref);
+    const { el, error } = target(ref);
     if (error) return fail(error);
     if (!value?.trim()) return fail("No value given.");
 
+    const resolved = resolveSize(el, prop, value.trim());
+
+    // Ask the browser whether the declaration is even real.
+    //
+    // Without this, "make it bigger" filled in `font-size: bigger` -- not a CSS value, so
+    // the declaration was dropped on parse, nothing moved on the slide, and the receipt
+    // still said "Done. font-size e3 → bigger". A receipt reporting a change that did not
+    // happen is worse than a refusal, because the presenter stops looking.
+    //
+    // `CSS.supports` is the exact question and it is native, so there is no property table
+    // to maintain here.
+    if (!CSS.supports(prop, resolved)) {
+      return fail(`"${value}" isn't a value ${prop} accepts.`);
+    }
+
     setCss(
       `[data-chat-ref="${ref}"]`,
-      `${prop}: ${value}`,
-      `${prop} ${ref} → ${value}`,
+      `${prop}: ${resolved}`,
+      `${prop} ${ref} → ${resolved}`,
     );
-    return { ok: true, label: `${prop} ${ref} → ${value}` };
+    return { ok: true, label: `${prop} ${ref} → ${resolved}` };
   },
 
   /** A custom property, at deck / chapter / element scope. */
   set_var: ({ name, value, scope = "deck", ref }) => {
-    if (!CSS_VARS.includes(name)) return fail(`I can't change "${name}".`);
+    // Named separately from the unknown-name case: a MISSING name means the fill pass
+    // dropped it, which is usually the router having chosen this op for an instruction
+    // about a single element. Saying `I can't change "undefined"` sent the reader
+    // looking for a broken variable instead of a misrouted turn.
+    if (!name) {
+      return fail(
+        "I couldn't tell which deck colour you meant. Name one of the deck's colours, " +
+          "or say which element to recolour.",
+      );
+    }
+    if (!CSS_VARS.includes(name)) {
+      return fail(`"${name}" isn't one of the deck's colours.`);
+    }
     if (!value?.trim()) return fail("No value given.");
 
     // The chapter is read from the deck rather than taken from the model: it
@@ -96,7 +158,13 @@ const OPS = {
     const slideIndex = activeIndex();
     const chapter = chapterOf(slideNodes()[slideIndex]);
     if (scope === "chapter" && !chapter) {
-      return fail("This slide isn't inside a chapter.");
+      // Reachable on the title slide, which belongs to no chapter -- and the presenter
+      // has no way to know that is what "chapter" scope depends on, so say what to do
+      // rather than only what went wrong.
+      return fail(
+        "This slide isn't inside a chapter, so there's no chapter colour to change. " +
+          "Ask for the whole deck, or name the element you want recoloured.",
+      );
     }
     if (scope === "element" && !ref) return fail("No element given.");
 
