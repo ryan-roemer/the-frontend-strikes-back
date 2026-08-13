@@ -5,7 +5,7 @@ import { renderMarkdown } from "../agent/markdown.js";
 const html = htm.bind(createElement);
 
 /** One bubble. Markdown is rendered from pre-escaped HTML -- see markdown.js. */
-const Bubble = ({ role, text, stopped, receipts }) => html`
+const Bubble = ({ role, text, stopped }) => html`
   <div
     className=${`chat-bubble chat-bubble--${role}${stopped ? " chat-bubble--stopped" : ""}`}
   >
@@ -14,17 +14,6 @@ const Bubble = ({ role, text, stopped, receipts }) => html`
       dangerouslySetInnerHTML=${{ __html: renderMarkdown(text) }}
     ></div>
     ${stopped ? html`<span className="chat-bubble__flag">stopped</span>` : null}
-    ${receipts?.length
-      ? html`<ul className="chat-receipts">
-          ${receipts.map(
-            (receipt, i) =>
-              html`<li className="chat-receipts__row" key=${i}>
-                <i className="ph ph-check" aria-hidden="true"></i>
-                <span>${receipt.label}</span>
-              </li>`,
-          )}
-        <//>`
-      : null}
   </div>
 `;
 

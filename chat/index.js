@@ -6,10 +6,6 @@ import { ChatApp } from "./ui/app.js";
 import { isEnabled } from "./state.js";
 import { setSystemPrompt, warmUp } from "./agent/model-state.js";
 import { systemPrompt } from "./agent/prompt.js";
-import {
-  start as startWatchdog,
-  stop as stopWatchdog,
-} from "./edit/watchdog.js";
 
 const html = htm.bind(createElement);
 
@@ -57,14 +53,10 @@ export const mountChat = () => {
   const reactRoot = createRoot(host);
   reactRoot.render(html`<${ChatApp} />`);
 
-  // Deck knowledge is harvested from the live DOM, so the system prompt cannot be
-  // built at import time -- it is handed over as a function and called when a
-  // session is actually created.
+  // Handed over as a function rather than a string. Right now it returns a fixed
+  // line, but the seam is the point: when the deck becomes context again, the
+  // prompt will be built from the live DOM and cannot exist at import time.
   setSystemPrompt(systemPrompt);
-
-  // Re-applies edits after a remount (presenter/overview mode). Cheap when idle:
-  // one MutationObserver on the slide portal, childList only.
-  startWatchdog();
 
   // Only when the panel is open on load, which now means only under `?chat` -- the
   // panel is closed by default and no longer remembers being open. So on a normal
@@ -79,7 +71,6 @@ export const mountChat = () => {
   if (isEnabled()) warmUp();
 
   return () => {
-    stopWatchdog();
     reactRoot.unmount();
     host.remove();
   };

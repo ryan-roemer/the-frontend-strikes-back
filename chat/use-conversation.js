@@ -11,11 +11,10 @@ import { useCallback, useRef, useState } from "react";
  *
  * `respond({ text, onChunk, signal })` streams by calling `onChunk` with the
  * ACCUMULATED text (not deltas -- that is what both reference implementations
- * hand their UI, and it means a dropped chunk cannot desync the display). It
- * resolves with either a string or `{ text, receipts }`, where receipts describe
- * deck edits the turn applied.
+ * hand their UI, and it means a dropped chunk cannot desync the display), and
+ * resolves with the final string.
  *
- * Entries are `{ role, text, receipts? }`. The streaming turn is kept OUT of the
+ * Entries are `{ role, text, stopped? }`. The streaming turn is kept OUT of the
  * entry list, in `streaming`, so a partial answer can be discarded on abort
  * without having to unwind an array.
  *
@@ -80,14 +79,9 @@ export const useConversation = (respond) => {
 
         if (!current()) return;
 
-        const answer = typeof result === "string" ? { text: result } : result;
         setEntries((prev) => [
           ...prev,
-          {
-            role: "assistant",
-            text: answer?.text ?? streamingRef.current ?? "",
-            receipts: answer?.receipts,
-          },
+          { role: "assistant", text: result ?? streamingRef.current ?? "" },
         ]);
       } catch (err) {
         // `stop()` has already recorded the partial and cleared the busy state, so
@@ -132,8 +126,8 @@ export const useConversation = (respond) => {
     setBusy(false);
   }, [busy]);
 
-  /** Clears the transcript. Does NOT touch the model session or deck edits --
-   *  those are owned by the model-state machine and the patch log. */
+  /** Clears the transcript. Does NOT touch the model session -- that is owned by
+   *  the model-state machine, which drives this the other way via `epoch`. */
   const clear = useCallback(() => {
     runRef.current += 1;
     abortRef.current?.abort();

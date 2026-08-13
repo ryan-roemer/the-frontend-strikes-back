@@ -1,6 +1,14 @@
 /* global navigator:false, setTimeout:false, clearTimeout:false, DOMException:false, URL:false */
 import { Backend, Engine, loadLiteRtLm } from "@litert-lm/core";
-import { getModelSource, isCached, deleteCached } from "./litert-cache.js";
+import {
+  cacheAvailable,
+  deleteCached,
+  gb,
+  getModelSource,
+  isCached,
+  storageRoom,
+} from "./litert-cache.js";
+import { STATES } from "../states.js";
 
 /**
  * The model itself: wasm, WebGPU, engine, conversations.
@@ -578,53 +586,15 @@ async function* streamFrom({ text, signal = null, prepare, onCancel = null }) {
   }
 }
 
-/**
- * One complete answer from a throwaway conversation.
+/*
+ * There was a `generate()` here: one complete answer from a throwaway conversation, for the
+ * router and the edit planner, which needed a whole string rather than a stream and must not
+ * pollute the chat's history. Both are gone, so it had no callers left.
  *
- * For the router and the edit planner, which need a whole string rather than a stream, and
- * which must not pollute the chat's history. The conversation is destroyed in a `finally`
- * even when the caller aborts -- each one holds KV cache, and leaking twenty of them over a
- * talk is GPU memory we do not have.
- *
- * `temperature: 0` by default. For classification and for filling in a schema, determinism
- * is worth much more than variety, and it is the cheapest accuracy available.
+ * If a non-streaming call comes back, note what it cost on the other provider: Chrome has no
+ * throwaway session, so the same call meant a full `create()` -- measured at ~9.5s -- before
+ * every answer. A router that runs per turn is affordable here and is not there.
  */
-export const generate = async ({
-  system,
-  message,
-  maxOutputTokens = 64,
-  temperature = 0,
-  signal = null,
-}) => {
-  await ensureEngine();
-  let conversation = null;
-  let out = "";
-  try {
-    for await (const delta of streamFrom({
-      text: message,
-      signal,
-      prepare: async () => {
-        conversation = await newConversation(system, [], {
-          temperature,
-          maxOutputTokens,
-        });
-        return conversation;
-      },
-    })) {
-      out += delta;
-    }
-    return out;
-  } finally {
-    if (conversation) {
-      try {
-        conversation.cancel();
-      } catch {
-        /* nothing in flight */
-      }
-      conversation.delete().catch(() => {});
-    }
-  }
-};
 
 /**
  * The durable chat session.
@@ -666,9 +636,13 @@ const MAX_HISTORY_MESSAGES = 6;
 export const createChat = async ({ system, temperature = 0.7 }) => {
   await ensureEngine();
 
-  /** The transcript WE keep: bare questions and answers, never the excerpts. */
+  /** The transcript WE keep. The `Conversation` is disposable; this is not. */
   let transcript = [];
   let conversation = await newConversation(system, [], { temperature });
+
+  /** Last sampled token count, and the one-at-a-time guard for sampling it. */
+  let tokens = 0;
+  let sampling = false;
 
   const rebuild = async () => {
     const dead = conversation;
@@ -690,11 +664,12 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
     /**
      * Stream one turn.
      *
-     * `text` is sent to the model. `remember` is what enters the transcript instead -- pass
-     * the bare question when `text` carries per-turn context that must not persist. Omit it
-     * and the two are the same.
+     * There used to be a `remember` option here: `text` went to the model and `remember`
+     * went into the transcript, so per-turn slide excerpts could be sent without
+     * accumulating. Nothing wraps the question any more, so the two are always the same
+     * string and the option is gone. Put it back, not something new, if retrieval returns.
      */
-    async *stream(text, { signal = null, remember = null } = {}) {
+    async *stream(text, { signal = null } = {}) {
       let answer = "";
       try {
         for await (const delta of streamFrom({
@@ -713,7 +688,7 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
         // Recorded even on abort: the presenter saw a partial answer and the transcript
         // should match what is on screen. Trimmed from the front, in pairs.
         transcript.push(
-          { role: "user", content: remember ?? text },
+          { role: "user", content: text },
           { role: "assistant", content: answer },
         );
         if (transcript.length > MAX_HISTORY_MESSAGES) {
@@ -723,16 +698,39 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
     },
 
     /**
-     * Whole-conversation occupancy: preface plus every turn so far.
+     * Live context occupancy: preface plus every turn so far.
+     *
+     * SYNCHRONOUS, because `model-status.js` reads it in a component body. LiteRT's
+     * `getTokenCount()` is async, so the number is cached here and refreshed out of band by
+     * `sampleContext()`. This pair used to live in `model-state.js` as a module-level
+     * `lastTokens` plus a `sampling` guard; it belongs on the handle, because it is the
+     * single largest difference between the two providers -- Chrome reads `inputUsage` and
+     * `inputQuota` straight off its session and has nothing to sample.
      *
      * Reads 0 until the first generation, because the preface prefills lazily. That is not
      * a bug to paper over -- nothing has been spent yet, so 0 is the honest number.
      */
-    async tokenCount() {
+    context() {
+      if (tokens == null) return null;
+      return {
+        used: tokens,
+        total: MAX_NUM_TOKENS,
+        pct: Math.round((tokens / MAX_NUM_TOKENS) * 100),
+      };
+    },
+
+    /** Refresh what `context()` returns. At most one in flight; failures leave the last
+     *  good number rather than blanking the meter. */
+    async sampleContext() {
+      if (sampling) return;
+      sampling = true;
       try {
-        return await conversation.getTokenCount();
+        const n = await conversation.getTokenCount();
+        if (n != null) tokens = n;
       } catch {
-        return null;
+        // Keep the previous reading.
+      } finally {
+        sampling = false;
       }
     },
 
@@ -757,12 +755,14 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
      */
     async restart() {
       transcript = [];
+      tokens = 0;
       await rebuild();
       return session;
     },
 
     destroy() {
       transcript = [];
+      tokens = null;
       try {
         conversation.cancel();
       } catch {
@@ -775,4 +775,152 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
   };
 
   return session;
+};
+
+/* -------------------------------------------------------------------------- */
+/* The provider face                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Everything above, as the shape `model-state.js` drives. See `providers/index.js` for the
+ * contract and for the table of where the two providers disagree.
+ *
+ * Deliberately a thin adaptor appended to the file rather than a restructuring of it. The
+ * functions above are the measured, commented, load-bearing part; this is just the socket
+ * they plug into, and keeping the seam obvious means a future reader can tell which is
+ * which.
+ */
+export const provider = {
+  id: "litert",
+  label: "Gemma",
+
+  capabilities: {
+    // We fetched the bytes, so progress is real and cancel is a real abort.
+    ownsBytes: true,
+    canDelete: true,
+    downloadBytes: MODEL_BYTES,
+    // Our state is a FACT: we own the download and the engine, so nothing changes behind
+    // our back. `session.js` reads this before deciding whether to trust a DOWNLOADING
+    // reading enough to refuse a question on it.
+    authoritativeStatus: true,
+    // ~2ms, because the engine stays hot and a new conversation prefills its preface
+    // lazily. This is what lets the broom be a button rather than a spinner.
+    cheapRestart: true,
+  },
+
+  timings: {
+    stallMs: 60000,
+    // A WEDGE DETECTOR, not a performance budget. Measured at 3.0s cold and 1.2s from a warm
+    // cache, so this is two orders of magnitude above anything observed and only fires when
+    // something is genuinely stuck.
+    createCeilingMs: 120000,
+  },
+
+  /** Only the labels that differ from the base table. */
+  stateMeta: {
+    [STATES.UNSUPPORTED]: { title: "This browser can't run WebGPU" },
+    [STATES.UNAVAILABLE]: { title: "This device's GPU can't run the model" },
+    [STATES.DOWNLOADABLE]: {
+      // The size is in the label because this click starts a multi-gigabyte fetch. A
+      // presenter who triggers that unknowingly on venue wifi has a genuine problem, and
+      // "click to download" alone does not warn anybody.
+      title: `Model not downloaded — click to fetch it (${gb(MODEL_BYTES)} GB)`,
+    },
+    // Clickable, and it does something real -- this download is ours to stop.
+    [STATES.DOWNLOADING]: {
+      title: "Downloading the model… (click to stop)",
+      action: "cancel",
+    },
+    [STATES.CREATING]: { title: "Loading the model onto the GPU…" },
+    // The engine stays hot deliberately -- see `release()`.
+    [STATES.READY]: { title: "Session live — click to free the conversation" },
+  },
+
+  /** Always offered, even where it cannot run: it is the deck's story, and
+   *  `unavailableCopy()` says more about a refusal than an absent pill would. */
+  offered: () => true,
+
+  probe,
+
+  async status() {
+    const gpu = await probe();
+    if (!gpu.supported) return STATES.UNSUPPORTED;
+    if (!gpu.ok) return STATES.UNAVAILABLE;
+    return (await isModelCached()) ? STATES.ON_DISK : STATES.DOWNLOADABLE;
+  },
+
+  async acquire({ system, signal, onPhase }) {
+    await ensureEngine({ signal, onProgress: onPhase });
+    return createChat({ system });
+  },
+
+  /**
+   * Free the conversation and KEEP THE ENGINE HOT.
+   *
+   * Freeing ~2 GB of GPU memory looks like the tidy thing to do, but the buttons that come
+   * here exist to be pressed mid-talk. Reloading the engine from a control whose whole
+   * purpose is to let you carry on talking would make it useless. The conversation is what
+   * matters anyway: that is where the context window lives.
+   */
+  release: () => {},
+
+  evict: () => unloadEngine(),
+  remove: () => deleteModel(),
+  resident: engineResident,
+
+  async info() {
+    const gpu = await probe();
+    const adapter = gpu.adapter;
+    const cached = await isModelCached().catch(() => false);
+    const storage = await storageRoom(MODEL_BYTES).catch(() => null);
+
+    let wasm;
+    try {
+      wasm = wasmUrl();
+    } catch (err) {
+      wasm = `unresolved: ${err.message}`;
+    }
+
+    return [
+      ["Model", `${MODEL.label} · ${MODEL.quantization}`],
+      ["File", `${MODEL.file} (${gb(MODEL_BYTES)} GB)`],
+      ["Backend", "GPU_ARTISAN · WebGPU"],
+      [
+        "GPU",
+        adapter
+          ? [adapter.vendor, adapter.architecture].filter(Boolean).join(" ") ||
+            "available"
+          : (gpu.reason ?? "—"),
+      ],
+      ["shader-f16", adapter ? (adapter.shaderF16 ? "yes" : "no") : "—"],
+      [
+        "Downloaded",
+        cached
+          ? "yes, verified complete"
+          : cacheAvailable
+            ? "no"
+            : "no (this browser has no Cache API)",
+      ],
+      ["Engine", engineResident() ? "loaded on the GPU" : "not loaded"],
+      ...(storage?.quota
+        ? [
+            [
+              "Storage",
+              `${(storage.free / 1e9).toFixed(1)} GB free of ` +
+                `${(storage.quota / 1e9).toFixed(1)} GB`,
+            ],
+          ]
+        : []),
+      ["wasm", wasm],
+    ];
+  },
+
+  unavailableCopy: () => ({
+    lead: "This deck's model runs on your GPU through WebGPU, and this browser or device can't provide one.",
+    bullets: [
+      "WebGPU needs a secure context — https, or localhost. A LAN IP will not do.",
+      "Safari 18+, Chrome 113+ and Firefox 141+ all ship WebGPU on desktop.",
+      "A software fallback adapter is refused on purpose: it is too slow to be usable.",
+    ],
+  }),
 };

@@ -9,28 +9,28 @@ import {
   restart,
   subscribe,
 } from "../agent/model-state.js";
-import { respond } from "../agent/plan.js";
+import { streamAnswer } from "../agent/session.js";
 import { usePanelGeometry } from "./geometry.js";
 import { Transcript } from "./transcript.js";
 import { Composer } from "./composer.js";
 import { ContextUnderline, ModelControls } from "./model-status.js";
+import { ProviderSwitch } from "./provider-switch.js";
 import { Unavailable } from "./unavailable.js";
-import {
-  reset as resetEdits,
-  subscribe as subscribeEdits,
-  summary as editSummary,
-  undo as undoEdit,
-} from "../edit/patches.js";
 
 const html = htm.bind(createElement);
 
+/**
+ * Deliberately says nothing about the deck.
+ *
+ * The chat knows the model runs on this machine and nothing else. Deck knowledge
+ * comes back later, on purpose, once the two providers are solid.
+ */
 const EmptyState = () => html`
   <div className="chat-empty">
-    <p>Ask about this deck, or tell me what to change.</p>
+    <p>A model running entirely on this machine. Ask it anything.</p>
     <ul>
-      <li>“Give me the short version of this talk.”</li>
-      <li>“Make this heading bigger.”</li>
-      <li>“Go to the WebMCP chapter.”</li>
+      <li>“Explain WebGPU in two sentences.”</li>
+      <li>“Write a haiku about shipping on a Friday.”</li>
     </ul>
   </div>
 `;
@@ -38,13 +38,6 @@ const EmptyState = () => html`
 const useModelState = () => {
   const [state, setState] = useState(getState);
   useEffect(() => subscribe(setState), []);
-  return state;
-};
-
-/** How many deck edits are outstanding, for the undo and revert controls. */
-const useEdits = () => {
-  const [state, setState] = useState(editSummary);
-  useEffect(() => subscribeEdits(setState), []);
   return state;
 };
 
@@ -58,11 +51,13 @@ const useEdits = () => {
  */
 export const Panel = ({ enabled }) => {
   const model = useModelState();
-  const edits = useEdits();
   const panelRef = useRef(null);
   const { reset, dragHandlers, resizeHandlers } = usePanelGeometry(panelRef);
+  // `streamAnswer` already IS the `respond({ text, onChunk, signal })` contract, so
+  // there is no responder module between them any more -- the router that used to
+  // sit here is gone.
   const { entries, streaming, busy, error, send, stop, clear } =
-    useConversation(respond);
+    useConversation(streamAnswer);
 
   // Re-check whenever the panel is opened, so a model that finished downloading
   // mid-talk promotes itself without a reload. Cheap: a memoized GPU probe and a
@@ -138,39 +133,20 @@ export const Panel = ({ enabled }) => {
         <span className="chat-panel__title">
           <i className="ph-fill ph-robot" aria-hidden="true"></i>
         </span>
+        ${
+          "" /* Left-aligned, next to the robot and away from the action group. It is the
+                one control here that changes WHAT is answering rather than what happens to
+                it, and it earned the space the undo and revert buttons used to take. */
+        }
+        <${ProviderSwitch} />
         <span className="chat-panel__actions">
           ${
             "" /* The model's own controls, inline. Percent, state, trash, info --
                   see `ModelControls`. They lead the group so the panel's controls
-                  (undo, revert, broom, recentre, close) stay in the same order and
-                  the same place they have always been, hard right. */
+                  (broom, recentre, close) stay in the same order and the same place
+                  they have always been, hard right. */
           }
           <${ModelControls} />
-          ${edits.canUndo
-            ? html`<button
-                type="button"
-                className="chat-icon-button chat-icon-button--accent"
-                onClick=${undoEdit}
-                title=${`Undo: ${edits.labels.at(-1)}`}
-                aria-label="Undo last deck edit"
-              >
-                <i className="ph ph-arrow-u-up-left" aria-hidden="true"></i>
-              </button>`
-            : null}
-          ${edits.count
-            ? html`<button
-                type="button"
-                className="chat-icon-button"
-                onClick=${resetEdits}
-                title=${`Revert all ${edits.count} deck edit${edits.count === 1 ? "" : "s"}`}
-                aria-label="Revert all deck edits"
-              >
-                <i
-                  className="ph ph-arrow-counter-clockwise"
-                  aria-hidden="true"
-                ></i>
-              </button>`
-            : null}
           <button
             type="button"
             className="chat-icon-button"

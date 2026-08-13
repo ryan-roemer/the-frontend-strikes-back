@@ -166,6 +166,69 @@
   padding: 12px;
 }
 
+/* --- Provider switcher ---------------------------------------------------- */
+
+/*
+ * Two pills, left-aligned next to the robot rather than in the action group.
+ *
+ * Deliberately on the other side of the bar from the model's controls, because it is a
+ * different kind of control: everything on the right acts on the current model, this one
+ * chooses which model that is. It sits where the undo and revert buttons used to, which is
+ * the width the deck-edit layer paid back when it was removed.
+ *
+ * NEVER given a `:disabled` state for being busy. This is the way out of a Chrome
+ * `create()` that never resolves -- see the comment in `provider-switch.js`.
+ */
+.chat-provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+}
+
+.chat-provider__pill {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.chat-provider__pill:hover {
+  color: var(--fg, #e8ecf5);
+}
+
+.chat-provider__pill--on {
+  background: var(--chapter-accent, #78eec5);
+  /* Against the accent fill, not the panel -- so this one is intentionally dark. */
+  color: #0b1020;
+}
+
+.chat-provider__pill:focus-visible {
+  outline: 2px solid var(--chapter-accent, #78eec5);
+  outline-offset: 2px;
+}
+
+/* One provider is not a choice, so it renders as a label rather than a control. */
+.chat-provider--single {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
 /* --- Model controls, inline in the header bar ----------------------------- */
 
 /*
@@ -451,24 +514,6 @@
   color: var(--muted, #97a1b8);
 }
 
-/* --- Edit receipts ------------------------------------------------------- */
-
-.chat-receipts {
-  margin: 8px 0 0;
-  padding: 8px 0 0;
-  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
-  list-style: none;
-}
-
-.chat-receipts__row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 12px;
-  color: var(--chapter-accent, #78eec5);
-}
-
 /* --- Typing dots --------------------------------------------------------- */
 
 .chat-typing {
@@ -716,10 +761,4 @@
   .chat-toggle {
     display: none !important;
   }
-}
-
-/* Undo is the control a presenter reaches for under pressure; the accent makes it
- * findable without reading the row. */
-.chat-icon-button--accent {
-  color: var(--chapter-accent, #78eec5);
 }

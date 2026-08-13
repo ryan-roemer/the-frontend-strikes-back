@@ -1,15 +1,16 @@
 /* global AbortController:false, DOMException:false, setTimeout:false, clearTimeout:false */
 import {
+  activeProvider,
   getSession,
   getState,
   isReady,
   load,
   modelSize,
-  STATE_META,
+  refresh,
+  stateMeta,
   STATES,
   touch,
 } from "./model-state.js";
-import { answerTurn } from "./prompt.js";
 
 /**
  * Talking to the durable session.
@@ -63,18 +64,29 @@ const aborted = () => new DOMException("Aborted", "AbortError");
  */
 export const streamAnswer = async ({ text, onChunk, signal }) => {
   if (!isReady()) {
-    const { status, progressText } = getState();
-    const meta = STATE_META[status];
-
-    // A DOWNLOAD is not something to wait out behind a spinner. 2 GB on venue wifi
-    // is legitimately many minutes, so queueing the question means typing dots with
-    // no way to tell a slow model from a wedged one.
+    // RE-SAMPLE BEFORE REFUSING, but only where the status is not a fact.
     //
-    // This state is now AUTHORITATIVE, which it was not before. Under the Prompt API
-    // `availability()` flapped between "available" and "downloading" while Chrome
-    // worked, so this branch had to re-sample before refusing or it rejected every
-    // question for minutes after the model had become usable. We own the download
-    // now, so the state is a fact and the re-sample is gone.
+    // On LiteRT we own the download, so a DOWNLOADING reading is authoritative and a
+    // re-check would be pure latency. Under the Prompt API `availability()` FLAPS between
+    // "available" and "downloading" while Chrome works, so a stale sample refused every
+    // question for minutes after the model had become usable. One fresh check is cheap and
+    // it is the only thing standing between a working model and a panel that says no.
+    if (
+      !activeProvider()?.capabilities.authoritativeStatus &&
+      getState().status === STATES.DOWNLOADING
+    ) {
+      await refresh();
+    }
+
+    // Read AFTER the refresh. Reading these before it is what made an earlier version of
+    // this fix do nothing: the refreshed status said ON_DISK while the captured one still
+    // said DOWNLOADING, and the captured one is what the branches used.
+    const { status, progressText } = getState();
+    const meta = stateMeta(status);
+
+    // A DOWNLOAD is not something to wait out behind a spinner. 2 GB on venue wifi is
+    // legitimately many minutes, so queueing the question means typing dots with no way to
+    // tell a slow model from a wedged one.
     if (status === STATES.DOWNLOADING) {
       throw new Error(
         `The model is still downloading${progressText ? ` (${progressText})` : ""}. ` +
@@ -82,15 +94,16 @@ export const streamAnswer = async ({ text, onChunk, signal }) => {
       );
     }
 
-    // DOWNLOADABLE must NOT be treated as "just load it", even though its state
-    // meta says the button would. A keystroke is a valid user activation, but this
-    // particular action is a 2 GB fetch, and the composer is reachable long before a
-    // presenter has looked at the header bar. Starting that silently, from typing,
-    // is the single rudest thing this module could do.
+    // DOWNLOADABLE must NOT be treated as "just load it", even though its state meta says
+    // the button would. A keystroke is a valid user activation, but on LiteRT this action
+    // is a 2 GB fetch, and the composer is reachable long before a presenter has looked at
+    // the header bar. Starting that silently, from typing, is the single rudest thing this
+    // module could do.
     if (status === STATES.DOWNLOADABLE) {
+      const size = modelSize();
       throw new Error(
-        `The model isn't downloaded yet (${modelSize()}). Use the download button ` +
-          "in the panel header when you're on a connection you trust.",
+        `The model isn't downloaded yet${size ? ` (${size})` : ""}. Use the download ` +
+          "button in the panel header when you're on a connection you trust.",
       );
     }
 
@@ -137,14 +150,12 @@ export const streamAnswer = async ({ text, onChunk, signal }) => {
   let accumulated = "";
 
   try {
-    // `answerTurn` attaches the retrieved slide excerpts, which are rebuilt per turn and
-    // must NOT persist -- letting them accumulate in the conversation degraded answers into
-    // "please provide the context" by the third question. `remember` is what enters the
-    // transcript instead: the bare question, which is all the continuity a follow-up needs.
-    const stream = session.stream(answerTurn(text), {
-      signal: guard.signal,
-      remember: text,
-    });
+    // The question, verbatim. There used to be an `answerTurn()` wrapper here that
+    // attached retrieved slide excerpts and a `remember` option so only the bare
+    // question entered the transcript -- excerpts that accumulated turn over turn
+    // degraded answers into "please provide the context" by the third question. With
+    // no retrieval, what is sent and what is remembered are the same string again.
+    const stream = session.stream(text, { signal: guard.signal });
     for await (const chunk of stream) {
       if (signal?.aborted) throw aborted();
       guard.arm();

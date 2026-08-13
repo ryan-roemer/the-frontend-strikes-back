@@ -8,13 +8,14 @@ import {
 import htm from "htm";
 import {
   STATES,
-  STATE_META,
   cancelDownload,
   contextInfo,
   deleteDownload,
   getState,
   load,
   modelInfo,
+  refresh,
+  stateMeta,
   subscribe,
   unload,
 } from "../agent/model-state.js";
@@ -50,12 +51,12 @@ const InfoModal = ({ onClose }) => {
   /**
    * Delete the downloaded model.
    *
-   * This button could not exist under the Prompt API -- the model belonged to the
-   * browser, so the honest thing to show was copyable text pointing at
-   * `chrome://on-device-internals`. We own the bytes now, so the affordance is
-   * real, and it is the one that matters most when something has gone wrong: a
-   * failed load with no way to clear the cache is otherwise unrecoverable without
-   * devtools.
+   * Only rendered when the ACTIVE provider owns its bytes. Under the Chrome Prompt API the
+   * model belongs to the browser, so there is nothing here to delete and the honest thing
+   * to show is `manageNote` -- copyable text pointing at `chrome://on-device-internals`.
+   *
+   * On LiteRT it is the affordance that matters most when something has gone wrong: a
+   * failed load with no way to clear the cache is otherwise unrecoverable without devtools.
    */
   const onDelete = useCallback(async () => {
     setBusy(true);
@@ -67,64 +68,7 @@ const InfoModal = ({ onClose }) => {
     }
   }, [reload]);
 
-  const adapter = info?.gpu?.adapter;
-  const rows = info
-    ? [
-        ["Status", STATE_META[info.status]?.title ?? info.status],
-        ["Model", `${info.model.label} · ${info.model.quantization}`],
-        ["File", `${info.model.file} (${info.size})`],
-        ["Backend", `${info.backend} · WebGPU`],
-        [
-          "GPU",
-          adapter
-            ? [adapter.vendor, adapter.architecture]
-                .filter(Boolean)
-                .join(" ") || "available"
-            : (info.gpu?.reason ?? "—"),
-        ],
-        ["shader-f16", adapter ? (adapter.shaderF16 ? "yes" : "no") : "—"],
-        [
-          "Downloaded",
-          info.cached
-            ? "yes, verified complete"
-            : info.cacheAvailable
-              ? "no"
-              : "no (this browser has no Cache API)",
-        ],
-        ["Engine", info.engineResident ? "loaded on the GPU" : "not loaded"],
-        [
-          "Context",
-          info.context
-            ? `${info.context.used.toLocaleString()} / ${info.context.total.toLocaleString()} (${info.context.pct}%)`
-            : "no session",
-        ],
-        ["Loaded in", formatElapsed(info.elapsed) ?? "—"],
-        // Real numbers from the runtime, and a far better row than the Prompt API's
-        // `params()` -- which was absent in Chrome 151 anyway. Omitted rather than
-        // shown as zeroes on a conversation that has not generated yet: "0 in, 0 out
-        // · 0 tok/s" reads as a broken readout rather than an idle one.
-        ...(info.benchmark?.lastDecodeTokenCount
-          ? [
-              [
-                "Last turn",
-                `${info.benchmark.lastPrefillTokenCount ?? "?"} in, ` +
-                  `${info.benchmark.lastDecodeTokenCount} out · ` +
-                  `${Math.round(info.benchmark.lastDecodeTokensPerSecond ?? 0)} tok/s`,
-              ],
-            ]
-          : []),
-        ...(info.storage?.quota
-          ? [
-              [
-                "Storage",
-                `${(info.storage.free / 1e9).toFixed(1)} GB free of ` +
-                  `${(info.storage.quota / 1e9).toFixed(1)} GB`,
-              ],
-            ]
-          : []),
-        ...(info.error ? [["Last error", info.error]] : []),
-      ]
-    : [];
+  const rows = info?.rows ?? [];
 
   return html`
     <div className="chat-modal" role="dialog" aria-label="Model info">
@@ -149,22 +93,25 @@ const InfoModal = ({ onClose }) => {
         )}
       </dl>
       ${
-        "" /* The page owns the bytes, so this is a real button rather than the
-              apology and copyable chrome:// URL that used to live here. */
+        "" /* A real button on a provider that owns its bytes; a pointer at the browser's
+              own page on one that does not. The difference IS the story -- see the table
+              in `providers/index.js`. */
       }
       <p className="chat-modal__note">
-        ${info?.cached
-          ? html`This deck downloaded the model, so it can delete it too.
-              <button
-                type="button"
-                className="chat-text-button"
-                onClick=${onDelete}
-                disabled=${busy}
-              >
-                ${busy ? "deleting…" : `delete ${info.size}`}
-              </button>`
-          : html`The model is fetched from HuggingFace on first use and cached
-            in this browser. Nothing is sent anywhere.`}
+        ${info?.manageNote
+          ? html`${info.manageNote.text} <code>${info.manageNote.url}</code>.`
+          : info?.canDelete
+            ? html`This deck downloaded the model, so it can delete it too.
+                <button
+                  type="button"
+                  className="chat-text-button"
+                  onClick=${onDelete}
+                  disabled=${busy}
+                >
+                  ${busy ? "deleting…" : `delete ${info.size ?? "it"}`}
+                </button>`
+            : html`The model is fetched on first use and cached in this browser.
+              Nothing is sent anywhere.`}
       </p>
     </div>
   `;
@@ -200,15 +147,20 @@ const InfoModal = ({ onClose }) => {
 export const ModelControls = () => {
   const state = useModelState();
   const [showInfo, setShowInfo] = useState(false);
-  const meta = STATE_META[state.status] ?? STATE_META[STATES.UNSUPPORTED];
+  const meta = stateMeta(state.status);
 
   const percent =
     state.progress != null ? Math.round(state.progress * 100) : null;
 
+  // One control, no modes to explain: the click means whatever the current state says it
+  // means. `recheck` exists only for Chrome, whose download is not ours to cancel -- looking
+  // again is the one genuinely useful thing available there, because Chrome reports no
+  // completion event for a download it started itself.
   const onPrimary = useCallback(() => {
     if (meta.action === "load") load();
     else if (meta.action === "unload") unload();
     else if (meta.action === "cancel") cancelDownload();
+    else if (meta.action === "recheck") refresh();
   }, [meta.action]);
 
   // Just `unload()`. It bumps the model-state epoch, and the panel wipes the transcript
