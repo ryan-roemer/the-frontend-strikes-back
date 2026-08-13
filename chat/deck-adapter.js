@@ -99,19 +99,43 @@ const ROLES = [
  * holding its own text is addressable; a wrapper that only contains other elements
  * still is not, because the inventory requires a direct text node.
  */
-export const roleOf = (el) => {
+const kindOf = (el) => {
   for (const [selector, role] of ROLES) {
     if (el.matches(selector)) return role;
   }
-  if (el.tagName === "LI") {
-    const index = [...el.parentElement.children].indexOf(el) + 1;
-    return `bullet ${index}`;
-  }
+  if (el.tagName === "LI") return "bullet";
   // Elements that exist to lay out other elements are never edit targets.
   if (["UL", "OL", "TABLE", "TR", "TBODY", "THEAD"].includes(el.tagName)) {
     return null;
   }
   return "text";
+};
+
+/**
+ * What an element IS, and WHICH ONE it is.
+ *
+ * The position half is not decoration. "replace first bullet with one, second with two" on
+ * the intro slide targeted the TITLE and rewrote it with the whole slide's text, because the
+ * three bullets there are `<div>`s rather than `<li>`s: they all came back as plain "text",
+ * three times, with nothing to distinguish them and nothing for "first" to attach to.
+ *
+ * So a role shared by two or more siblings is numbered. `<li>` was already handled this way;
+ * generalising it also disambiguates the repeated roles the deck's own components produce --
+ * slide 20 previously offered five elements all called "matrix row" and five called "matrix
+ * note", which is a coin flip dressed up as a choice.
+ *
+ * Counted among SAME-ROLE siblings rather than all children, so a heading between two bullets
+ * does not make them "bullet 1" and "bullet 3".
+ */
+export const roleOf = (el) => {
+  const kind = kindOf(el);
+  if (!kind) return null;
+
+  const sameKind = [...(el.parentElement?.children ?? [])].filter(
+    (sibling) => kindOf(sibling) === kind,
+  );
+  if (sameKind.length < 2) return kind;
+  return `${kind} ${sameKind.indexOf(el) + 1}`;
 };
 
 /**
@@ -124,6 +148,21 @@ export const roleOf = (el) => {
 export const SKIP_SELECTOR =
   ".react-live-editor, .npm__react-simple-code-editor__textarea," +
   " .prism-code, .code-frame, .notes, .spectacle-notes";
+
+/**
+ * Code panes, which are READ but never written.
+ *
+ * The distinction matters and it is why this is a second selector rather than a hole in
+ * the one above. Code panes must stay out of the EDIT inventory for the reason given there
+ * -- Prism and CodeMirror own that DOM and re-render it -- but they were also being
+ * stripped from the KNOWLEDGE harvest, which shares `SKIP_SELECTOR`. The effect was that
+ * the assistant could not see the deck's code at all: four panes on slides 9-12, and
+ * asking about any of them got an "I don't know" that looked like a broken retriever.
+ *
+ * So: invisible to editing, visible to answering. `harvestSlide` pulls these out before it
+ * removes the skipped regions.
+ */
+export const CODE_SELECTOR = ".code-frame, .prism-code, .react-live-editor";
 
 // --- What may be changed ----------------------------------------------------
 

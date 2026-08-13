@@ -107,6 +107,12 @@ const terms = (text) =>
     (word) => word.length >= MIN_TERM && !STOPWORDS.has(word),
   );
 
+/** Every pane on a slide, flattened for indexing. */
+const codeText = (slide) =>
+  (slide.code ?? [])
+    .map((pane) => `${pane.name ?? ""} ${pane.language ?? ""} ${pane.text}`)
+    .join(" ");
+
 /**
  * Rank slides against a question.
  *
@@ -121,7 +127,13 @@ export const rank = (question, { activeNumber = null, limit = 3 } = {}) => {
   const queryTerms = [...new Set(terms(question))];
   const documents = corpus.map((slide) => ({
     slide,
-    bag: new Set(terms(`${slide.title} ${slide.text}`)),
+    // Code is indexed as well as prose, and it has to be: "registerTool",
+    // "modelContext" and "register-tool.js" appear ONLY inside the panes, so without
+    // this a question naming any of them scored zero everywhere and retrieval fell back
+    // to the active slide. The tokeniser splits on non-alphanumerics, so camelCase
+    // survives as one term while punctuation-heavy syntax contributes nothing -- which
+    // is the right trade.
+    bag: new Set(terms(`${slide.title} ${slide.text} ${codeText(slide)}`)),
   }));
 
   const scored = documents
@@ -160,14 +172,35 @@ export const rank = (question, { activeNumber = null, limit = 3 } = {}) => {
   return picked.sort((a, b) => a.number - b.number);
 };
 
-/** The retrieved slides, formatted for the prompt. */
+/**
+ * The retrieved slides, formatted for the prompt.
+ *
+ * Code is included HERE rather than in the system prompt, and that split is the whole
+ * budget argument: the four panes total ~1,950 characters, which would be a third of a
+ * ~660-token system prompt that has to carry the entire deck. Per turn, at most three
+ * slides are retrieved and in practice at most one of them has a pane, so the cost is
+ * ~200 tokens and only on the turns that are actually about code.
+ *
+ * Each pane gets a LABEL naming the slide and the file, not just a fence. Measured: with a
+ * bare fence the code reached the prompt intact and the model still answered "the provided
+ * text does not contain enough information" to four questions out of five -- it did not
+ * recognise a code listing as deck content it was allowed to answer from. Saying "CODE ON
+ * SLIDE 10" in words is what connects it to the rest of the excerpt block.
+ */
 export const context = (question, options) => {
   const picked = rank(question, options);
   if (!picked.length) return "";
   return picked
-    .map(
-      ({ number, chapter, title, text }) =>
-        `--- SLIDE ${number}${chapter ? ` (chapter ${chapter})` : ""}: ${title}\n${text}`,
-    )
+    .map(({ number, chapter, title, text, code }) => {
+      const head = `--- SLIDE ${number}${chapter ? ` (chapter ${chapter})` : ""}: ${title}`;
+      const panes = (code ?? []).map((pane) => {
+        const file = pane.name ? ` (${pane.name})` : "";
+        return (
+          `CODE SHOWN ON SLIDE ${number}${file}:\n` +
+          `\`\`\`${pane.language ?? ""}\n${pane.text}\n\`\`\``
+        );
+      });
+      return [head, text, ...panes].filter(Boolean).join("\n");
+    })
     .join("\n");
 };

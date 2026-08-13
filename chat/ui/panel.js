@@ -93,15 +93,31 @@ export const Panel = ({ enabled }) => {
     }
   }, []);
 
-  /** The broom: empty context, keep talking. Recreates the conversation because a
-   *  conversation owns its history -- there is nothing to clear in place. That was
-   *  true of a Prompt API session and is equally true of a LiteRT one; what changed
-   *  is the price, now ~2ms, because the engine stays hot and the new conversation
-   *  prefills its preface lazily. */
+  /**
+   * THE TRANSCRIPT FOLLOWS THE MODEL'S MEMORY.
+   *
+   * One rule, one place. Anything that drops what the model remembers -- the broom, freeing
+   * the conversation from the status row, deleting the model -- bumps `epoch`, and the
+   * transcript goes with it. Previously each of those had to remember to clear the
+   * transcript itself, and freeing the conversation from the status row did not: the window
+   * kept showing an exchange the model had no memory of, so "tell me more" resolved against
+   * nothing.
+   *
+   * Guarded on a non-zero epoch so a fresh mount does not count as a drop.
+   */
+  // Keyed on the epoch ALONE, deliberately. `clear` is a fresh closure on most renders, so
+  // including it would wipe the transcript on any identity change rather than only when the
+  // model actually forgets.
+  useEffect(() => {
+    if (model.epoch) clear();
+  }, [model.epoch]);
+
+  /** The broom: empty context, keep talking. `restart()` bumps the epoch, which is what
+   *  clears the transcript -- see above. Recreates the conversation because a conversation
+   *  owns its history; the difference from the Prompt API is the price, now ~2ms. */
   const newChat = useCallback(() => {
-    clear();
     restart();
-  }, [clear]);
+  }, []);
 
   const dead =
     model.status === STATES.UNSUPPORTED || model.status === STATES.UNAVAILABLE;
@@ -129,7 +145,7 @@ export const Panel = ({ enabled }) => {
                   (undo, revert, broom, recentre, close) stay in the same order and
                   the same place they have always been, hard right. */
           }
-          <${ModelControls} onDiscardConversation=${clear} />
+          <${ModelControls} />
           ${edits.canUndo
             ? html`<button
                 type="button"

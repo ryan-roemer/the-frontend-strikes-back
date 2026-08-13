@@ -103,12 +103,27 @@ export const serialize = (
     .filter(Boolean)
     .join(" | ");
 
+  // Deliberately NOT `ref  role  "text"`.
+  //
+  // That is what this used to be, and it reads as a filled-in copy of the very JSON the fill
+  // pass is asked to produce -- an id beside a quoted string, exactly like
+  // `{"ref": "e2", "text": "..."}`. So the model completed the form by copying a ROW out of
+  // the table: "replace the first bullet with \"one\"" came back as
+  // `{"ref":"e5","text":"I've been building for the web a long time..."}`, and on the intro
+  // slide that produced a receipt claiming a change nobody asked for. Naming an explicit ref
+  // ("change e2 text to \"one\"") worked the whole time, which is what gave it away.
+  //
+  // So: no quotes around the current wording, and a word that says what it IS. The table is
+  // reference material now rather than a template to imitate.
+  // The mixed-content flag goes with the ROLE, not after the text. Trailing it meant a model
+  // copying "the rest of the line" dragged the annotation into the slide: one receipt read
+  // `text e2 → "I'm Ryan Roemer [has inline markup]"`.
   const rows = inventory.entries.map(
     ({ ref, role, text, mixed }) =>
-      `${ref.padEnd(4)}${role.padEnd(16)}"${text}"${mixed ? "  (mixed)" : ""}`,
+      `- ${ref} (${role}${mixed ? ", has inline markup" : ""}) now reads: ${text}`,
   );
 
-  return [header, ...rows].join("\n");
+  return [header, "ELEMENTS ON THIS SLIDE:", ...rows].join("\n");
 };
 
 /** The live element for a ref, or null. */

@@ -1,4 +1,4 @@
-/* global DOMException:false */
+/* global DOMException:false, console:false */
 import { CHAPTERS, chapterOf, slideNodes } from "../deck-adapter.js";
 import { getSnapshot } from "../bus.js";
 import { build, serialize } from "../edit/inventory.js";
@@ -105,6 +105,99 @@ const namesAnElement = (text, context) => {
 };
 
 /**
+ * Words a presenter uses for a thing on a slide, mapped to the role kinds it could mean.
+ *
+ * "bullet" is the load-bearing entry: the deck's intro bullets are `<div>`s, so their role is
+ * "text N" and nothing connects the two without this.
+ */
+const NOUN_KINDS = {
+  bullet: ["text", "bullet"],
+  bullets: ["text", "bullet"],
+  line: ["text", "bullet"],
+  item: ["text", "bullet", "roadmap item"],
+  point: ["text", "bullet"],
+  paragraph: ["text"],
+  title: ["title", "chapter title"],
+  heading: ["title", "chapter title"],
+  subtitle: ["subtitle"],
+  eyebrow: ["eyebrow"],
+  row: ["matrix row"],
+  note: ["matrix note", "takeaway detail"],
+  takeaway: ["takeaway"],
+  card: ["card label"],
+  url: ["demo url"],
+  link: ["demo url"],
+};
+
+const ORDINALS = {
+  first: 1,
+  "1st": 1,
+  second: 2,
+  "2nd": 2,
+  third: 3,
+  "3rd": 3,
+  fourth: 4,
+  "4th": 4,
+  fifth: 5,
+  "5th": 5,
+};
+
+/** The kind half of a role, with any trailing position stripped: "matrix row 3" -> "matrix row". */
+const kindOfRole = (role) => String(role).replace(/\s+\d+$/, "");
+
+/**
+ * Which element does a phrase like "the first bullet" or "the title" mean?
+ *
+ * Resolved HERE rather than by the model, for the same reason as the follow-up referent: it is
+ * a deterministic lookup against a list we already have, and the model measurably could not do
+ * it. Asked to "replace the first bullet with \"one\"" it returned
+ * `{"ref":"e5","text":"I've been building for the web a long time..."}` -- the wrong element
+ * AND its existing wording copied back. Given an explicit ref ("change e2 text to \"one\"") it
+ * was correct every time. So the failure is entirely in resolving the phrase, and that is the
+ * part worth taking away from it.
+ *
+ * Returns null unless it is confident: no ordinal and no noun match means say nothing and let
+ * the model decide, which is exactly the behaviour without any of this.
+ */
+const resolveNamedTarget = (text, context) => {
+  const lower = text.toLowerCase();
+  const entries = context.inventory.entries;
+
+  const noun = Object.keys(NOUN_KINDS).find((word) =>
+    new RegExp(`\\b${word}\\b`).test(lower),
+  );
+  const ordinalWord = Object.keys(ORDINALS).find((word) =>
+    new RegExp(`\\b${word}\\b`).test(lower),
+  );
+  if (!noun && !ordinalWord) return null;
+
+  const kinds = noun ? NOUN_KINDS[noun] : null;
+  const candidates = kinds
+    ? entries.filter((entry) => kinds.includes(kindOfRole(entry.role)))
+    : // An ordinal with no noun ("make the second one bigger") means the numbered things,
+      // which are never the title.
+      entries.filter(
+        (entry) =>
+          !["title", "subtitle", "eyebrow"].includes(kindOfRole(entry.role)),
+      );
+  if (!candidates.length) return null;
+
+  if (ordinalWord) {
+    const wanted = ORDINALS[ordinalWord];
+    // Match the POSITION baked into the role rather than indexing the filtered list. The two
+    // usually agree, but a nested element can share a kind with its own parent -- the intro
+    // slide's second bullet contains a link, so "text 2" occurs twice -- and positional roles
+    // survive that where an array index does not.
+    const exact = candidates.find((entry) =>
+      new RegExp(`\\s${wanted}$`).test(entry.role),
+    );
+    return exact ?? candidates[wanted - 1] ?? null;
+  }
+  // A noun with no ordinal is only unambiguous when there is exactly one of them.
+  return candidates.length === 1 ? candidates[0] : null;
+};
+
+/**
  * Resolve "it" before the model ever sees the instruction.
  *
  * A system-prompt aside asking the model to apply a conditional rule was measured NOT to
@@ -117,6 +210,16 @@ const namesAnElement = (text, context) => {
  * remembered one, or "now make the TITLE red" would keep hitting the subtitle.
  */
 const resolveReferent = (text, context) => {
+  // A phrase naming something on THIS slide wins over anything remembered: "now make the
+  // title red" must not keep hitting whatever was changed last.
+  const named = resolveNamedTarget(text, context);
+  if (named) {
+    return (
+      `INSTRUCTION: ${text}\n` +
+      `(“${named.role}” on this slide is element ${named.ref}. Use that ref.)`
+    );
+  }
+
   const target = carriedTarget(context);
   if (!target || namesAnElement(text, context)) return `INSTRUCTION: ${text}`;
   const entry = context.inventory.entries.find((e) => e.ref === target.ref);
@@ -186,7 +289,13 @@ const ROUTE_SYSTEM = [
  * table that the refs depend on.
  */
 const FILL_HINTS = {
-  set_text: "Rewrite only the wording. Keep it short enough to fit the slide.",
+  // "replace first bullet with \"one\"" produced a rewrite of the entire slide instead of the
+  // word "one". When the instruction quotes the replacement it is not asking for authorship,
+  // and saying so is the difference between an edit and an invention.
+  set_text:
+    'If the instruction quotes the new text, use it EXACTLY and nothing else — "one" means' +
+    " the text becomes one. Otherwise rewrite only the wording of that one element, short" +
+    " enough to fit the slide. Never copy in text from elsewhere on the slide.",
   set_style:
     "Pick the one CSS property that matches the request: size means font-size, " +
     "colour means color, bolder means font-weight. The value must be REAL CSS: use " +
@@ -211,6 +320,10 @@ const fillSystem = (op, context) =>
   [
     `You are filling in the details of a "${op}" instruction for a slide deck.`,
     "Use ONLY the element ids listed below. Reply with the fields the schema asks for.",
+    // Said outright, because the listing is the most JSON-shaped thing in the prompt and the
+    // model reached for it: it answered by copying an element's CURRENT wording into `text`.
+    "The list below is what the slide says NOW. It is context, not an answer — never copy a" +
+      " line out of it unless the instruction asks you to keep that wording.",
     FILL_HINTS[op],
     "",
     context.text,
@@ -298,6 +411,17 @@ export const respond = async ({ text, onChunk, signal }) => {
     };
   }
 
+  // The instruction's own words win over the model's paraphrase of them.
+  if (op === "set_text") {
+    const quoted = quotedReplacement(text);
+    if (quoted && filled.text !== quoted) {
+      console.debug(
+        `[chat] using the quoted replacement ${JSON.stringify(quoted)} over ${JSON.stringify(filled.text)}`,
+      );
+      filled = { ...filled, text: quoted };
+    }
+  }
+
   const result = apply({ op, ...filled });
 
   // Remember what was touched, but only on success and only when an element was named:
@@ -312,8 +436,55 @@ export const respond = async ({ text, onChunk, signal }) => {
     };
   }
 
-  return receipt(result);
+  return receipt(result, severalEdits(text));
 };
+
+/**
+ * Does this instruction ask for more than one change?
+ *
+ * One op per turn is the pipeline's shape, and the failure it produced was silent: "replace
+ * first bullet with \"one\", second with \"two\"" made one edit and reported "Done.", so the
+ * presenter had no way to know half the request had been dropped. It cannot be answered by
+ * doing both -- the route and fill passes each decide a single op -- but it can be SAID.
+ *
+ * Two narrow signals, chosen to avoid crying wolf on ordinary instructions: two or more
+ * quoted replacements, or an explicit first/second pairing. "Make the first bullet bigger"
+ * trips neither.
+ */
+const severalEdits = (text) => {
+  if (quotedParts(text).length >= 2) return true;
+  return (
+    /\b(first|1st)\b/i.test(text) &&
+    /\b(second|2nd|third|3rd|secondly)\b/i.test(text)
+  );
+};
+
+/**
+ * The quoted strings in an instruction.
+ *
+ * DOUBLE quotes only, straight or curly. Single quotes are not delimiters here because
+ * English is full of apostrophes -- "I'm Ryan Roemer" and "don't change the title" would both
+ * parse as quoted text and swallow the instruction around them.
+ */
+const quotedParts = (text) =>
+  [...text.replace(/[\u201c\u201d]/g, '"').matchAll(/"([^"]{1,140})"/g)]
+    .map((match) => match[1].trim())
+    .filter(Boolean);
+
+/**
+ * The replacement text, when the instruction states it outright.
+ *
+ * Taken from the instruction rather than from the model, for the same reason as the ref: it is
+ * deterministic, and the model measurably got it wrong. Asked to replace a bullet with "one"
+ * it returned the element's EXISTING wording -- it copied what the slide said instead of what
+ * was asked for, which is how a receipt came to claim a change that had not happened.
+ *
+ * The FIRST quoted string when there are several. "replace first bullet with \"one\", second
+ * with \"two\"" resolves its target from the first ordinal too, so first-with-first is the
+ * consistent pairing -- and it turns what was a silent no-op reporting "Done." into one
+ * correct edit plus `severalEdits` saying the rest was not done.
+ */
+const quotedReplacement = (text) => quotedParts(text)[0] ?? null;
 
 /**
  * Turn a result into what the presenter reads.
@@ -321,10 +492,13 @@ export const respond = async ({ text, onChunk, signal }) => {
  * Receipts are generated from what was APPLIED, never from what was asked for, so a
  * partial text replace or a clamped slide number shows up as itself.
  */
-const receipt = (result) => {
+const receipt = (result, several = false) => {
   if (!result.ok) return { text: result.message };
+  const done = result.note ?? "Done.";
   return {
-    text: result.note ?? "Done.",
+    text: several
+      ? `${done} I can only make one change per message — ask again for the rest.`
+      : done,
     receipts: [{ label: result.label }],
   };
 };

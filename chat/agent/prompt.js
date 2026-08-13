@@ -32,6 +32,10 @@ import { getSnapshot } from "../bus.js";
 
 const RULES = [
   "Answer only from the deck information given to you. If it is not there, say you do not know.",
+  // Without this the model treated a code listing as something it had not been given, and
+  // answered "the provided text does not contain enough information" with the source
+  // sitting in its own prompt. Saying code counts as deck content is what unlocks it.
+  "Some slides show code. Code under CODE SHOWN ON SLIDE is part of the deck — read it and answer from it.",
   "Be brief: two or three sentences unless asked for more.",
   "Refer to slides by number.",
   "Never invent slide content, takeaways, or chapter names.",
@@ -76,7 +80,7 @@ export const answerTurn = (question) => {
     where,
     `QUESTION: ${question}`,
     "",
-    "(Answer from the excerpts and deck information above. Be brief. If the answer is not there, say so.)",
+    "(Answer from the excerpts above, including any code shown there. Be brief. If the answer is genuinely not above, say so.)",
   ]
     .filter(Boolean)
     .join("\n");

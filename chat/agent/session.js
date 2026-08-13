@@ -137,8 +137,13 @@ export const streamAnswer = async ({ text, onChunk, signal }) => {
   let accumulated = "";
 
   try {
+    // `answerTurn` attaches the retrieved slide excerpts, which are rebuilt per turn and
+    // must NOT persist -- letting them accumulate in the conversation degraded answers into
+    // "please provide the context" by the third question. `remember` is what enters the
+    // transcript instead: the bare question, which is all the continuity a follow-up needs.
     const stream = session.stream(answerTurn(text), {
       signal: guard.signal,
+      remember: text,
     });
     for await (const chunk of stream) {
       if (signal?.aborted) throw aborted();

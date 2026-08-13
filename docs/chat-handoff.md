@@ -9,7 +9,7 @@ swap cost and bought, and the measured numbers to re-derive if anything changes.
 
 > **Pre-flight, before any talk.** The model is a 2 GB download. Fetch it on a connection you
 > trust and confirm the header bar reads "on disk", then open the panel and ask one question.
-> See [§7](#7-pre-flight).
+> See [§8](#8-pre-flight).
 
 ---
 
@@ -81,6 +81,41 @@ live:
   `Symbol.asyncIterator` on `ReadableStream`, and `session.js` consumes with `for await`. Return
   `sendMessageStreaming(...)` directly and Chrome stays green while Safari breaks silently.
 
+### Code panes: read, never written
+
+`SKIP_SELECTOR` in `deck-adapter.js` names the regions the edit inventory must not enter —
+Prism and CodeMirror own that DOM and re-render it, so a text patch there is both meaningless
+and destructive. The **knowledge harvest shared that selector**, so the assistant could not see
+the deck's code at all: four panes on slides 9–12, and asking about any of them produced an
+"I don't know" that looked like a broken retriever.
+
+Now a second selector, `CODE_SELECTOR`, marks the same regions as readable. Invisible to
+editing, visible to answering. Three things have to be undone to get source back out of a
+rendered pane, and all three are easy to miss because `textContent` silently mashes them
+together into `register-tool.js1document.modelContext…`:
+
+- the **filename** lives in `.code-frame__name` inside the frame;
+- Prism renders the **gutter** as `.linenumber` spans inside `<code>`, so line numbers
+  interleave with the source — removed from a clone, which leaves the row newlines intact;
+- the **language** is only knowable from Prism's `language-*` class.
+
+Whitespace is preserved rather than collapsed, unlike prose, because indentation is most of
+what makes code readable.
+
+Where it goes matters as much as extracting it. The four panes total ~1,950 characters, a third
+of the whole system prompt, so code is **not** in the system prompt: the outline just marks
+which slides have it and names the file (`+code: register-tool.js`), which also gives retrieval
+a term to match. The source itself arrives through per-turn retrieval, so it costs ~200 tokens
+and only on turns actually about code. Code is also **indexed** — `registerTool`,
+`modelContext` and `tool-handler.js` appear nowhere else, so without that a question naming any
+of them scored zero everywhere and fell back to the active slide.
+
+One more step was needed after all that. With the source reaching the prompt intact, the model
+still answered _"the provided text does not contain enough information"_ to four questions out
+of five: a bare fence did not read as deck content it was allowed to use. Labelling each pane
+`CODE SHOWN ON SLIDE 10 (register-tool.js):` and adding a rule saying code counts as deck
+content is what unlocked it.
+
 ### The model
 
 `gemma-4-E2B-it-web.litertlm`, from the ungated `litert-community/gemma-4-E2B-it-litert-lm`,
@@ -116,7 +151,7 @@ fallback. `shader-f16` is recorded for the info modal rather than required, beca
 first thing to look at if GPU_ARTISAN ever fails somewhere WebGPU is otherwise fine.
 
 **Verified on Chrome 151 / macOS** (Apple, metal-3, `shader-f16`). **Safari 26 and Firefox are
-coded for but unverified here** — see [§7](#7-pre-flight). Firefox is the bigger unknown: it is
+coded for but unverified here** — see [§8](#8-pre-flight). Firefox is the bigger unknown: it is
 not in the upstream LiteRT measured set at all.
 
 ### Storage, across three vendors
@@ -200,12 +235,13 @@ constrained-decoding section: a second `responseConstraint` prompt failing with 
 with `clone()` tainted too. Different API, same shape.
 
 Untreated, that makes the stop button a one-shot: press it once and the assistant is mute for the
-rest of the talk. What saves it is that a cancelled conversation is still **readable** —
-`getHistory()` and `getTokenCount()` both work. So the provider replaces a poisoned conversation
-with a fresh one carrying its history forward as the preface. Verified: a replacement still
-recalls a fact established before the cancel, where a control conversation with no history does
-not. It costs ~2ms, and the healing is deferred to the next turn, inside the generation lock, so
-it cannot race the generation still unwinding.
+rest of the talk.
+
+**It stopped mattering**, for a reason that had nothing to do with aborting: the provider now
+rebuilds a conversation on every turn from a transcript it keeps itself (see
+[§6](#6-the-transcript-is-ours-and-why)), so a cancelled conversation is simply thrown away
+rather than healed. The poisoning is recorded here because it is real, surprising, and will bite
+anyone who reintroduces a long-lived `Conversation` — not because the code still works around it.
 
 ### One generation at a time
 
@@ -217,7 +253,53 @@ overlap it prevents.
 
 ---
 
-## 6. Constrained decoding: what replaced it
+## 6. The transcript is ours, and why
+
+**This is the fix that mattered most for answer quality, and it was found late.**
+
+Every answer turn sends the retrieved slide text along with the question — 700–1500 characters
+of `DECK EXCERPTS`, necessarily rebuilt per turn because it depends on what was asked. Let a
+long-lived `Conversation` keep its own history and those excerpts pile up in it. By the third
+turn the history holds several excerpt blocks, and a 2B model starts answering the accumulated
+soup instead of the question. It does not degrade gently; it degenerates into _"please provide
+the context"_ with the answer sitting in its own prompt.
+
+Measured, five code questions, same order both ways:
+
+|                                         | usable    | context growth (tokens)           |
+| --------------------------------------- | --------- | --------------------------------- |
+| one conversation, excerpts accumulating | **2 / 5** | 0 → 1364 → 1764 → 2673 → **4338** |
+| a fresh conversation per question       | **5 / 5** | 0 every time                      |
+| after the fix                           | **5 / 5** | 0 → 1364 → 1390 → 1676 → 1879     |
+
+So the provider stopped letting the conversation own the history. `stream()` now takes what to
+**send** and, separately, what to **remember**: the excerpts are sent and dropped, and only the
+bare question and the answer enter a transcript we keep. Each turn rebuilds a conversation from
+that transcript — ~2ms, plus prefill of a few hundred tokens at ~1600 tokens/sec — and the
+transcript is bounded to three exchanges so the re-paid prefill stays flat instead of growing
+with the session.
+
+Two things fall out of it. A cancelled conversation is never reused, so the `cancel()` poisoning
+in [§5](#5-the-abort-contract) needs no workaround. And "clear the context" becomes a transcript
+reset rather than an engine concern.
+
+**This is almost certainly the "results are way worse" reported during the build.** It was
+looked for in the wrong place at the time — `maxNumTokens` was measured and cleared, and
+single-turn quality looked fine, because the failure only appears from the third turn of a real
+session onward.
+
+### The transcript follows the model's memory
+
+One rule, one place. Anything that drops what the model remembers — the broom, freeing the
+conversation from the status row, deleting the model — bumps an `epoch` in `model-state.js`, and
+the panel wipes the transcript from that. Each of those used to have to remember to clear it
+itself, and freeing the conversation from the status row did not: the window kept showing an
+exchange the model had no memory of, so a follow-up resolved against nothing. A plain
+`refresh()` deliberately does not clear, because it drops nothing.
+
+---
+
+## 7. Constrained decoding: what replaced it
 
 The edit pipeline was built on `responseConstraint`. Its value was not politeness: `schema.js`
 splices the live element refs, style properties, class names and var names into the schema as
@@ -290,6 +372,39 @@ values merge.
 neighbour of a ref is _another real element_ — snapping `e3` to `e8` would edit the wrong thing
 on a live slide and read to the audience as a deck bug. Every snap is logged.
 
+### The worst edit this layer produced, and the three causes behind it
+
+On the intro slide, `replace first bullet with "one", second with "two"` reported **"Done."**
+and a receipt claiming the title now read the whole slide's text with a word duplicated. It is
+worth keeping because nothing about it was a single bug:
+
+1. **Nothing said which element was a "bullet", or in what order.** The intro bullets are
+   `<div>`s, and `roleOf` only numbered `<li>`, so all three came back as plain `text` — three
+   identical labels with nothing for "first" to attach to. Roles are now numbered whenever two
+   or more siblings share one, which also fixed slide 21 offering five elements called
+   `matrix row` and five called `matrix note`.
+2. **The model could not resolve the phrase, and copied a row instead.** Asked for "the first
+   bullet" it returned `{"ref":"e5","text":"I've been building for the web a long time..."}` —
+   wrong element, and its existing wording echoed back. Given an explicit ref (`change e2 text
+to "one"`) it was correct every time, which is what identified the resolution step as the
+   whole problem.
+3. **Two edits in one instruction**, and the pipeline does one op per turn. It silently did one
+   of them.
+
+An intermediate theory turned out to be wrong and is worth recording so nobody re-runs it: the
+inventory listing was rendered as `e2  text 1  "I'm Ryan Roemer"`, which is visually isomorphic
+to the JSON being requested, so "the model is filling in the form by copying a row" looked like
+the explanation. Reformatting the listing did **not** fix it — the model then copied the row
+plus the new annotation, putting `[has inline markup]` on the slide. The listing format is still
+better for it, but the cause was the unresolvable phrase.
+
+So: **the phrase is resolved in code** (ordinal + noun → ref, with a synonym table because
+"bullet" has to reach a role called `text`), **the quoted replacement is taken from the
+instruction** rather than the model, and a multi-edit instruction now does the first change and
+says the rest was not done. Positional roles are matched by their baked-in number rather than by
+array index, because a nested element can share a kind with its own parent — the second bullet
+contains a link, so `text 2` legitimately occurs twice.
+
 ### Follow-ups: "it" is resolved in code, not by the model
 
 "change the subtitle to pink" then **"now red"** is how people actually speak, and the second
@@ -354,7 +469,7 @@ constrained decoding costs prompt work, not just validation.
 
 ---
 
-## 7. Pre-flight
+## 8. Pre-flight
 
 Do this before a talk, on the machine you will present from:
 
@@ -371,7 +486,7 @@ Do this before a talk, on the machine you will present from:
 
 ---
 
-## 8. Measured numbers
+## 9. Measured numbers
 
 Chrome 151, macOS, Apple GPU (metal-3, `shader-f16`), `maxNumTokens: 8192`.
 
@@ -460,7 +575,7 @@ see.
 
 ---
 
-## 9. Verified
+## 10. Verified
 
 Chrome 151 over CDP, against the dev server. Test drivers live in the session scratchpad, not the
 repo. **Kill any backgrounded driver before running another** — one left running polluted several
@@ -507,11 +622,11 @@ untouched. Zero real console errors in every mode.
   navigates via a React state update, so an instruction issued within ~700ms of a `goto` builds
   its inventory against the old slide and applies against the new one. `apply.js` refuses safely
   and readably, which is the designed outcome.
-- **Safari and Firefox are unverified.** See [§7](#7-pre-flight).
+- **Safari and Firefox are unverified.** See [§8](#8-pre-flight).
 
 ---
 
-## 10. A bug found on the way
+## 11. A bug found on the way
 
 `chat/deck-adapter.js` did `!!deckNav.advanceSlide()`, but **Spectacle's relative-navigation
 functions return `undefined`**. So `nav.nextSlide()` always reported failure, `apply.js`'s
@@ -525,7 +640,7 @@ detect anyway, because the move lands via a state update rather than synchronous
 
 ---
 
-## 11. Architecture, in one screen
+## 12. Architecture, in one screen
 
 ```
 index.html  ──┬── root  →  Deck  →  Template  →  <DeckBridge/>  ──┐

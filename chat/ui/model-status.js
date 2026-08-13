@@ -185,18 +185,19 @@ const InfoModal = ({ onClose }) => {
  *   2. STATUS  -- the state icon. Clicking it means whatever the current state says
  *                 it means (download / load / unload / cancel / retry), which is the
  *                 pattern's whole trick: one control, no modes to explain.
- *   3. TRASH   -- discard the session AND the transcript. Distinct from the header's
- *                 broom, which recreates a conversation so you can keep talking;
- *                 this one tears down to nothing.
+ *   3. TRASH   -- free the conversation, which drops the transcript with it. Distinct
+ *                 from the header's broom, which recreates a conversation so you can
+ *                 keep talking; this one tears down to nothing. It only calls
+ *                 `unload()` -- see the note on `discard`.
  *   4. INFO    -- what is knowable about the model.
  *
- * The trash slot is RESERVED even when there is nothing to discard -- a hidden
- * placeholder holds the width, exactly as joyce does it, so the group doesn't shuffle
- * sideways every time the state changes. That matters more now than it did in a bar
- * of its own: these icons sit next to the close button, and a row that shifts under
- * the cursor is a row you misclick.
+ * Only the ones that apply are rendered. joyce holds a hidden placeholder open so an icon
+ * row never shifts, and that was right while these lived in a bar of their own -- inline in
+ * a right-aligned group it read as a broken icon instead, a 26px hole between the state and
+ * info icons. Nothing moves that matters: the group is anchored on its RIGHT edge, so close,
+ * recentre and the broom hold their positions and only the state icon slides.
  */
-export const ModelControls = ({ onDiscardConversation }) => {
+export const ModelControls = () => {
   const state = useModelState();
   const [showInfo, setShowInfo] = useState(false);
   const meta = STATE_META[state.status] ?? STATE_META[STATES.UNSUPPORTED];
@@ -210,10 +211,12 @@ export const ModelControls = ({ onDiscardConversation }) => {
     else if (meta.action === "cancel") cancelDownload();
   }, [meta.action]);
 
+  // Just `unload()`. It bumps the model-state epoch, and the panel wipes the transcript
+  // from that -- so the trash does not need to know the transcript exists, and every other
+  // path that drops the model's memory gets the same behaviour for free.
   const discard = useCallback(() => {
     unload();
-    onDiscardConversation?.();
-  }, [onDiscardConversation]);
+  }, []);
 
   const canDiscard = state.status === STATES.READY;
 

@@ -137,6 +137,18 @@ let state = {
   engineResident: false,
   /** Bumped whenever the live session changes, so context readouts refresh. */
   revision: 0,
+  /**
+   * Bumped whenever the model's MEMORY is dropped -- unload, restart, delete.
+   *
+   * Distinct from `revision`, which moves for any change worth re-rendering. This one is a
+   * single claim: whatever the model remembered, it does not any more. The panel watches it
+   * and wipes the transcript, so the two can never disagree.
+   *
+   * They used to. Freeing the conversation from the status row left the transcript on
+   * screen, so the window showed an exchange the model had no memory of -- and a follow-up
+   * like "now red" or "tell me more" would then resolve against nothing.
+   */
+  epoch: 0,
 };
 
 /**
@@ -482,6 +494,7 @@ export const unload = () => {
     progressText: null,
     engineResident: hot,
     revision: state.revision + 1,
+    epoch: state.epoch + 1,
   });
   // Only reachable if the engine was never built; the Cache API is the authority on which
   // of the two states above is true.
@@ -501,7 +514,7 @@ export const restart = async () => {
   if (!chat) return load();
   await chat.restart();
   lastTokens = 0;
-  set({ elapsed: null, revision: state.revision + 1 });
+  set({ elapsed: null, revision: state.revision + 1, epoch: state.epoch + 1 });
   return chat;
 };
 
@@ -522,6 +535,7 @@ export const deleteDownload = async () => {
     progressText: null,
     engineResident: false,
     revision: state.revision + 1,
+    epoch: state.epoch + 1,
   });
   return removed;
 };

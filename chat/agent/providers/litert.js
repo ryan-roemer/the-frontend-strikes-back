@@ -629,51 +629,55 @@ export const generate = async ({
 /**
  * The durable chat session.
  *
- * Returned as a mutable object that owns the CURRENT conversation rather than as a wrapper
- * around one, because a conversation here is disposable and gets replaced underneath the
- * caller. Two reasons it has to be replaced, one obvious and one measured:
+ * WE own the transcript; the `Conversation` is disposable and rebuilt every turn. That is
+ * the opposite of the obvious design -- a `Conversation` keeps its own history and could
+ * simply be talked to -- and it is worth explaining, because it fixes a serious measured
+ * failure and dissolves two others.
  *
- * A `Conversation` owns its own history, so there is nothing to "clear in place" -- the
- * only way to empty a context window is to build another one. That was equally true of a
- * Prompt API session, and it is why the panel has a restart button at all.
+ * THE FAILURE. Every answer turn sends retrieved slide text with the question: ~700-1500
+ * characters of DECK EXCERPTS, rebuilt per turn because it depends on the question. Let the
+ * conversation keep those and by the third turn its history holds several excerpt blocks,
+ * and a 2B model starts answering the accumulated soup instead of what was asked. Measured
+ * on five code questions: 2 of 5 usable when they accumulated, 5 of 5 when each ran on a
+ * fresh conversation, with context climbing 0 -> 1364 -> 1764 -> 2673 -> 4338 tokens.
+ * The answers did not degrade gently, they degenerated into "please provide the context".
  *
- * AND: `cancel()` PERMANENTLY POISONS A CONVERSATION. Measured -- one cancel, from any
- * cause, and every later `sendMessageStreaming` on it rejects with "Task cancelled". It
- * does not recover with time, and `clone()` inherits the poison AND loses the history
- * (a clone of a cancelled conversation reports 0 tokens). If you find that familiar, it is
- * almost exactly the Chrome 151 bug this deck already documents in `planner.js`, where a
- * second constrained prompt fails with `kErrorUnknown` and `clone()` is tainted too.
- * Different API, same shape.
+ * THE FIX. `stream()` takes what to SEND and, separately, what to REMEMBER. The excerpts
+ * are sent and then dropped; only the bare question and the answer go into the transcript.
+ * Each turn rebuilds a conversation from that transcript, which costs ~2ms plus prefill of
+ * a few hundred tokens at ~1600 tokens/sec.
  *
- * That would make the stop button a one-shot -- press it once and the assistant is mute
- * for the rest of the talk. What saves it is that a cancelled conversation is still
- * READABLE: `getHistory()` and `getTokenCount()` both work. So a poisoned conversation is
- * replaced with a fresh one carrying its history forward as the preface, which is verified
- * to preserve context (a replacement still recalls a fact from before the cancel, where a
- * control conversation with no history does not) and costs ~2ms.
+ * WHAT IT DISSOLVES. Rebuilding every turn means a cancelled conversation is never reused,
+ * so the `cancel()` poisoning that used to need a whole heal-on-next-turn mechanism is now
+ * simply irrelevant -- the poisoned object is thrown away. (The poisoning is real and worth
+ * remembering: one `cancel()`, from any cause, and every later `sendMessageStreaming` on
+ * that conversation rejects with "Task cancelled". It never recovers, and `clone()` inherits
+ * it AND loses the history.) It also means "clear the context" is a transcript reset rather
+ * than an engine concern.
  *
- * The healing is LAZY -- deferred to the next `stream()`, inside the lock. Doing it eagerly
- * in the abort path would race the generation that is still unwinding.
+ * The transcript is BOUNDED. Prefill is re-paid each turn, so an unbounded one would make
+ * every turn slower than the last; `MAX_TURNS` keeps that flat while leaving enough room for
+ * "tell me more" to mean something.
  */
+
+/** Exchanges kept for continuity. 6 messages = 3 question/answer pairs. */
+const MAX_HISTORY_MESSAGES = 6;
+
 export const createChat = async ({ system, temperature = 0.7 }) => {
   await ensureEngine();
 
+  /** The transcript WE keep: bare questions and answers, never the excerpts. */
+  let transcript = [];
   let conversation = await newConversation(system, [], { temperature });
-  /** Set when `cancel()` has been called, so this conversation can no longer generate. */
-  let poisoned = false;
 
-  /** Rebuild from the poisoned conversation's history. Called only while holding the lock. */
-  const heal = async () => {
-    let history = [];
-    try {
-      history = await conversation.getHistory();
-    } catch {
-      // Unreadable as well as unusable: start clean rather than fail. Losing the thread is
-      // survivable; refusing to answer is not.
-    }
+  const rebuild = async () => {
     const dead = conversation;
-    conversation = await newConversation(system, history, { temperature });
-    poisoned = false;
+    conversation = await newConversation(system, transcript, { temperature });
+    try {
+      dead.cancel();
+    } catch {
+      /* nothing in flight */
+    }
     dead.delete().catch(() => {});
   };
 
@@ -683,20 +687,39 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
       return conversation;
     },
 
-    /** Streams deltas. See `streamFrom` for the lock, the teardown and the Safari rule. */
-    stream(text, { signal = null } = {}) {
-      return streamFrom({
-        text,
-        signal,
-        // Runs inside the lock, so healing can never race a live generation.
-        prepare: async () => {
-          if (poisoned) await heal();
-          return conversation;
-        },
-        onCancel: () => {
-          poisoned = true;
-        },
-      });
+    /**
+     * Stream one turn.
+     *
+     * `text` is sent to the model. `remember` is what enters the transcript instead -- pass
+     * the bare question when `text` carries per-turn context that must not persist. Omit it
+     * and the two are the same.
+     */
+    async *stream(text, { signal = null, remember = null } = {}) {
+      let answer = "";
+      try {
+        for await (const delta of streamFrom({
+          text,
+          signal,
+          // Inside the lock, so the rebuild can never race a live generation.
+          prepare: async () => {
+            await rebuild();
+            return conversation;
+          },
+        })) {
+          answer += delta;
+          yield delta;
+        }
+      } finally {
+        // Recorded even on abort: the presenter saw a partial answer and the transcript
+        // should match what is on screen. Trimmed from the front, in pairs.
+        transcript.push(
+          { role: "user", content: remember ?? text },
+          { role: "assistant", content: answer },
+        );
+        if (transcript.length > MAX_HISTORY_MESSAGES) {
+          transcript = transcript.slice(-MAX_HISTORY_MESSAGES);
+        }
+      }
     },
 
     /**
@@ -727,29 +750,24 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
     /**
      * Empty the context window and keep talking. The broom, not the trash.
      *
-     * Mutates in place, so every reference to the session stays valid -- an earlier version
-     * returned a new handle, and the second restart then had nothing to call.
+     * Now a transcript reset first and a conversation rebuild second -- dropping the
+     * transcript is what actually clears the context, since the next turn rebuilds from it.
+     * Mutates in place, so every reference to the session stays valid; an earlier version
+     * returned a new handle and the second restart had nothing to call.
      */
     async restart() {
-      const dead = conversation;
-      conversation = await newConversation(system, [], { temperature });
-      poisoned = false;
-      try {
-        dead.cancel();
-      } catch {
-        /* nothing in flight */
-      }
-      dead.delete().catch(() => {});
+      transcript = [];
+      await rebuild();
       return session;
     },
 
     destroy() {
+      transcript = [];
       try {
         conversation.cancel();
       } catch {
         /* nothing in flight */
       }
-      poisoned = true;
       // Async, deliberately not awaited: the caller is a synchronous `unload()` wired to a
       // click, and the GPU memory is freed either way.
       conversation.delete().catch(() => {});
