@@ -7,6 +7,7 @@ import { isEnabled } from "./state.js";
 import { setSystemPrompt, warmUp } from "./agent/model-state.js";
 import { systemPrompt } from "./agent/prompt.js";
 import { installDump } from "./harvest/dump.js";
+import { installTools } from "./mcp/index.js";
 
 const html = htm.bind(createElement);
 
@@ -61,6 +62,12 @@ export const mountChat = () => {
   // deck's React internals and shares nothing with the panel, so it is deliberate
   // that it goes up even when the model never does.
   installDump();
+
+  // The deck as a WebMCP server: `document.modelContext` tools for reading and
+  // navigating the deck, plus editing behind `?mcp`. Installed beside the
+  // harvest because it is the same seam -- it consumes `harvest/` and shares
+  // nothing with the panel -- and for the same "three edits" reason.
+  installTools();
 
   // Handed over as a function rather than a string. Right now it returns a fixed
   // line, but the seam is the point: when the deck becomes context again, the

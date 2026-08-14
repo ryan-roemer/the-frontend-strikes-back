@@ -87,12 +87,39 @@ const deckViewOf = (fiber) => {
 };
 
 /**
+ * Whether two fibers are the same logical node.
+ *
+ * REACT DOUBLE-BUFFERS FIBERS. Every node has a `current` fiber and an
+ * `alternate`, and a re-render swaps which one is live -- for the subtrees it
+ * touched, and only those. So after a navigation some slides' ancestors sit on
+ * the new provider fiber and some still point at the old one, even though there
+ * is exactly one provider on screen.
+ *
+ * Comparing by `===` therefore splits ONE pane into two, which is what made the
+ * dedup below silently drop slides. Comparing through `alternate` asks the
+ * question that was always meant: is this the same component instance.
+ */
+const sameFiber = (a, b) =>
+  !!a && !!b && (a === b || a.alternate === b || b.alternate === a);
+
+/**
  * Every slide of ONE deck view, in slide order.
  *
  * Keeps the first view rather than de-duplicating by content: the copies are
  * identical, so any tie-break is arbitrary, and the first is both the pane the
  * presenter is actually on and a contiguous leading run -- measured [35] in a
  * normal load and [35, 35] in presenter mode.
+ *
+ * THE `alternate` COMPARISON IS LOAD-BEARING, and its absence was a real bug for
+ * as long as this file has existed. It never showed up on a fresh load, because
+ * nothing has re-rendered yet and every fiber is on its first copy -- so all the
+ * verification this harvest has ever passed ran in the one state where the
+ * identity check happens to hold.
+ *
+ * Measured after three navigations: 35 slides became 33. Slides 2 and 3 dropped
+ * out of the deck entirely and every id from 4 up shifted down by two, so
+ * `harvestSlide(9)` returned slide 11's content -- under its own name, with a
+ * plausible title, reporting success. Nothing threw.
  */
 const slideFibers = () => {
   const root = rootFiber();
@@ -102,7 +129,7 @@ const slideFibers = () => {
   if (all.length < 2) return all;
 
   const view = deckViewOf(all[0]);
-  return view ? all.filter((fiber) => deckViewOf(fiber) === view) : all;
+  return view ? all.filter((fiber) => sameFiber(deckViewOf(fiber), view)) : all;
 };
 
 /**

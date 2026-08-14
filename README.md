@@ -130,3 +130,26 @@ Navigation needs no slide content at all, which is why the default is ~80 tokens
 Nothing here is wired into the assistant's prompt yet — `chat/agent/prompt.js` is still the seam,
 and this is the other half of it. The design, the measurements and the next steps are in
 [docs/deck-context-handoff.md](docs/deck-context-handoff.md).
+
+### The deck is a WebMCP server
+
+The talk teaches `document.modelContext`. The deck also uses it: it registers its own tools, so an
+agent in a browser side panel can read what is on a slide, move the deck, and change it.
+
+```js
+deckMcp.list(); // 8 tools, or 14 with ?mcp
+await deckMcp.call("find_node", { phrase: "the second bullet" });
+await deckMcp.call("go_to_slide", { slide: 21 });
+```
+
+Reading and navigating are always registered; **editing only appears with `?mcp`**, so an agent
+connected during the actual talk can follow along and move the deck but cannot alter a slide. Every
+tool that names a node takes either an id (`9.3`) or a description ("the second bullet"), and a
+description matching more than one thing is refused with the candidates rather than guessed at.
+
+Edits are live-only — they change the running deck, not the source — and `reset_edits` puts
+everything back. `window.deckMcp` works with no extension connected, which is the easiest way to
+try any of it.
+
+Details, and the two pre-existing bugs this turned up, are in
+[docs/webmcp-handoff.md](docs/webmcp-handoff.md).

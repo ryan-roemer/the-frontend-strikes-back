@@ -208,13 +208,28 @@ const byOrdinal = (nodes, words) => {
  *              offer it rather than saying "no"
  */
 export const locate = (phrase, { slide } = {}) => {
-  const number = slide ?? position().slide;
+  // ONE TEST FOR "WAS A SLIDE GIVEN", USED CONSISTENTLY. This was `slide ??
+  // position().slide` followed by `number ? harvestSlide(number) : null`, which
+  // disagree about zero: `??` treats 0 as provided, truthiness treats it as
+  // absent. So `locate(phrase, { slide: 0 })` reported "no slide" -- the note
+  // meant for an unreachable deck -- and the caller rendered it as "no slide on
+  // slide 0". Callers should reject an out-of-range slide before this, but the
+  // two lines still have to mean the same thing.
+  const given = slide !== undefined && slide !== null;
+  const number = given ? Number(slide) : position().slide;
   const said = clean(phrase);
-  const harvested = number ? harvestSlide(number) : null;
+  const harvested = Number.isInteger(number) ? harvestSlide(number) : null;
   const nodes = harvested?.nodes ?? [];
 
   if (!nodes.length) {
-    return result("none", [], said, number ? "slide has no nodes" : "no slide");
+    return result(
+      "none",
+      [],
+      said,
+      Number.isInteger(number)
+        ? `slide ${number} has nothing on it`
+        : "no slide",
+    );
   }
 
   const text = byText(nodes, said);
@@ -231,11 +246,12 @@ export const locate = (phrase, { slide } = {}) => {
   // where there are four is a specific wrong belief, and offering four
   // candidates implies one of them is the fifth.
   if (ordinal?.index && !ordinal.hit) {
+    const named = rolesIn(said)?.key ?? "match";
     return result(
       "none",
       ordinal.pool,
       said,
-      `no ${ordinal.index} of ${ordinal.pool.length}`,
+      `there ${ordinal.pool.length === 1 ? "is" : "are"} only ${ordinal.pool.length} ${named}${ordinal.pool.length === 1 ? "" : "s"} on this slide`,
     );
   }
 

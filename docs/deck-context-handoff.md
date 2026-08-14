@@ -77,6 +77,12 @@ returns a fixed line and still says the assistant has no access to the slides. T
 and measured; connecting them needs the `remember` seam restored
 ([chat-handoff.md §6](chat-handoff.md)), which is the next piece of work and not this one.
 
+**It IS wired to WebMCP.** [webmcp-handoff.md](webmcp-handoff.md) describes the fourteen tools the
+deck registers on `document.modelContext`, which is where all of this gets exercised end to end by
+an agent rather than from a console. Read it before the next change here: building it turned up a
+bug in this layer that every measurement in this document had missed, because it only appears after
+the deck has been navigated (§7).
+
 ### A bug this turned up
 
 Slide 21's five matrix rows — every runtime the talk compares — were **absent from the harvest
@@ -423,6 +429,17 @@ Four more were paid for by the session that built the addressing layer:
 | The serialized text and the raw text are different strings           | node text taken from `kids.inline` carried `**`, `` ` ``, `[text](href)` and `![](src)`. A find-and-replace against it misses, and the URLs are most of the tokens |
 | Off-screen slides are laid out at 0×0, not unmounted                 | all 162 elements resolve and are `isConnected`; only the rect is empty. Measuring one to decide whether it exists reports 34 of 35 slides missing                  |
 
+And one by the session that put the deck on WebMCP — the most expensive of the lot, because it
+invalidated measurements rather than breaking anything visibly:
+
+| trap                                                                | symptom                                                                                                                                                                                               |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| React double-buffers fibers, so `===` on a provider is not identity | `slideFibers()` returned 33 of 35 once the deck had been navigated. Slides 2 and 3 vanished, ids shifted down by two, and `harvestSlide(9)` returned slide 11 under slide 9's name, reporting success |
+
+**Every measurement in this document was taken on a fresh load, which is the one state where that
+bug is invisible** — nothing has re-rendered, so every fiber is on its first copy. Navigate before
+you measure; it is now the first row of the checklist in §8.
+
 And three by the session that made addressing trustworthy:
 
 | trap                                                               | symptom                                                                                                                                                                                                  |
@@ -480,22 +497,23 @@ Two things that cost real time:
 
 What to check:
 
-| check                                                 | expected                                                                                                                                      |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `window.deckDump.slides().length`                     | 35, `source: "fiber"`                                                                                                                         |
-| same, under `?presenterMode=true`                     | still 35, from 70 DOM nodes                                                                                                                   |
-| slide headings in the document                        | contiguous 1–35                                                                                                                               |
-| notes                                                 | 27 slides; spans between tags byte-identical to the `notes` fields                                                                            |
-| code slides                                           | 10, 11, 12 with filenames and languages                                                                                                       |
-| `?exportMode=true` / `?printMode=true`                | `window.deckDump` undefined, no overlay                                                                                                       |
-| 35-slide sweep, console open                          | no errors. Filter LiteRT's benign `/^(INFO\|WARNING\|ERROR):\s*\[/` first                                                                     |
-| `deckDump.nodes().length`, and ids unique             | 162, ids `slide.ordinal` contiguous from 1 within each slide                                                                                  |
-| the `id:role:text` signature, hashed                  | **identical** under normal, `?animate=false`, `?presenterMode=true`, `?slideIndex=N`                                                          |
-| every node's `element`                                | 162 of 162 `isConnected`, `textContent` matching once whitespace is squashed (a code node's text is its filename, so require content instead) |
-| `(await deckDump.provenance()).totals`                | data 39, exact 63, partial 17, ambiguous 11, too-short 19, file 3, not-found 7                                                                |
-| `deckDump.context(q).chars` for the six commands      | 46 for relative navigation, 257 for a content command on the active slide                                                                     |
-| coverage: fiber text runs vs harvested body           | no slide missing words (see §7)                                                                                                               |
-| `document.querySelectorAll("[data-chat-ref]").length` | 0 — nothing here stamps attributes                                                                                                            |
+| check                                                  | expected                                                                                                                                      |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **navigate several slides, THEN run everything below** | unchanged. Every check here once passed on a fresh load while the harvest silently dropped two slides after any navigation — see §7           |
+| `window.deckDump.slides().length`                      | 35, `source: "fiber"`                                                                                                                         |
+| same, under `?presenterMode=true`                      | still 35, from 70 DOM nodes                                                                                                                   |
+| slide headings in the document                         | contiguous 1–35                                                                                                                               |
+| notes                                                  | 27 slides; spans between tags byte-identical to the `notes` fields                                                                            |
+| code slides                                            | 10, 11, 12 with filenames and languages                                                                                                       |
+| `?exportMode=true` / `?printMode=true`                 | `window.deckDump` undefined, no overlay                                                                                                       |
+| 35-slide sweep, console open                           | no errors. Filter LiteRT's benign `/^(INFO\|WARNING\|ERROR):\s*\[/` first                                                                     |
+| `deckDump.nodes().length`, and ids unique              | 162, ids `slide.ordinal` contiguous from 1 within each slide                                                                                  |
+| the `id:role:text` signature, hashed                   | **identical** under normal, `?animate=false`, `?presenterMode=true`, `?slideIndex=N`                                                          |
+| every node's `element`                                 | 162 of 162 `isConnected`, `textContent` matching once whitespace is squashed (a code node's text is its filename, so require content instead) |
+| `(await deckDump.provenance()).totals`                 | data 39, exact 63, partial 17, ambiguous 11, too-short 19, file 3, not-found 7                                                                |
+| `deckDump.context(q).chars` for the six commands       | 46 for relative navigation, 257 for a content command on the active slide                                                                     |
+| coverage: fiber text runs vs harvested body            | no slide missing words (see §7)                                                                                                               |
+| `document.querySelectorAll("[data-chat-ref]").length`  | 0 — nothing here stamps attributes                                                                                                            |
 
 Plus, for resolution:
 
