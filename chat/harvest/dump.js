@@ -22,7 +22,21 @@
  * because the fiber tree IS the source -- unmounting the deck to show its own
  * dump would leave nothing to dump.
  */
-import { deckMarkdown, deckReady, harvestDeck } from "./index.js";
+import {
+  deckMarkdown,
+  deckReady,
+  harvestDeck,
+  harvestSlide,
+  resolveNode,
+} from "./index.js";
+import { provenanceOf, provenanceReport } from "./provenance.js";
+import {
+  contextFor,
+  nodeIndex,
+  outline,
+  position,
+  slideView,
+} from "./views.js";
 
 const PARAM = "dump";
 const OVERLAY_ID = "deck-dump";
@@ -154,6 +168,43 @@ export const installDump = () => {
     markdown: deckMarkdown,
     slides: () => harvestDeck().slides,
     deck: harvestDeck,
+
+    // --- Addressing -------------------------------------------------------
+    //
+    // The handles the deck's own use cases need, in the order you would reach
+    // for them: what is addressable, what one address names, and where that
+    // thing came from.
+    nodes: () => nodeIndex(),
+
+    // `node` hands back the LIVE thing -- fiber and element -- for poking at in
+    // the console. `where` hands back a POINTER, and is JSON-safe on purpose:
+    // it is the one you paste into an editor or an agent, and a DOM node in the
+    // payload would make `JSON.stringify` throw at exactly that moment.
+    node: resolveNode,
+    where: async (id) => {
+      const node = resolveNode(id);
+      if (!node) return null;
+
+      const { element, ...pointer } = node;
+      return {
+        ...pointer,
+        provenance: await provenanceOf(node, harvestSlide(node.slide)),
+        element: element
+          ? { tag: element.tagName.toLowerCase(), className: element.className }
+          : null,
+      };
+    },
+    provenance: async () => provenanceReport(harvestDeck().slides),
+
+    // --- Views ------------------------------------------------------------
+    //
+    // `context` is the one to look at: it runs the same selection rule a turn
+    // would and shows both the text and its size, which is the only way to see
+    // that "go to the last slide" costs 20 tokens and "find every TODO" costs
+    // 1,700.
+    context: contextFor,
+    views: { position, outline, slide: slideView, index: nodeIndex },
+
     log: () => {
       const deck = harvestDeck();
       console.log(

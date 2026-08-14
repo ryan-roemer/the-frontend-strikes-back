@@ -80,6 +80,39 @@ panes' original source, the markdown slides' original markdown, and the speaker 
 in no DOM at all, because `Notes` renders `null` outside presenter mode.
 
 Speaker notes are fenced in `<speaker-notes>` tags so a consumer can drop them wholesale; they
-carry TODOs and presenter-private asides. Nothing here is wired into the assistant's prompt yet —
-`chat/agent/prompt.js` is still the seam, and this is the other half of it. Next steps, and the
-measurements behind them, are in [docs/deck-context-handoff.md](docs/deck-context-handoff.md).
+carry TODOs and presenter-private asides.
+
+### Addressing what is on a slide
+
+The document above is readable but not _pointable_. Every text run on every slide also gets a short
+global id — `9.2` is the second addressable node on slide 9 — with the role a presenter would use
+for it, a pointer at the source that produced it, and a handle on the live element:
+
+```js
+deckDump.nodes(); // all 159, addressed
+deckDump.node("9.2"); // + the live DOM element
+await deckDump.where("9.2"); // + where it came from. JSON-safe, for pasting
+```
+
+`where()` is honest about how well it knows. 39 nodes trace exactly to a field in `deck/takeaways.js`
+or `deck/chapters.js`; 63 more appear verbatim exactly once in `index.html`; 17 are only findable as
+a fragment, because `em()` and `<br />` split a rendered line across several literals. Seven are
+composed at runtime and exist as a string nowhere — for those it says so and returns no search key,
+because a wrong pointer costs more than an absent one.
+
+There are also **sized views**, because context is the scarce resource on a 2B model with an 8k
+window. `deckDump.context(question)` runs the same rule a turn would and shows you the cost:
+
+```
+   46 ch  [position]         "go to the last slide"
+  257 ch  [position+slide]   "summarize this slide"
+ 1079 ch  [position+outline] "which slide covers WebMCP?"
+ 7198 ch  [position+index]   "find every TODO in the whole deck"
+```
+
+Navigation needs no slide content at all, which is why the default is ~80 tokens rather than the
+~750 a whole-deck summary would cost. The view is chosen in JavaScript, never by the model.
+
+Nothing here is wired into the assistant's prompt yet — `chat/agent/prompt.js` is still the seam,
+and this is the other half of it. The design, the measurements and the next steps are in
+[docs/deck-context-handoff.md](docs/deck-context-handoff.md).

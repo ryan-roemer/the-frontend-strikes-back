@@ -66,7 +66,14 @@ import {
   Text,
   UnorderedList,
 } from "spectacle";
-import { classOf, hasClass, propsOf, textOf, walk } from "./fiber.js";
+import { classOf, hasClass, propsOf, SKIP, textOf, walk } from "./fiber.js";
+import {
+  emitNode,
+  flattenNode,
+  isNodeKind,
+  normalize,
+  roleOf,
+} from "./nodes.js";
 
 /**
  * `Heading` fontSize -> heading level.
@@ -106,6 +113,26 @@ const DECORATION_CLASSES = [
   "step-placeholder",
 ];
 
+/**
+ * Layout primitives that are really content cells.
+ *
+ * `Box` and `Grid` are transparent here, which is right for the wrappers they
+ * usually are -- but `MatrixSlide` builds its rows out of bare `Box`es
+ * (`components.js`: one Grid holds every cell so the label column stays
+ * aligned), and transparent means their text came back as INLINE with no block
+ * to attach to. Slide-level inline text is discarded by `render`, so all ten
+ * cells of slide 21 -- every runtime the talk compares -- were silently absent
+ * from the harvest. Measured: "transformers.js" appeared zero times in a
+ * 16,100-character dump of the deck.
+ *
+ * The label half is bold for the same reason `LABEL_CLASSES` is: it reads as a
+ * heading on the slide without being one structurally.
+ */
+const CELL_CLASSES = [
+  ["matrix__name", true],
+  ["matrix__note", false],
+];
+
 const EMPTY = { inline: "", blocks: [] };
 
 const block = (text, kind = "block") => ({ kind, text });
@@ -116,9 +143,6 @@ const merge = (parts) => ({
   inline: parts.map((p) => p.inline).join(""),
   blocks: parts.flatMap((p) => p.blocks),
 });
-
-/** Prose whitespace is layout, not content -- `htm` literals are full of it. */
-const normalize = (text) => text.replace(/\s+/g, " ").trim();
 
 /**
  * `em()` returns an HTML STRING, not an element.
@@ -372,8 +396,34 @@ function serialize(fiber, ctx) {
     // slides are the other way round -- `MdNotes` puts `Markdown` INSIDE
     // `Notes` -- and that direction is safe because the branch above returns
     // without descending.
+    //
+    // ADDRESSABLE NODES ARE DOWN HERE TOO, and they are the reason this scan now
+    // does two jobs. The source above is the right thing to SERIALIZE -- it is
+    // what the author wrote -- but it is one opaque string, so a markdown slide
+    // had nothing to point at. Spectacle builds the source into real components
+    // through `MARKDOWN_COMPONENTS` in `deck/components.js` (`p` is a `Text`,
+    // `h1`-`h4` reach `Heading` through `SlideHeading`, `li` is a `ListItem`),
+    // so the nodes are here for the taking. Measured: 33 across the 7 markdown
+    // slides, which are otherwise the least addressable in the deck despite
+    // being the only ones whose provenance is exact.
+    //
+    // NO DOUBLE COUNT. Nodes are a separate sink from blocks, and this branch
+    // still returns the source as the one and only block.
     walk(fiber.child, (node) => {
-      if (node.type === Notes) collectNote(node, ctx);
+      if (node.type === Notes) {
+        collectNote(node, ctx);
+        // `Notes` renders null so it has no subtree today, but its note lives in
+        // props as a `Markdown` element -- and the day that renders, descending
+        // would address the presenter's asides as slide content.
+        return SKIP;
+      }
+      if (!isNodeKind(node)) return undefined;
+      emitNode(ctx, node, roleOf(node), normalize(flattenNode(node)));
+      // A nested list sits INSIDE its parent `ListItem`, so descending would
+      // emit the sub-bullets a second time -- and the parent's own text already
+      // contains them, flattened, which is exactly how "And the agent can be
+      // anywhere: Claude Desktop..." reads on slide 9.
+      return SKIP;
     });
 
     return {
@@ -391,22 +441,47 @@ function serialize(fiber, ctx) {
     const file = ctx.sink.filename;
     ctx.sink.filename = null;
     ctx.sink.code.push({ file, language: language ?? null, source });
+    // A code pane is addressable as a WHOLE, by its filename rather than by its
+    // source: the text is hundreds of tokens and nothing downstream is going to
+    // edit a line of it through a 2B model.
+    emitNode(ctx, fiber, "code", file ?? language ?? "code");
     return { inline: "", blocks: [block(fence(file, language, source))] };
   }
 
   // --- Block-level components ----------------------------------------------
 
+  // NODE TEXT IS THE RAW RUN, NOT THE RENDERED ONE, which is why these emit
+  // through `flattenNode` rather than reusing the `kids.inline` beside them.
+  // Serialization decorates as it goes -- a `takeaway__text` becomes `**...**`,
+  // a link becomes `[text](href)`, an image becomes `![](src)` -- and none of
+  // that is on the slide. Measured on this deck: the author bio came back as
+  // "![](https://encrypted-tbn0.gstatic.com/images?q=...) I lead technology &
+  // OSS at [Nearform](https://nearform.com)", where 90% of the tokens are a URL
+  // and the phrase a user would ask to change is split around the markup.
+  //
+  // It also makes the two emission paths agree. The markdown-slide scan below
+  // has no `kids` to reuse and always flattened; having the component path
+  // decorate and the markdown path not would make a node's text mean something
+  // different depending on which kind of slide it came from.
   if (type === Heading) {
+    emitNode(
+      ctx,
+      fiber,
+      roleOf(fiber, "heading"),
+      normalize(flattenNode(fiber)),
+    );
     const level = "#".repeat(headingLevel(fiber, ctx));
     return asBlock(childrenOf(fiber, ctx), (t) => `${level} ${t}`);
   }
 
   if (type === Text) {
+    emitNode(ctx, fiber, roleOf(fiber, "text"), normalize(flattenNode(fiber)));
     const label = LABEL_CLASSES.some((cls) => hasClass(fiber, cls));
     return asBlock(childrenOf(fiber, ctx), (t) => (label ? `**${t}**` : t));
   }
 
   if (type === Quote) {
+    emitNode(ctx, fiber, roleOf(fiber, "quote"), normalize(flattenNode(fiber)));
     return asBlock(childrenOf(fiber, ctx), (t) => `> ${t}`);
   }
 
@@ -421,16 +496,19 @@ function serialize(fiber, ctx) {
 
   if (type === ListItem) {
     const { list } = ctx;
+    emitNode(
+      ctx,
+      fiber,
+      roleOf(fiber, "bullet"),
+      normalize(flattenNode(fiber)),
+    );
+    const kids = childrenOf(fiber, ctx);
     const marker = list.ordered ? `${(list.index += 1)}.` : "*";
     const indent = "  ".repeat(Math.max(0, list.depth - 1));
     // `kind: "list"` keeps consecutive items one blank line closer together
     // than paragraphs, which is the difference between a list and a run of
     // loose lines. Nested items inherit it, so a sublist stays attached.
-    return asBlock(
-      childrenOf(fiber, ctx),
-      (t) => `${indent}${marker} ${t}`,
-      "list",
-    );
+    return asBlock(kids, (t) => `${indent}${marker} ${t}`, "list");
   }
 
   if (type === Table) {
@@ -471,6 +549,17 @@ function serialize(fiber, ctx) {
   // rather than for the code, which would descend anyway.
   if (type === Box || type === FlexBox || type === Grid) {
     if (DECORATION_CLASSES.some((cls) => hasClass(fiber, cls))) return EMPTY;
+
+    const cell = CELL_CLASSES.find(([cls]) => hasClass(fiber, cls));
+    if (cell) {
+      emitNode(ctx, fiber, roleOf(fiber), normalize(flattenNode(fiber)));
+      const [, bold] = cell;
+      return asBlock(
+        childrenOf(fiber, ctx),
+        (t) => (bold ? `**${t}**` : t),
+        "list",
+      );
+    }
   }
   return childrenOf(fiber, ctx);
 }
@@ -493,7 +582,7 @@ const render = (blocks) =>
  * anchors at `Slide` instead of climbing from a DOM node.
  */
 export const serializeSlide = (slideFiber, { headingBase = 3 } = {}) => {
-  const sink = { code: [], notes: [], filename: null, source: null };
+  const sink = { code: [], notes: [], nodes: [], filename: null, source: null };
   const ctx = {
     headingBase,
     list: { depth: 0, ordered: false, index: 0 },
@@ -512,6 +601,7 @@ export const serializeSlide = (slideFiber, { headingBase = 3 } = {}) => {
     source: sink.source,
     code: sink.code,
     notes: sink.notes.join("\n\n"),
+    nodes: sink.nodes,
     className: classOf(slideFiber),
   };
 };

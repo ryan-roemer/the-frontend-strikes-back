@@ -5,19 +5,27 @@ emits the whole deck as one Markdown document — headings, bullets, code panes 
 source, and speaker notes. That part is built, verified, and described in
 [README](../README.md#the-deck-as-markdown).
 
-This document is the handoff for the **next** step, which is not more extraction:
+This document was the handoff for the **next** step, which was not more extraction:
 
 > Add structured DOM/React information to the content so that a user can describe some content in
 > the deck in chat, and we have a first-class way to look it up and include pointers to the
 > actionable JS-land thing to change.
 
+**That step is now built.** Sections 1–4 have been rewritten to describe what exists rather than
+what was proposed; the numbers throughout are re-measured against the built version, not the
+prototype. §5 is answered. §6 and §7 are unchanged and still the constraints to respect.
+
 Two capabilities, and they are worth naming separately because they have very different difficulty:
 
 1. **Addressing** — "the second bullet on the WebMCP slide" resolves to one specific node. Easy.
    The fiber tree already carries component identity, and the numbers below say the inventory is
-   small.
+   small. **Done**, and it turned out to have a second half nobody had named: an address is only
+   useful if it resolves back to something, and "change the heading color" wants a live DOM element
+   where "change this phrase" wants a line of source. Both are built.
 2. **Provenance** — that node points back at the JS you would edit. Hard, and **cannot be made
-   complete**. §3 has the measurements and why.
+   complete**. §3 has the measurements and why. **Done, and better than the ceiling this document
+   predicted** — 7 of 159 nodes are genuinely unlocatable, not the ~19 of 146 estimated, because the
+   longest-literal-run fallback §3 recommended recovers more than it was expected to.
 
 Read [chat-handoff.md](chat-handoff.md) first if you have not. It is the record of the model layer,
 and §6 and §10 there are load-bearing constraints on anything built here.
@@ -26,214 +34,267 @@ and §6 and §10 there are load-bearing constraints on anything built here.
 
 ## 1. What exists now
 
-|                            |                                                                                           |
-| -------------------------- | ----------------------------------------------------------------------------------------- |
-| `chat/harvest/fiber.js`    | React internals, isolated. `rootFiber`, `walk`, `findAll`, `propsOf`, `textOf`, `classOf` |
-| `chat/harvest/markdown.js` | fiber subtree → Markdown. Deck-aware (class vocabulary)                                   |
-| `chat/harvest/index.js`    | `harvestDeck()` → structure, `deckMarkdown()` → document, DOM fallback                    |
-| `chat/harvest/dump.js`     | `window.deckDump` and the `?dump` overlay. Installed by `mountChat()`                     |
+|                              |                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------- |
+| `chat/harvest/fiber.js`      | React internals, isolated. `rootFiber`, `walk`, `findAll`, `propsOf`, `textOf`, `classOf` |
+| `chat/harvest/markdown.js`   | fiber subtree → Markdown, and the node-emission points. Deck-aware (class vocabulary)     |
+| `chat/harvest/nodes.js`      | roles, `flattenNode`, `emitNode`, `elementOf`. What makes a text run an addressable thing |
+| `chat/harvest/index.js`      | `harvestDeck()`, `harvestSlide()`, `resolveNode()`, `deckMarkdown()`, DOM fallback        |
+| `chat/harvest/views.js`      | the four sized views and `selectView()` / `contextFor()`                                  |
+| `chat/harvest/provenance.js` | source pointers and their confidence tier                                                 |
+| `chat/harvest/dump.js`       | `window.deckDump` and the `?dump` overlay. Installed by `mountChat()`                     |
 
 `harvestDeck()` returns `{ meta, parts, chapters, takeaways, audiences, verdicts, slides }`, each
-slide `{ number, chapter, kind, title, body, source, code, notes }`.
+slide `{ number, chapter, kind, title, body, source, code, notes, nodes }`, each node
+`{ id, slide, ordinal, role, roleOrdinal, text }` plus a **non-enumerable** `fiber`.
 
-Current measurements, all reproducible with the driver in §7:
+The console surface, which is also the whole product for consumer (c) in §5:
+
+```js
+deckDump.nodes(); // all 159, addressed
+deckDump.node("9.2"); // + the live DOM element
+await deckDump.where("9.2"); // + provenance. JSON-safe, for pasting
+deckDump.context("go to the last slide"); // what a turn would carry, and its size
+deckDump.views.position(); // { slide, step, count }
+```
+
+Measurements, all reproducible with the driver in §8:
 
 - 35 slides, `source: "fiber"`, headings contiguous 1–35
 - 27 slides carry notes; the 7 without are chapter dividers
 - 7 markdown slides reproduce their source verbatim; 3 `CodePane` slides carry file + language
 - the document is ~16,100 characters
 - the text between `<speaker-notes>` tags is byte-identical to the structured `notes` field
+- **159 addressable nodes**, ids unique and contiguous per slide
+- **the node signature is byte-identical** under `?animate=false`, `?presenterMode=true` and
+  `?slideIndex=N` — see §4 on why that had to be checked rather than assumed
 
-**Nothing is wired into the model yet.** `chat/agent/prompt.js` still returns a fixed line and still
-says the assistant has no access to the slides. That file is the seam; the harvest is the other half
-of it. Deciding _whether_ the on-device model is the consumer at all is §5, and it is the first
-question to settle.
+**Nothing is wired into the model yet, and that is deliberate.** `chat/agent/prompt.js` still
+returns a fixed line and still says the assistant has no access to the slides. The views are built
+and measured; connecting them needs the `remember` seam restored
+([chat-handoff.md §6](chat-handoff.md)), which is the next piece of work and not this one.
+
+### A bug this turned up
+
+Slide 21's five matrix rows — every runtime the talk compares — were **absent from the harvest
+entirely**. "transformers.js" appeared zero times in a 16,100-character dump of the deck.
+
+`MatrixSlide` builds its rows from bare `Box`es, `Box` is transparent to the serializer, and a
+transparent node contributes `inline` text with no block to attach it to. Slide-level inline text is
+discarded by `render`, which only emits blocks. Nothing errored and the slide looked fine.
+
+Fixed with `CELL_CLASSES` in `markdown.js`. Worth knowing generally: **a layout primitive carrying a
+semantic class is content, not a wrapper**, and the serializer cannot tell the difference without
+being told. A coverage check — flatten every text run in a slide's fiber subtree, diff against the
+harvested body — finds this class of hole in one pass and found no others.
 
 ---
 
 ## 2. The inventory is small — measured, not estimated
 
-Prototyped by treating every `Heading` / `Text` / `ListItem` / `CodePane` fiber as one addressable
-node:
+Every `Heading` / `Text` / `ListItem` / `Quote` / `CodePane` fiber is one addressable node, plus the
+matrix cells above:
 
-|                        |                                                                 |
-| ---------------------- | --------------------------------------------------------------- |
-| addressable nodes      | **149** (146 prose + 3 code)                                    |
-| per slide              | mean 4.3, min 1, max 13                                         |
-| by kind                | `Text` 81, `Heading` 36, `ListItem` 29, `CodePane` 3, `Quote` 0 |
-| full inventory as text | ~6,220 chars ≈ **~1,550 tokens**                                |
+|                       |                                                                       |
+| --------------------- | --------------------------------------------------------------------- |
+| addressable nodes     | **159**                                                               |
+| per slide             | mean 4.5, min 1, max 13                                               |
+| by role               | `bullet` 29, `title` 26, `text` 22, `takeaway` 18, `eyebrow` 12, tail |
+| full index as text    | ~7,200 chars ≈ **~1,800 tokens**                                      |
+| active slide, typical | ~200 chars ≈ **~50 tokens**                                           |
 
-Two things follow.
+**Node boundaries are already clean.** Each fiber owns exactly one text run; the string sits one or
+two levels down, usually in props rather than in a child fiber (see the trap in §7).
+`audience__who` and `audience__claim` are separate `Text` fibers, not one blob. You do not need a
+heuristic to find node boundaries — component identity is the boundary.
 
-**Node boundaries are already clean.** Each `Heading` / `Text` / `ListItem` fiber owns exactly one
-text run; the string sits one or two levels down, on the host `div`, usually in props rather than in
-a child fiber (see the trap in §6). `audience__who` and `audience__claim` are separate `Text` fibers,
-not one blob. You do not need a heuristic to find node boundaries — component identity is the
-boundary.
+**Markdown slides needed a second descent.** `serialize()` returns early on `Markdown` — the props
+hold the authored source, and descending would report the same content twice — so the 7 markdown
+slides had no addressable nodes at all. They do build real components (`deck/components.js` maps
+`p` → `Text`, `h1`–`h4` → `Heading`, `li` → `ListItem`), so the existing `Notes` scan under
+`Markdown` now emits nodes as well: **30 nodes** that were otherwise unreachable, on the slides
+whose provenance is the most exact in the deck.
 
-**A full inventory does not fit the prompt, but a slide outline does.** Both providers have a real
-input window around 8–9k tokens ([chat-handoff.md §8](chat-handoff.md)). 1,550 tokens of inventory on
-top of the ~700 the old deck-facts block cost would crowd out the answer. §4 proposes the two-stage
-shape instead.
+**Node text is the RAW run, not the serialized one.** The two differ more than expected: the author
+bio serializes as `![](https://encrypted-tbn0.gstatic.com/...) I lead technology & OSS at
+[Nearform](https://nearform.com)`, where most of the tokens are a URL and the phrase a user would
+ask to change is split around the markup. `flattenNode` in `nodes.js` is the raw path, and both
+emission sites use it so a node's text means the same thing on every kind of slide.
 
 ---
 
-## 3. Provenance is 60–65% solvable, and that is a ceiling
+## 3. Provenance: 7 of 159 are genuinely unlocatable
 
-The interesting measurement. For each of the 146 prose nodes, can the rendered text be traced back to
-the JS that produced it?
+The interesting measurement, and it came out better than this document originally predicted. For
+each node, can the rendered text be traced back to the JS that produced it?
 
-| outcome                               |  count | what it means                                                                                              |
-| ------------------------------------- | -----: | ---------------------------------------------------------------------------------------------------------- |
-| exact, from data modules              | **39** | text matches an entry in `deck/takeaways.js` or `deck/chapters.js`. Deterministic — you can name the field |
-| unique verbatim match in `index.html` | **51** | the string appears exactly once in the source                                                              |
-| ambiguous                             |     10 | appears more than once (e.g. "TODO: session + when", three times on slide 7)                               |
-| too short to search                   |     27 | under ~10 characters; needs structural context, not string matching                                        |
-| not found                             | **19** | the string does not exist as a literal anywhere. 4 recoverable from the longest literal run, 15 not        |
+| tier        | count | what it means                                                                 |
+| ----------- | ----: | ----------------------------------------------------------------------------- |
+| `data`      |    39 | matches a field in `deck/takeaways.js` or `deck/chapters.js`. Exact — name it |
+| `exact`     |    63 | appears exactly once in `index.html`. Search for it                           |
+| `partial`   |    17 | the whole run is absent but a span of it is present. `search` holds that span |
+| `ambiguous` |    11 | appears more than once. Search, then disambiguate by slide number             |
+| `too-short` |    19 | under 10 characters. Not searched — the result would be noise, not a location |
+| `file`      |     3 | a code pane. The pointer is the file under `examples/`                        |
+| `not-found` |     7 | composed at runtime. `search` is null, and saying so is the honest answer     |
 
-So roughly **90 of 146 resolve cleanly**, 94 with a longest-run fallback.
+**152 of 159 carry a usable pointer.** The earlier estimate of a hard 60–65% ceiling was measured
+before the longest-literal-run fallback existed; that fallback is what moves 17 nodes out of
+`not-found`, and it recovers more than the four this document expected.
 
-**The 19 misses are not a bug to fix — they are the architecture.** Sampled:
+**The remaining 7 are not a bug — they are the architecture.** All are runtime composition:
+`Part A · WebMCP` is assembled from `PARTS` and exists as a literal nowhere; `Episode 01` likewise.
 
-```
-1  Heading:  "THE FRONTENDSTRIKES BACK"      source has <br /> between the words
-3  Text:     "I lead technology & OSS at Nearform"   source interpolates a <${Link}>
-4  Heading:  "The frontend is back."          source is `The frontend is ${em("back")}.`
-6  Text:     "Part A · WebMCP"                source is `Part ${PARTS.A.key} · ${PARTS.A.title}`
-9  ListItem: "And the agent can be anywhere: Claude Desktop…"  nested list flattened
-```
-
-Three distinct causes, none of which string search can beat:
+Three causes, only two of which searching can beat:
 
 - **Interpolation** — `em()`, `Link`, `Icon` split a line into literals the rendered text rejoins.
-- **Runtime composition** — "Part A · WebMCP" is assembled from `PARTS` at render time and exists as
-  a literal nowhere.
-- **Structural flattening** — `<br />` and nested lists concatenate text that is separate in source.
+  _Beaten_ by the longest-run fallback: `The page **registers** tools. The agent discovers and calls
+them.` renders without the asterisks, but ` tools. The agent discovers and calls them.` matches
+  exactly and is a fine thing to `grep`.
+- **Structural flattening** — `<br />` and nested lists join text the source keeps apart. _Beaten_
+  the same way.
+- **Runtime composition** — `` `Part ${PARTS.A.key} · ${PARTS.A.title}` ``. **Not beatable**, and
+  the tier says so rather than guessing.
 
-### What to do about it
+**The design rule that made this work: never emit a confident wrong pointer.** `match` is the field
+to read first, and `search` is null rather than misleading when nothing was found. A wrong line
+number is worse than no line number, and the last mile is a `grep` the consumer already has.
 
-**Do not build an exact source locator.** Emit tiers and be honest about which tier a node is in:
-
-| tier            | what to emit                                               | reliability                                      |
-| --------------- | ---------------------------------------------------------- | ------------------------------------------------ |
-| address         | slide number + role + ordinal (`slide 9, bullet 2`)        | **always**                                       |
-| data pointer    | `deck/takeaways.js → takeaways[3].text`                    | exact, for the 39                                |
-| search key      | longest literal run between interpolations                 | best effort                                      |
-| provenance kind | `data` / `markdown-source` / `htm-inline` / `example-file` | derivable from the slide's `kind` for every node |
-
-The last mile is a `grep`, and whoever consumes this almost certainly has one. A search key plus a
-slide number is enough for an agent to find the line; a wrong line number is worse than no line
-number.
-
-The 39 data-module nodes deserve special treatment: they are exact, and they are also the most likely
-edit target in the whole deck — the six claims the talk makes. `takeaways.js` says it exists so the
-same claim cannot drift across three slides, which is precisely why an edit there is worth pointing
-at over an edit to a rendered node.
+**Why it fetches `index.html`.** Knowing which tier a node is in is a fact about the source, not
+about the fiber tree, and one fetch plus `split().length` answers it exactly. The deleted
+`knowledge.js` refused to fetch `index.html` because regexing `htm` template literals is fragile —
+that objection is about _extracting_ content and does not reach _counting a literal_, which has no
+grammar to get wrong.
 
 ---
 
-## 4. Proposed shape
-
-Nothing here is built. It is where the measurements point.
+## 4. The shape that got built
 
 ### Addressing
 
-Give every node a short, speakable, stable id: **`slide.ordinal`** — `9.2` is the second addressable
-node on slide 9. Short ids matter because whatever emits them may be a 2B model (§5).
+Every node has a short, speakable, stable id: **`slide.ordinal`** — `9.2` is the second addressable
+node on slide 9. **Global, not per-slide**: the moment two slides' nodes share a context, per-slide
+ordinals collide silently.
 
-Derive `role` from component identity plus the deck's class vocabulary, the way `markdown.js` already
-does for serialization: `title`, `subtitle`, `bullet`, `takeaway`, `takeaway detail`, `card label`,
-`audience`, `matrix row`, `code`. The deleted `deck-adapter.js` had exactly this map (`ROLES`,
-`roleOf()`) and one lesson worth inheriting: **number same-role siblings**. "Replace the first bullet"
-once targeted a slide title because three sibling `<div>`s all came back as plain "text" with nothing
-to distinguish them. With fiber identity that failure is less likely, but "bullet 3" is still how a
-presenter speaks.
+Ordinals are **emission order, not a fiber path**. `?animate=false` swaps `Appear` for `Fragment`
+and changes every path, so a path-addressed node means different things in the mode you present in
+and the mode you debug in. Verified rather than assumed: the full `id:role:text` signature of all
+159 nodes hashes identically across a normal load, `?animate=false`, `?presenterMode=true` and
+`?slideIndex=20`.
 
-### Views: deck-wide, active-slide, and the escalation between them
+Roles come from component identity plus the class vocabulary, and every entry in the map was
+measured against the live tree — an aspirational role for a class nothing renders is a role the
+model can never use. Nodes also carry `roleOrdinal`, printed only when the role repeats on that
+slide, because "bullet 2" is how a presenter talks and `deck-adapter.js` recorded what its absence
+costs: "replace the first bullet" once rewrote a slide title.
 
-Commands do not all need the same context, and sizing them separately is what makes this fit. "Go to
-slide 10" needs the outline and nothing else. "Replace WebMCP in the heading and the second bullet
-with BONGOS" needs one slide in full detail and no other slide at all.
+### Two pointers, because an address has to resolve to something
 
-Four views, measured:
+The brief's "pointers to where that content lives" is two different things, and the use cases
+separate them cleanly:
 
-| view             | holds                                                           |       size | volatility                      | serves                                |
-| ---------------- | --------------------------------------------------------------- | ---------: | ------------------------------- | ------------------------------------- |
-| **facts**        | chapters, takeaways, audiences, verdicts, from the data modules |   ~350 tok | stable                          | "what is this talk about"             |
-| **outline**      | 35 lines: number, chapter, title, code marker                   |   ~350 tok | stable                          | navigation, "which slide covers X"    |
-| **active slide** | that slide's ~4.3 nodes, with ids and roles                     |    ~45 tok | **changes on every navigation** | content edits, "what's on this slide" |
-| **node index**   | all 149 nodes                                                   | ~1,550 tok | stable                          | cross-deck find/replace only          |
+| the request                                | wants                     | built as                        |
+| ------------------------------------------ | ------------------------- | ------------------------------- |
+| "change this slide's PHRASE_1 to PHRASE_2" | the JS you would edit     | `provenance.js`, §3             |
+| "change the heading color of this slide"   | the element on screen now | `resolveNode()` / `elementOf()` |
 
-**The default should be facts + outline + active slide — about 745 tokens.** That covers both example
-commands with no retrieval at all, which is the point: retrieval is for the minority case where the
-user means a slide they are not on.
+`resolveNode` **re-walks rather than caching**, on two counts: React double-buffers fibers through
+`alternate`, so a fiber held across a commit can be the stale copy; and stamping a `data-chat-ref`
+attribute is worse, because React drops attributes it does not own when it recreates a node — the
+address would work right up until the slide re-rendered.
 
-**Volatility decides placement, not just size.** The system prompt is fixed when the session is
-created — `model-state.js` calls `systemPromptFn()` inside `provider.acquire()`. Putting the active
-slide there means rebuilding the session on every navigation, and on Chrome that is a full
-`create()`, not the ~2ms throwaway LiteRT allows. So:
+**Every slide's elements exist, not just the visible one's.** Measured: 159 of 159 resolve to a
+connected element carrying the right text. Off-screen slides are laid out at 0×0 rather than
+unmounted, so a zero rect means "not on screen", never "not there" — anything measuring an element
+to decide whether it is real will conclude that 34 of 35 slides do not exist.
 
-- facts + outline → **system prompt**, built once
-- active slide → **per turn**, through the `remember` seam [chat-handoff.md §6](chat-handoff.md)
-  describes, so it is sent without accumulating in the transcript
+Read-only throughout, and it must stay that way (§6).
 
-That split falls straight out of the measurement in §6 there and is the main reason to keep `remember`
-rather than concatenating context into the question.
+### Views, and why the default is ten times smaller than proposed
 
-**The bridge already supplies the active slide, and is still unconsumed.** `chat/bridge.js` publishes
-`activeView`, `slideCount`, `slideIds` and a `nav` object (`skipTo`, `stepForward`, `stepBackward`,
-`advanceSlide`, `regressSlide`) onto `chat/bus.js`. Read it with `getSnapshot()` — a plain function,
-no React needed, so the harvest can use it as easily as the panel can.
+| view             | holds                                                           |       size | volatility                      |
+| ---------------- | --------------------------------------------------------------- | ---------: | ------------------------------- |
+| **position**     | slide N of M                                                    |    ~15 tok | **changes on every navigation** |
+| **active slide** | that slide's nodes, with ids and roles                          |    ~65 tok | **changes on every navigation** |
+| **outline**      | 35 lines: number, title, chapter, code marker                   |   ~270 tok | stable                          |
+| **facts**        | chapters, takeaways, audiences, verdicts, from the data modules |   ~350 tok | stable                          |
+| **node index**   | all 159 nodes                                                   | ~1,800 tok | stable                          |
 
-**Ids must be global, not per-slide.** `9.2`, never `b2`. The moment retrieval pulls a second slide's
-detail alongside the active one, per-slide ordinals collide silently.
+This document originally proposed a default of facts + outline + active slide, ~745 tokens. **The
+built default is position + active slide, ~80 tokens**, and the reason is that writing the command
+families down changed the answer:
+
+| request                                  | views              | measured |
+| ---------------------------------------- | ------------------ | -------: |
+| "go to the previous slide"               | position           |    46 ch |
+| "go to the last slide"                   | position           |    46 ch |
+| "go to slide 10"                         | position + slide   |   166 ch |
+| "summarize this slide"                   | position + slide   |   257 ch |
+| "change this slide's use of X to Y"      | position + slide   |   257 ch |
+| "change the heading color of this slide" | position + slide   |   257 ch |
+| "which slide covers WebMCP?"             | position + outline | 1,079 ch |
+| "find every TODO in the whole deck"      | position + index   | 7,198 ch |
+
+Three of the six target commands are pure navigation and need **no slide content at all** — a slide
+number and a count answer them. The outline, which the old default paid 350 tokens for on every
+turn, is read by exactly one family: naming a slide by topic instead of by number.
+
+**Volatility decides placement.** The system prompt is fixed when the session is created —
+`model-state.js` calls `systemPromptFn()` inside `provider.acquire()` — so the two volatile views
+cannot go there without rebuilding the session on every navigation, which on Chrome is a full
+`create()`. facts + outline → system prompt, built once; position + active slide → per turn, through
+the `remember` seam.
 
 **Scope is a safety property, not only a budget.** If only the active slide's ids are in context, a
-content command cannot address slide 22 — the blast radius is bounded by construction rather than by
-the model behaving. The deleted build reached for a router and a JSON planner to get similar safety;
-narrowing the view is cheaper and does not depend on structured output the small models cannot
-reliably produce (§5).
+content command _cannot_ address slide 22 — the blast radius is bounded by construction rather than
+by the model behaving. That matters more than usual here, because neither provider offers
+grammar-constrained decoding ([chat-handoff.md §10](chat-handoff.md)), so no schema is keeping a 2B
+model inside the lines.
 
-**Choose the view in JS, not in the model.** Same reason. A deterministic rule — mentions a slide
-number or chapter → outline; says "this slide" or names no slide → active slide; says "every" or
-"all slides" → escalate to the node index — costs nothing and cannot hallucinate. Do not build a
-model-driven view selector.
+**The view is chosen in JS, never by the model.** `selectView()` is an ordered cascade — deck-wide
+phrase → numbered slide → relative movement → named by topic → default. Two orderings are
+load-bearing and both were found by running the six commands through it: rule 2 before rule 3,
+because "back to slide 10" contains a relative word but is still a numbered destination; and rule 3
+before rule 4, because "go to the last slide" says "go to", which rule 4 would read as naming a
+slide and answer with a 270-token outline the request has no use for.
 
 **Per-turn context must not accumulate.** [chat-handoff.md §6](chat-handoff.md) has the measurement
-that forced the current design: excerpts accumulating across one conversation degraded answers to
-2 of 5 usable, with context growing 0 → 4,338 tokens, while a fresh conversation per question stayed
-5 of 5. If retrieval returns, put the `remember` argument back on `stream()` rather than inventing
-something new.
+that forced this: excerpts accumulating across one conversation degraded answers to 2 of 5 usable
+with context growing 0 → 4,338 tokens, while a fresh conversation per question stayed 5 of 5. When
+this is wired up, put the `remember` argument back on `stream()` rather than inventing something
+new.
 
 ### Retrieval
 
-The deleted `retrieve.js` did IDF term-overlap over 35 slides and deliberately not embeddings —
-"the corpus here is 35 short slides". Over 149 nodes that reasoning holds even better. Recover it with
-`git show ef4c47f^:chat/agent/retrieve.js`; its stopword list already includes deck-specific words
-(`deck`, `slide`, `talk`, `presentation`).
+Still not built, and now less obviously needed: the outline resolves "which slide covers X" for 270
+tokens without any retrieval at all. If it does become necessary, `git show ef4c47f^:chat/agent/retrieve.js`
+has IDF term-overlap with deck-specific stopwords — deliberately not embeddings, because the corpus
+is 35 short slides.
 
 ---
 
-## 5. The question to settle first: who consumes the pointer?
+## 5. Who consumes the pointer — answered
 
-This changes everything downstream and is genuinely open.
+The question was whether the pointer is for (a) the on-device model editing the live deck, (b) a
+human pasting into Claude Code, or (c) Claude Code reading `?dump` directly.
 
-**(a) The on-device model, to edit the live deck.** Hardest. It needs reliable structured output from
-Gemma 4 E2B or Gemini Nano, and [chat-handoff.md §10](chat-handoff.md) records that LiteRT-LM 0.15.0
-has **no grammar-constrained decoding** — verified against the type declarations, not assumed. The
-previous build's `plan.js` / `planner.js` / `schema.js` were solving this and were removed. If you go
-here, read the mutation constraint in §6 before writing a line.
+**Built for (b), and (c) came free.** `deckDump.where(id)` is JSON-safe on purpose: it returns the
+address, the role, the text, the provenance tier and a description of the element, with no DOM node
+or fiber in the payload to make `JSON.stringify` throw at exactly the moment you want to paste it.
+`deckDump.node(id)` is the live-handle sibling for console work.
 
-**(b) The human, to paste into Claude Code or an editor.** Much easier and probably where the value
-is. The chat answers "that's slide 9, bullet 2 — it's in the chapter-1 markdown set in `index.html`,
-search for `One API`", and a capable agent takes it from there. No structured output required from the
-small model; it can answer in prose.
+(a) is still a separate bet and nothing here forecloses it — the ids are short, speakable and
+enumerable, which is what a constrained-decoding scheme would need if one ever becomes available.
+But provenance deliberately stays out of the model's context: `deck/takeaways.js -> takeaways[3].text`
+buys a 2B model nothing it can act on, and the ~80-token default is the whole point.
 
-**(c) Claude Code directly, reading `?dump`.** Already works today, with no new code. If the goal is
-"help me change the deck", a session that reads the dump and greps the repo may be the whole product.
+**Navigation is still the thing to build first.** It is the whole pipeline — parse a request, resolve
+it against a view, act on the deck, report back — with none of the risk, because it never writes to
+the DOM. `chat/bridge.js` already publishes `nav`, `chat/bus.js` already exposes `getSnapshot()`,
+and `selectView()` now routes the three navigation commands to a 46-character context. See §9.
 
-A reasonable read of the brief — "_we_ have a first-class way to look up / include pointers" — is that
-the pointer is for tooling and humans, not for the 2B model to act on. If so, build (b), get (c) free,
+---
+
 and treat (a) as a separate bet. **Confirm this before building.**
 
 ---
@@ -267,6 +328,22 @@ it was caught.
 
 All five were found and fixed in the session that built the harvest. They are in the code with
 comments; this is the index.
+
+Four more were paid for by the session that built the addressing layer:
+
+| trap                                                                 | symptom                                                                                                                                                            |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A layout primitive carrying a semantic class is content              | `MatrixSlide`'s ten `Box` cells were transparent, so their text became slide-level `inline`, which `render` discards. Slide 21 lost every runtime it compares      |
+| A non-enumerable `fiber` becomes enumerable the moment you spread it | `resolveNode` re-attached it with `{ ...node, fiber }`; the next `JSON.stringify` walked a cyclic graph. Use `defineProperty` on the copy too                      |
+| The serialized text and the raw text are different strings           | node text taken from `kids.inline` carried `**`, `` ` ``, `[text](href)` and `![](src)`. A find-and-replace against it misses, and the URLs are most of the tokens |
+| Off-screen slides are laid out at 0×0, not unmounted                 | all 159 elements resolve and are `isConnected`; only the rect is empty. Measuring one to decide whether it exists reports 34 of 35 slides missing                  |
+
+Worth stealing regardless of what you build next: the **coverage check** that found the first one.
+Flatten every text run in a slide's fiber subtree, diff the words against the harvested body, and
+print the difference. It runs in one pass, it found exactly one hole in 35 slides, and a harvest
+that silently drops content is otherwise invisible — the output looks fine, there is just less of
+it. Do not run this against the DOM: off-screen slides render empty there and every slide looks
+perfect.
 
 | trap                                                                                            | symptom                                                                                                                                 |
 | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -310,36 +387,53 @@ Two things that cost real time:
 
 What to check:
 
-| check                                  | expected                                                                  |
-| -------------------------------------- | ------------------------------------------------------------------------- |
-| `window.deckDump.slides().length`      | 35, `source: "fiber"`                                                     |
-| same, under `?presenterMode=true`      | still 35, from 70 DOM nodes                                               |
-| slide headings in the document         | contiguous 1–35                                                           |
-| notes                                  | 27 slides; spans between tags byte-identical to the `notes` fields        |
-| code slides                            | 10, 11, 12 with filenames and languages                                   |
-| `?exportMode=true` / `?printMode=true` | `window.deckDump` undefined, no overlay                                   |
-| 35-slide sweep, console open           | no errors. Filter LiteRT's benign `/^(INFO\|WARNING\|ERROR):\s*\[/` first |
+| check                                                 | expected                                                                             |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `window.deckDump.slides().length`                     | 35, `source: "fiber"`                                                                |
+| same, under `?presenterMode=true`                     | still 35, from 70 DOM nodes                                                          |
+| slide headings in the document                        | contiguous 1–35                                                                      |
+| notes                                                 | 27 slides; spans between tags byte-identical to the `notes` fields                   |
+| code slides                                           | 10, 11, 12 with filenames and languages                                              |
+| `?exportMode=true` / `?printMode=true`                | `window.deckDump` undefined, no overlay                                              |
+| 35-slide sweep, console open                          | no errors. Filter LiteRT's benign `/^(INFO\|WARNING\|ERROR):\s*\[/` first            |
+| `deckDump.nodes().length`, and ids unique             | 159, ids `slide.ordinal` contiguous from 1 within each slide                         |
+| the `id:role:text` signature, hashed                  | **identical** under normal, `?animate=false`, `?presenterMode=true`, `?slideIndex=N` |
+| every node's `element`                                | 159 of 159 `isConnected`, `textContent` matching once whitespace is squashed         |
+| `(await deckDump.provenance()).totals`                | data 39, exact 63, partial 17, ambiguous 11, too-short 19, file 3, not-found 7       |
+| `deckDump.context(q).chars` for the six commands      | 46 for relative navigation, 257 for a content command on the active slide            |
+| coverage: fiber text runs vs harvested body           | no slide missing words (see §7)                                                      |
+| `document.querySelectorAll("[data-chat-ref]").length` | 0 — nothing here stamps attributes                                                   |
 
-Then `npm run format` — the repo's tuned `lint && pretty`.
+Two of those exist because assuming them would have been wrong: the signature hash is what proves
+ordinals are portable across render modes, and the coverage check is what caught slide 21.
+
+Then `npm run format` — the repo's tuned `lint && pretty`. Run it from the repo root, and check
+`git status` after driving the browser: a redirect written with a relative path lands in the repo,
+and `pretty` will fail on it rather than on your change.
 
 ---
 
 ## 9. If you only do one thing
 
-Settle §5. Everything else is downstream of whether the pointer is for a 2B model, a human, or an
-agent with `grep`. The measurements say addressing is easy, provenance tops out around two-thirds,
-and the honest design leans on the consumer's ability to search — which makes the answer to §5 the
-whole design, not a detail of it.
+§5 is settled and the extraction is built. What is left is the two halves of actually using it, and
+they are not symmetrical.
+
+**Wire the views to the model.** The seam is `chat/agent/prompt.js` for the stable half and the
+`remember` argument on `stream()` for the volatile half. The one thing not to do is concatenate
+context into the question: [chat-handoff.md §6](chat-handoff.md) measured that going from 5-of-5
+usable answers to 2-of-5, and `remember` exists precisely to send context without it accumulating in
+the transcript. `chat/agent/providers/litert.js` has the note where it was removed;
+`chat/agent/providers/chrome.js` has no equivalent and will need one.
 
 ### Then: navigation, end to end, before anything touches content
 
 The two command families in §4 look symmetrical and are not.
 
-|               | deck-wide, e.g. "go to slide 10" | content, e.g. "replace the heading"    |
-| ------------- | -------------------------------- | -------------------------------------- |
-| context       | outline, ~350 tok                | active slide, ~45 tok                  |
-| action        | `nav.skipTo`, already published  | DOM mutation, nothing built            |
-| if it's wrong | you are on slide 9. Press a key. | the deck is silently altered, mid-talk |
+|               | deck-wide, e.g. "go to slide 10"       | content, e.g. "replace the heading"    |
+| ------------- | -------------------------------------- | -------------------------------------- |
+| context       | position, ~15 tok — built and measured | active slide, ~65 tok — built          |
+| action        | `nav.skipTo`, already published        | DOM mutation, nothing built            |
+| if it's wrong | you are on slide 9. Press a key.       | the deck is silently altered, mid-talk |
 
 Navigation is the whole pipeline — parse a request, resolve it against a view, act on the deck,
 report back — with none of the risk, because it never writes to the DOM. It is also nearly free:

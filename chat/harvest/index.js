@@ -22,6 +22,7 @@ import { chapters } from "../../deck/chapters.js";
 import { AUDIENCES, PARTS, VERDICTS, takeaways } from "../../deck/takeaways.js";
 import { findAll, rootFiber } from "./fiber.js";
 import { serializeSlide } from "./markdown.js";
+import { elementOf } from "./nodes.js";
 
 /** Slide body headings sit under `## Slide NN`, so they start at `###`. */
 const HEADING_BASE = 3;
@@ -112,6 +113,43 @@ const slideFibers = () => {
  */
 export const deckReady = () => slideFibers().length > 0;
 
+/**
+ * Give a slide's nodes their addresses.
+ *
+ * IDS ARE GLOBAL: `9.2` is the second addressable node on slide 9, and it means
+ * that everywhere. Per-slide ids (`b2`) would be shorter and would collide the
+ * first time two slides' nodes appear in one context -- silently, because both
+ * would look valid.
+ *
+ * `roleOrdinal` is the half that survives contact with a presenter. Nobody says
+ * "node 9.3"; they say "the second bullet". The deleted `deck-adapter.js`
+ * recorded what its absence costs -- "replace the first bullet" once rewrote a
+ * slide TITLE, because three sibling nodes all came back as plain "text" with
+ * nothing for "first" to attach to.
+ */
+const addressNodes = (nodes, number) => {
+  const seen = new Map();
+  return nodes.map((node) => {
+    const roleOrdinal = (seen.get(node.role) ?? 0) + 1;
+    seen.set(node.role, roleOrdinal);
+    const addressed = {
+      id: `${number}.${node.ordinal}`,
+      slide: number,
+      ordinal: node.ordinal,
+      role: node.role,
+      roleOrdinal,
+      text: node.text,
+    };
+    // Non-enumerable, so `?dump` can still `JSON.stringify` a node. See
+    // `emitNode`.
+    Object.defineProperty(addressed, "fiber", {
+      value: node.fiber,
+      enumerable: false,
+    });
+    return addressed;
+  });
+};
+
 const fiberSlides = () => {
   const fibers = slideFibers();
   if (!fibers.length) return null;
@@ -127,8 +165,71 @@ const fiberSlides = () => {
       source: slide.source,
       code: slide.code,
       notes: slide.notes,
+      nodes: addressNodes(slide.nodes, i + 1),
     };
   });
+};
+
+/**
+ * One slide, by 1-based number.
+ *
+ * The cheap path, and the one the active-slide view runs on every navigation:
+ * serializing 35 slides to read the 4.3 nodes of the one on screen is most of a
+ * harvest's cost for none of its value.
+ */
+export const harvestSlide = (number) => {
+  const fibers = slideFibers();
+  const fiber = fibers[number - 1];
+  if (!fiber) return null;
+
+  const slide = serializeSlide(fiber, { headingBase: HEADING_BASE });
+  return {
+    number,
+    chapter: chapterOf(slide.className),
+    kind: slide.kind,
+    title: titleOf(slide.body),
+    body: slide.body,
+    source: slide.source,
+    code: slide.code,
+    notes: slide.notes,
+    nodes: addressNodes(slide.nodes, number),
+  };
+};
+
+/**
+ * An id -> the node it names, including the live element.
+ *
+ * RE-WALKS RATHER THAN CACHING, on two counts. React double-buffers fibers
+ * through `alternate`, so a fiber held across a commit can be the stale copy of
+ * a node that has since re-rendered. And the obvious alternative -- stamping a
+ * `data-chat-ref` attribute on the element and querying it later -- is worse:
+ * React drops attributes it does not own when it recreates a node, so the
+ * address would work right up until the slide re-rendered.
+ *
+ * EVERY SLIDE'S ELEMENTS EXIST, not just the visible one's. Measured across all
+ * 35 slides: 159 of 159 nodes resolve to a connected element carrying the right
+ * text. Off-screen slides are laid out at 0x0 rather than unmounted -- Spectacle
+ * keeps them in the portal and hides them with transform and overflow -- so a
+ * `getBoundingClientRect` of zero means "not on screen", never "not there".
+ *
+ * Worth knowing before trusting a rect: anything measuring an element to decide
+ * whether it is real will conclude that 34 of 35 slides do not exist.
+ */
+export const resolveNode = (id) => {
+  const [slide] = String(id).split(".");
+  const node = harvestSlide(Number(slide))?.nodes.find((n) => n.id === id);
+  if (!node) return null;
+
+  // Spreading a node drops the non-enumerable fiber, which is the intent
+  // everywhere except here -- so it is re-attached the same way rather than
+  // assigned. An enumerable one would put a cyclic graph back on a record that
+  // `?dump` and every debugging `JSON.stringify` walks.
+  const resolved = { ...node, element: elementOf(node.fiber) };
+  Object.defineProperty(resolved, "fiber", {
+    value: node.fiber,
+    enumerable: false,
+  });
+  return resolved;
 };
 
 /**
@@ -175,6 +276,10 @@ const domSlides = () => {
       source: null,
       code: [],
       notes: "",
+      // Always empty, never absent. Addressing needs component identity and the
+      // DOM has none -- but a caller that has to check for the FIELD as well as
+      // for its contents will forget, so the degraded harvest keeps the shape.
+      nodes: [],
     };
   });
 };
