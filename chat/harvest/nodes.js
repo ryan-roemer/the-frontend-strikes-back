@@ -24,7 +24,17 @@
  * `elementOf` is the second one. There is no first-class API for the first,
  * because there cannot be -- `provenance.js` explains why.
  */
-import { CodePane, Heading, ListItem, Notes, Quote, Text } from "spectacle";
+import {
+  CodePane,
+  Heading,
+  ListItem,
+  Notes,
+  OrderedList,
+  Quote,
+  Slide,
+  Text,
+  UnorderedList,
+} from "spectacle";
 import { hasClass, propsOf, textOf } from "./fiber.js";
 
 /** `nodeType` for an `Element`, so this file needs no DOM globals. */
@@ -116,6 +126,14 @@ export const normalize = (text) => text.replace(/\s+/g, " ").trim();
  * on the host node and leaves `fiber.child` null, with the string still in
  * props. Nearly every heading in this deck is `<Heading>Hi!</Heading>`, and
  * missing this is what once cost 25 of 35 slide titles.
+ *
+ * A NESTED LIST IS NOT THIS NODE'S TEXT. Stopping at one is what makes a parent
+ * bullet addressable separately from its sub-bullets. Slide 9's third bullet used
+ * to come back as "And the agent can be just about anywhere: Claude Desktop, over
+ * a local relay A browser extension Or code running in the page itself" -- four
+ * visible bullets in one string, so naming any of the three sub-items resolved to
+ * their parent, and rewriting that parent's element would have taken the whole
+ * sub-list with it.
  */
 export const flattenNode = (fiber, depth = 0) => {
   if (!fiber || depth > MAX_DEPTH) return "";
@@ -131,6 +149,8 @@ export const flattenNode = (fiber, depth = 0) => {
   if (type === "br") return " ";
   // A note is a sibling of the content it belongs to, not part of it.
   if (type === Notes) return "";
+  // The sub-items are their own nodes; see the note above.
+  if (type === UnorderedList || type === OrderedList) return "";
 
   if (!fiber.child) {
     const { children } = propsOf(fiber);
@@ -143,6 +163,33 @@ export const flattenNode = (fiber, depth = 0) => {
     out += flattenNode(node, depth + 1);
   }
   return out;
+};
+
+/**
+ * How deeply nested in lists a node is. 1 for a top-level bullet, 0 for anything
+ * outside a list.
+ *
+ * A `.return` CLIMB, not a counter threaded through the walk, because the two
+ * emission paths reach a `ListItem` differently -- `serialize` recurses into it
+ * while the markdown scan walks onto it -- and a climb gives the same answer from
+ * either. It also cannot drift out of step with the tree the way a carried depth
+ * can.
+ *
+ * Stops at `Slide`, so it counts this slide's lists and not any wrapper above it.
+ *
+ * This is the number "the second bullet" resolves against. Without it, ordinals
+ * run flat through the emission order -- on slide 9 that makes "the fourth
+ * bullet" the first SUB-bullet, because three sub-items are emitted before the
+ * fourth top-level one. Depth-scoped ordinals are what make the count match what
+ * a presenter sees.
+ */
+export const depthOf = (fiber) => {
+  let depth = 0;
+  for (let node = fiber?.return; node; node = node.return) {
+    if (node.type === Slide) break;
+    if (node.type === UnorderedList || node.type === OrderedList) depth += 1;
+  }
+  return depth;
 };
 
 /**
@@ -161,9 +208,27 @@ export const flattenNode = (fiber, depth = 0) => {
 export const emitNode = (ctx, fiber, role, text) => {
   if (!text) return;
 
-  const node = { ordinal: ctx.sink.nodes.length + 1, role, text };
+  const node = {
+    ordinal: ctx.sink.nodes.length + 1,
+    role,
+    text,
+    depth: depthOf(fiber),
+  };
   Object.defineProperty(node, "fiber", { value: fiber, enumerable: false });
   ctx.sink.nodes.push(node);
+};
+
+/**
+ * Whether a host fiber renders anything at all.
+ *
+ * A child fiber counts, and so does a string sitting in props -- that is the
+ * single-text-child case again, where React puts the text on the host node and
+ * leaves `fiber.child` null.
+ */
+const rendersContent = (fiber) => {
+  if (fiber.child) return true;
+  const kind = typeof propsOf(fiber).children;
+  return kind === "string" || kind === "number";
 };
 
 /**
@@ -175,6 +240,14 @@ export const emitNode = (ctx, fiber, role, text) => {
  * already targets, which is what makes a style change land where the class
  * vocabulary says it should.
  *
+ * EMPTY HOSTS ARE SKIPPED, and this is not defensive coding. Spectacle's
+ * `CodePane` renders a zero-height `div.step-placeholder` as its FIRST child --
+ * `deck/styles.css` has a rule working around the same div -- so the plain
+ * child-first walk returned that placeholder for all three code panes. It is a
+ * connected element with the right ancestors and no content, which is the worst
+ * shape of wrong answer: a style applied to it lands on nothing visible and
+ * reports success. An element with nothing in it never renders a node's content.
+ *
  * Child-only, for the same reason `flattenNode` is: following siblings would
  * hand back the NEXT node's element on any component that renders null first.
  *
@@ -184,7 +257,9 @@ export const emitNode = (ctx, fiber, role, text) => {
  */
 export const elementOf = (fiber, depth = 0) => {
   if (!fiber || depth > MAX_DEPTH) return null;
-  if (fiber.stateNode?.nodeType === ELEMENT_NODE) return fiber.stateNode;
+  if (fiber.stateNode?.nodeType === ELEMENT_NODE && rendersContent(fiber)) {
+    return fiber.stateNode;
+  }
 
   for (let node = fiber.child; node; node = node.sibling) {
     const found = elementOf(node, depth + 1);

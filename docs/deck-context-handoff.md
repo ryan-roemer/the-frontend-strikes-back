@@ -24,7 +24,7 @@ Two capabilities, and they are worth naming separately because they have very di
    where "change this phrase" wants a line of source. Both are built.
 2. **Provenance** — that node points back at the JS you would edit. Hard, and **cannot be made
    complete**. §3 has the measurements and why. **Done, and better than the ceiling this document
-   predicted** — 7 of 159 nodes are genuinely unlocatable, not the ~19 of 146 estimated, because the
+   predicted** — 7 of 162 nodes are genuinely unlocatable, not the ~19 of 146 estimated, because the
    longest-literal-run fallback §3 recommended recovers more than it was expected to.
 
 Read [chat-handoff.md](chat-handoff.md) first if you have not. It is the record of the model layer,
@@ -40,20 +40,23 @@ and §6 and §10 there are load-bearing constraints on anything built here.
 | `chat/harvest/markdown.js`   | fiber subtree → Markdown, and the node-emission points. Deck-aware (class vocabulary)     |
 | `chat/harvest/nodes.js`      | roles, `flattenNode`, `emitNode`, `elementOf`. What makes a text run an addressable thing |
 | `chat/harvest/index.js`      | `harvestDeck()`, `harvestSlide()`, `resolveNode()`, `deckMarkdown()`, DOM fallback        |
-| `chat/harvest/views.js`      | the four sized views and `selectView()` / `contextFor()`                                  |
+| `chat/harvest/views.js`      | the four sized views, `selectView()` / `contextFor()`, and `describeNode()`               |
+| `chat/harvest/locate.js`     | a phrase a person said → the node they meant, or an honest "which of these"               |
 | `chat/harvest/provenance.js` | source pointers and their confidence tier                                                 |
 | `chat/harvest/dump.js`       | `window.deckDump` and the `?dump` overlay. Installed by `mountChat()`                     |
 
 `harvestDeck()` returns `{ meta, parts, chapters, takeaways, audiences, verdicts, slides }`, each
 slide `{ number, chapter, kind, title, body, source, code, notes, nodes }`, each node
-`{ id, slide, ordinal, role, roleOrdinal, text }` plus a **non-enumerable** `fiber`.
+`{ id, slide, ordinal, role, depth, roleOrdinal, text }` plus a **non-enumerable** `fiber`.
 
 The console surface, which is also the whole product for consumer (c) in §5:
 
 ```js
-deckDump.nodes(); // all 159, addressed
+deckDump.nodes(); // all 162, addressed
 deckDump.node("9.2"); // + the live DOM element
 await deckDump.where("9.2"); // + provenance. JSON-safe, for pasting
+deckDump.locate("the second bullet"); // a phrase -> the node, or the candidates
+deckDump.describe("9.3"); // 'slide 9, bullet 2 — "One API: ..."'
 deckDump.context("go to the last slide"); // what a turn would carry, and its size
 deckDump.views.position(); // { slide, step, count }
 ```
@@ -65,7 +68,7 @@ Measurements, all reproducible with the driver in §8:
 - 7 markdown slides reproduce their source verbatim; 3 `CodePane` slides carry file + language
 - the document is ~16,100 characters
 - the text between `<speaker-notes>` tags is byte-identical to the structured `notes` field
-- **159 addressable nodes**, ids unique and contiguous per slide
+- **162 addressable nodes**, ids unique and contiguous per slide
 - **the node signature is byte-identical** under `?animate=false`, `?presenterMode=true` and
   `?slideIndex=N` — see §4 on why that had to be checked rather than assumed
 
@@ -97,9 +100,9 @@ matrix cells above:
 
 |                       |                                                                       |
 | --------------------- | --------------------------------------------------------------------- |
-| addressable nodes     | **159**                                                               |
-| per slide             | mean 4.5, min 1, max 13                                               |
-| by role               | `bullet` 29, `title` 26, `text` 22, `takeaway` 18, `eyebrow` 12, tail |
+| addressable nodes     | **162**                                                               |
+| per slide             | mean 4.6, min 1, max 13                                               |
+| by role               | `bullet` 32, `title` 26, `text` 22, `takeaway` 18, `eyebrow` 12, tail |
 | full index as text    | ~7,200 chars ≈ **~1,800 tokens**                                      |
 | active slide, typical | ~200 chars ≈ **~50 tokens**                                           |
 
@@ -112,8 +115,20 @@ heuristic to find node boundaries — component identity is the boundary.
 hold the authored source, and descending would report the same content twice — so the 7 markdown
 slides had no addressable nodes at all. They do build real components (`deck/components.js` maps
 `p` → `Text`, `h1`–`h4` → `Heading`, `li` → `ListItem`), so the existing `Notes` scan under
-`Markdown` now emits nodes as well: **30 nodes** that were otherwise unreachable, on the slides
+`Markdown` now emits nodes as well: **33 nodes** that were otherwise unreachable, on the slides
 whose provenance is the most exact in the deck.
+
+**Nested list items are nodes too, and getting there took two changes together.** The scan used to
+`SKIP` after emitting, so slide 9's three sub-bullets had no id while their text sat glued inside
+their parent's — a user could name something visibly on the slide and there was nothing to point at.
+Worse, resolving the parent hands back an `<li>` that _contains_ the nested `<ul>`, so a future
+rewrite of that element's text would have taken the whole sub-list with it.
+
+The fix is the scan descending **and** `flattenNode` stopping at a nested list, because either alone
+is wrong: descending without stopping double-reports the sub-items inside the parent, and stopping
+without descending loses them entirely. Together they give one node per visible line. Slide 9 is the
+only slide in the deck with a nested list — 32 `ListItem` fibers, 29 emitted before this, and its
+three account for the whole gap.
 
 **Node text is the RAW run, not the serialized one.** The two differ more than expected: the author
 bio serializes as `![](https://encrypted-tbn0.gstatic.com/...) I lead technology & OSS at
@@ -123,7 +138,7 @@ emission sites use it so a node's text means the same thing on every kind of sli
 
 ---
 
-## 3. Provenance: 7 of 159 are genuinely unlocatable
+## 3. Provenance: 7 of 162 are genuinely unlocatable
 
 The interesting measurement, and it came out better than this document originally predicted. For
 each node, can the rendered text be traced back to the JS that produced it?
@@ -131,14 +146,14 @@ each node, can the rendered text be traced back to the JS that produced it?
 | tier        | count | what it means                                                                 |
 | ----------- | ----: | ----------------------------------------------------------------------------- |
 | `data`      |    39 | matches a field in `deck/takeaways.js` or `deck/chapters.js`. Exact — name it |
-| `exact`     |    63 | appears exactly once in `index.html`. Search for it                           |
+| `exact`     |    66 | appears exactly once in `index.html`. Search for it                           |
 | `partial`   |    17 | the whole run is absent but a span of it is present. `search` holds that span |
 | `ambiguous` |    11 | appears more than once. Search, then disambiguate by slide number             |
 | `too-short` |    19 | under 10 characters. Not searched — the result would be noise, not a location |
 | `file`      |     3 | a code pane. The pointer is the file under `examples/`                        |
 | `not-found` |     7 | composed at runtime. `search` is null, and saying so is the honest answer     |
 
-**152 of 159 carry a usable pointer.** The earlier estimate of a hard 60–65% ceiling was measured
+**155 of 162 carry a usable pointer.** The earlier estimate of a hard 60–65% ceiling was measured
 before the longest-literal-run fallback existed; that fallback is what moves 17 nodes out of
 `not-found`, and it recovers more than the four this document expected.
 
@@ -179,7 +194,7 @@ ordinals collide silently.
 Ordinals are **emission order, not a fiber path**. `?animate=false` swaps `Appear` for `Fragment`
 and changes every path, so a path-addressed node means different things in the mode you present in
 and the mode you debug in. Verified rather than assumed: the full `id:role:text` signature of all
-159 nodes hashes identically across a normal load, `?animate=false`, `?presenterMode=true` and
+162 nodes hashes identically across a normal load, `?animate=false`, `?presenterMode=true` and
 `?slideIndex=20`.
 
 Roles come from component identity plus the class vocabulary, and every entry in the map was
@@ -187,6 +202,33 @@ measured against the live tree — an aspirational role for a class nothing rend
 model can never use. Nodes also carry `roleOrdinal`, printed only when the role repeats on that
 slide, because "bullet 2" is how a presenter talks and `deck-adapter.js` recorded what its absence
 costs: "replace the first bullet" once rewrote a slide title.
+
+**`roleOrdinal` is scoped by DEPTH as well as by role, and that is the whole reason nesting was worth
+doing carefully.** Emission order is depth-first, so slide 9's three sub-bullets land between the
+third top-level bullet and the fourth. Counted flat per role:
+
+| node                         | flat count   | what a presenter sees |
+| ---------------------------- | ------------ | --------------------- |
+| Most of this lands on apps…  | bullet **7** | the **fourth** bullet |
+| Claude Desktop, over a relay | bullet **4** | the first sub-bullet  |
+
+"The fourth bullet" would have resolved to a sub-bullet — a **confidently wrong** answer, which is
+strictly worse than an ambiguous one. Keyed by `role:depth`, each level counts from one and the
+count matches the slide. `depthOf()` gets the number from a `.return` climb rather than a counter
+threaded through the walk, because the two emission paths reach a `ListItem` differently and a climb
+gives the same answer from either.
+
+The `role` itself stays `"bullet"` at every depth — the vocabulary does not fork. Only the spoken
+name changes, to "sub-bullet", and the view indents by depth so the model sees the structure for two
+spaces:
+
+```
+9.4 bullet 3: And the agent can be just about anywhere:
+9.5   sub-bullet 1: Claude Desktop, over a local relay
+9.6   sub-bullet 2: A browser extension
+9.7   sub-bullet 3: Or code running in the page itself
+9.8 bullet 4: Most of this lands on apps that keep their backend
+```
 
 ### Two pointers, because an address has to resolve to something
 
@@ -203,12 +245,55 @@ separate them cleanly:
 attribute is worse, because React drops attributes it does not own when it recreates a node — the
 address would work right up until the slide re-rendered.
 
-**Every slide's elements exist, not just the visible one's.** Measured: 159 of 159 resolve to a
+**Every slide's elements exist, not just the visible one's.** Measured: 162 of 162 resolve to a
 connected element carrying the right text. Off-screen slides are laid out at 0×0 rather than
 unmounted, so a zero rect means "not on screen", never "not there" — anything measuring an element
 to decide whether it is real will conclude that 34 of 35 slides do not exist.
 
 Read-only throughout, and it must stay that way (§6).
+
+### Resolving what a person said: `locate()`
+
+The model picks an id off the roster it can see, which is the right shape for a model — a wrong pick
+is a detectably absent id rather than a silently wrong selector. A **human** should not have to.
+`locate(phrase, { slide })` takes what someone would actually say and defaults to the slide on
+screen.
+
+An ordered cascade, self-verifying tiers first:
+
+| tier          | example                         | why it is where it is                                                                                                    |
+| ------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **text**      | "the WebMCP one", "One API"     | The only tier that **cannot be confidently wrong** — the substring is in exactly one node or it is not. So it is first   |
+| **ordinal**   | "the second bullet", "bullet 2" | Not self-verifying: there is _always_ a second bullet, so a mistake about the numbering returns a plausible wrong answer |
+| **role**      | "the heading"                   | Only when the slide has exactly one                                                                                      |
+| **ambiguous** | "TODO" on slide 31              | Several candidates, all returned. **Ask** — do not pick                                                                  |
+| **none**      | "the fifth bullet" of four      | A specific wrong belief. Returning four candidates would imply one of them is the fifth                                  |
+
+Matching runs both directions — the phrase may quote a fragment of a long bullet, or be the whole
+node text pasted back with one word changed — and among nested hits the shortest node wins, but only
+when it is _uniquely_ shortest. Two equal-length matches are real ambiguity, not a tie to break.
+
+**Never picking among equals is the load-bearing rule**, and it is not hypothetical: slide 7 carries
+"TODO: session + when" three times and slide 31 carries "TODO" three times. Something has to happen
+there, and choosing the first is the one option nothing downstream can recover from.
+
+A minimal alias table makes the ordinal and role tiers work at all. `heading` is the load-bearing
+entry: the deck has no `<h1>`, so a user saying "heading" means what `roleOf` calls a `title`.
+
+### Echo-back: `describeNode()`
+
+```
+slide 9, bullet 2 — "One API: document.modelContext"
+```
+
+**The cheapest safety in the whole design.** Every way addressing can go wrong ends the same way — a
+right-looking id for the wrong thing — and none of them are visible from the id alone. Resolving it
+and quoting the text back makes all of them catchable in one glance, for the cost of one lookup.
+
+It names the slide as well as the node, because that catches the failure that matters most: having
+resolved against the wrong slide entirely. And it shares its label helper with the roster renderer,
+deliberately — a confirmation that says "bullet" where the roster said "bullet 2" is worse than no
+confirmation, because the user agrees to a different thing than the one that will change.
 
 ### Views, and why the default is ten times smaller than proposed
 
@@ -218,7 +303,7 @@ Read-only throughout, and it must stay that way (§6).
 | **active slide** | that slide's nodes, with ids and roles                          |    ~65 tok | **changes on every navigation** |
 | **outline**      | 35 lines: number, title, chapter, code marker                   |   ~270 tok | stable                          |
 | **facts**        | chapters, takeaways, audiences, verdicts, from the data modules |   ~350 tok | stable                          |
-| **node index**   | all 159 nodes                                                   | ~1,800 tok | stable                          |
+| **node index**   | all 162 nodes                                                   | ~1,800 tok | stable                          |
 
 This document originally proposed a default of facts + outline + active slide, ~745 tokens. **The
 built default is position + active slide, ~80 tokens**, and the reason is that writing the command
@@ -336,7 +421,15 @@ Four more were paid for by the session that built the addressing layer:
 | A layout primitive carrying a semantic class is content              | `MatrixSlide`'s ten `Box` cells were transparent, so their text became slide-level `inline`, which `render` discards. Slide 21 lost every runtime it compares      |
 | A non-enumerable `fiber` becomes enumerable the moment you spread it | `resolveNode` re-attached it with `{ ...node, fiber }`; the next `JSON.stringify` walked a cyclic graph. Use `defineProperty` on the copy too                      |
 | The serialized text and the raw text are different strings           | node text taken from `kids.inline` carried `**`, `` ` ``, `[text](href)` and `![](src)`. A find-and-replace against it misses, and the URLs are most of the tokens |
-| Off-screen slides are laid out at 0×0, not unmounted                 | all 159 elements resolve and are `isConnected`; only the rect is empty. Measuring one to decide whether it exists reports 34 of 35 slides missing                  |
+| Off-screen slides are laid out at 0×0, not unmounted                 | all 162 elements resolve and are `isConnected`; only the rect is empty. Measuring one to decide whether it exists reports 34 of 35 slides missing                  |
+
+And three by the session that made addressing trustworthy:
+
+| trap                                                               | symptom                                                                                                                                                                                                  |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CodePane` renders a zero-height `div.step-placeholder` FIRST      | `elementOf`'s child-first walk returned that placeholder for all three code panes — connected, right ancestors, no content. A style applied to it lands on nothing and reports success. Skip empty hosts |
+| Depth-first emission makes flat per-role ordinals wrong, not vague | "the fourth bullet" on slide 9 resolved to the first sub-bullet. Scope `roleOrdinal` by `role:depth`                                                                                                     |
+| A non-enumerable `fiber` is enumerable again after one spread      | `{ ...node, element }` in `resolveNode` re-exposed the cyclic graph; `returnByValue` over CDP and any debugging `JSON.stringify` both die on it. `defineProperty` on the copy too                        |
 
 Worth stealing regardless of what you build next: the **coverage check** that found the first one.
 Flatten every text run in a slide's fiber subtree, diff the words against the harvested body, and
@@ -387,25 +480,37 @@ Two things that cost real time:
 
 What to check:
 
-| check                                                 | expected                                                                             |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `window.deckDump.slides().length`                     | 35, `source: "fiber"`                                                                |
-| same, under `?presenterMode=true`                     | still 35, from 70 DOM nodes                                                          |
-| slide headings in the document                        | contiguous 1–35                                                                      |
-| notes                                                 | 27 slides; spans between tags byte-identical to the `notes` fields                   |
-| code slides                                           | 10, 11, 12 with filenames and languages                                              |
-| `?exportMode=true` / `?printMode=true`                | `window.deckDump` undefined, no overlay                                              |
-| 35-slide sweep, console open                          | no errors. Filter LiteRT's benign `/^(INFO\|WARNING\|ERROR):\s*\[/` first            |
-| `deckDump.nodes().length`, and ids unique             | 159, ids `slide.ordinal` contiguous from 1 within each slide                         |
-| the `id:role:text` signature, hashed                  | **identical** under normal, `?animate=false`, `?presenterMode=true`, `?slideIndex=N` |
-| every node's `element`                                | 159 of 159 `isConnected`, `textContent` matching once whitespace is squashed         |
-| `(await deckDump.provenance()).totals`                | data 39, exact 63, partial 17, ambiguous 11, too-short 19, file 3, not-found 7       |
-| `deckDump.context(q).chars` for the six commands      | 46 for relative navigation, 257 for a content command on the active slide            |
-| coverage: fiber text runs vs harvested body           | no slide missing words (see §7)                                                      |
-| `document.querySelectorAll("[data-chat-ref]").length` | 0 — nothing here stamps attributes                                                   |
+| check                                                 | expected                                                                                                                                      |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `window.deckDump.slides().length`                     | 35, `source: "fiber"`                                                                                                                         |
+| same, under `?presenterMode=true`                     | still 35, from 70 DOM nodes                                                                                                                   |
+| slide headings in the document                        | contiguous 1–35                                                                                                                               |
+| notes                                                 | 27 slides; spans between tags byte-identical to the `notes` fields                                                                            |
+| code slides                                           | 10, 11, 12 with filenames and languages                                                                                                       |
+| `?exportMode=true` / `?printMode=true`                | `window.deckDump` undefined, no overlay                                                                                                       |
+| 35-slide sweep, console open                          | no errors. Filter LiteRT's benign `/^(INFO\|WARNING\|ERROR):\s*\[/` first                                                                     |
+| `deckDump.nodes().length`, and ids unique             | 162, ids `slide.ordinal` contiguous from 1 within each slide                                                                                  |
+| the `id:role:text` signature, hashed                  | **identical** under normal, `?animate=false`, `?presenterMode=true`, `?slideIndex=N`                                                          |
+| every node's `element`                                | 162 of 162 `isConnected`, `textContent` matching once whitespace is squashed (a code node's text is its filename, so require content instead) |
+| `(await deckDump.provenance()).totals`                | data 39, exact 63, partial 17, ambiguous 11, too-short 19, file 3, not-found 7                                                                |
+| `deckDump.context(q).chars` for the six commands      | 46 for relative navigation, 257 for a content command on the active slide                                                                     |
+| coverage: fiber text runs vs harvested body           | no slide missing words (see §7)                                                                                                               |
+| `document.querySelectorAll("[data-chat-ref]").length` | 0 — nothing here stamps attributes                                                                                                            |
 
-Two of those exist because assuming them would have been wrong: the signature hash is what proves
-ordinals are portable across render modes, and the coverage check is what caught slide 21.
+Plus, for resolution:
+
+| check                                                         | expected                                                                                                                                         |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| the **depth test** — `locate("the fourth bullet")` on slide 9 | `9.8`, and `locate("the first sub-bullet")` → `9.5`. If these fail the numbering is wrong                                                        |
+| the `locate` fixture table                                    | 21 of 21 — literal, ordinal, depth, bare role, relative, deliberate miss, deliberate ambiguity                                                   |
+| no two nodes on a slide share text                            | only genuine repeats: slide 7's three "TODO: session + when", slide 31's three "TODO". Anything else means a loose list emitted `li` **and** `p` |
+| `deckDump.describe("9.5")`                                    | `slide 9, sub-bullet 1 — "Claude Desktop, over a local relay"`                                                                                   |
+
+Three of these exist because assuming them would have been wrong: the signature hash is what proves
+ordinals are portable across render modes, the coverage check is what caught slide 21, and the
+duplicate-text check is what would have caught a loose-list double-emit. **A fixture table is the
+only honest test for `locate`** — the tiers interact, and a change that improves one can silently
+break another.
 
 Then `npm run format` — the repo's tuned `lint && pretty`. Run it from the repo root, and check
 `git status` after driving the browser: a redirect written with a relative path lands in the repo,
@@ -417,6 +522,15 @@ and `pretty` will fail on it rather than on your change.
 
 §5 is settled and the extraction is built. What is left is the two halves of actually using it, and
 they are not symmetrical.
+
+**Deferred deliberately, and none of it is blocking:**
+
+| #   | gap                                                   | when it matters                                                                                                                                                                                                            |
+| --- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4   | the slide view does not mark which nodes are REVEALED | `animateListItems` is on for markdown slides, so at `stepIndex: 1` the user sees two bullets and the roster lists four. "The last bullet" means different things to the two parties. `position()` already carries the step |
+| 5   | the alias table is minimal                            | when a real phrasing misses. Do not grow it speculatively                                                                                                                                                                  |
+| 6   | `roleOrdinal` does not know about list BOUNDARIES     | only on a slide with two or more separate lists at the same depth. None exist today                                                                                                                                        |
+| 7   | ids are stable across render modes, not across EDITS  | only if patches get persisted. This pass demonstrated it: `9.5` used to mean "Most of this lands on apps…" and now means "Claude Desktop, over a local relay"                                                              |
 
 **Wire the views to the model.** The seam is `chat/agent/prompt.js` for the stable half and the
 `remember` argument on `stream()` for the volatile half. The one thing not to do is concatenate

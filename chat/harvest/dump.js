@@ -29,9 +29,11 @@ import {
   harvestSlide,
   resolveNode,
 } from "./index.js";
+import { locate } from "./locate.js";
 import { provenanceOf, provenanceReport } from "./provenance.js";
 import {
   contextFor,
+  describeNode,
   nodeIndex,
   outline,
   position,
@@ -181,6 +183,13 @@ export const installDump = () => {
     // it is the one you paste into an editor or an agent, and a DOM node in the
     // payload would make `JSON.stringify` throw at exactly that moment.
     node: resolveNode,
+
+    // `locate` is the human-facing end of addressing: say what you mean, get the
+    // node or an honest "which of these". `describe` is the other direction --
+    // read an id back as a sentence, before anything acts on it.
+    locate,
+    describe: describeNode,
+
     where: async (id) => {
       const node = resolveNode(id);
       if (!node) return null;

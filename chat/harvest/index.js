@@ -126,17 +126,26 @@ export const deckReady = () => slideFibers().length > 0;
  * recorded what its absence costs -- "replace the first bullet" once rewrote a
  * slide TITLE, because three sibling nodes all came back as plain "text" with
  * nothing for "first" to attach to.
+ *
+ * IT IS SCOPED BY DEPTH AS WELL AS BY ROLE. Emission order is depth-first, so on
+ * slide 9 the three sub-bullets are emitted between the third top-level bullet
+ * and the fourth. Counting flat per role makes "the fourth bullet" the first
+ * SUB-bullet and "the seventh" the one a presenter would call the fourth --
+ * numbers that are confidently wrong rather than merely ambiguous. Keyed by
+ * `role:depth`, each level counts from one and the count matches the slide.
  */
 const addressNodes = (nodes, number) => {
   const seen = new Map();
   return nodes.map((node) => {
-    const roleOrdinal = (seen.get(node.role) ?? 0) + 1;
-    seen.set(node.role, roleOrdinal);
+    const key = `${node.role}:${node.depth}`;
+    const roleOrdinal = (seen.get(key) ?? 0) + 1;
+    seen.set(key, roleOrdinal);
     const addressed = {
       id: `${number}.${node.ordinal}`,
       slide: number,
       ordinal: node.ordinal,
       role: node.role,
+      depth: node.depth,
       roleOrdinal,
       text: node.text,
     };

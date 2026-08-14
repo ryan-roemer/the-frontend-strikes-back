@@ -417,13 +417,16 @@ function serialize(fiber, ctx) {
         // would address the presenter's asides as slide content.
         return SKIP;
       }
-      if (!isNodeKind(node)) return undefined;
-      emitNode(ctx, node, roleOf(node), normalize(flattenNode(node)));
-      // A nested list sits INSIDE its parent `ListItem`, so descending would
-      // emit the sub-bullets a second time -- and the parent's own text already
-      // contains them, flattened, which is exactly how "And the agent can be
-      // anywhere: Claude Desktop..." reads on slide 9.
-      return SKIP;
+      if (isNodeKind(node)) {
+        emitNode(ctx, node, roleOf(node), normalize(flattenNode(node)));
+      }
+      // DESCENDS through an emitted node, because a nested list sits INSIDE its
+      // parent `ListItem` and its items are separate bullets on the slide. This
+      // used to return SKIP here, which cost slide 9 three addressable nodes:
+      // the sub-items had no id at all, while their text was glued into the
+      // parent's. `flattenNode` stopping at a list is the other half -- together
+      // they give one node per visible line.
+      return undefined;
     });
 
     return {

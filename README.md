@@ -89,16 +89,30 @@ global id — `9.2` is the second addressable node on slide 9 — with the role 
 for it, a pointer at the source that produced it, and a handle on the live element:
 
 ```js
-deckDump.nodes(); // all 159, addressed
+deckDump.nodes(); // all 162, addressed
 deckDump.node("9.2"); // + the live DOM element
 await deckDump.where("9.2"); // + where it came from. JSON-safe, for pasting
 ```
 
 `where()` is honest about how well it knows. 39 nodes trace exactly to a field in `deck/takeaways.js`
-or `deck/chapters.js`; 63 more appear verbatim exactly once in `index.html`; 17 are only findable as
+or `deck/chapters.js`; 66 more appear verbatim exactly once in `index.html`; 17 are only findable as
 a fragment, because `em()` and `<br />` split a rendered line across several literals. Seven are
 composed at runtime and exist as a string nowhere — for those it says so and returns no search key,
 because a wrong pointer costs more than an absent one.
+
+You can also just say what you mean, and read it back before changing anything:
+
+```js
+deckDump.locate("the second bullet"); // -> node 9.3
+deckDump.locate("the WebMCP one"); // matched on content, not position
+deckDump.describe("9.3"); // 'slide 9, bullet 2 — "One API: document.modelContext"'
+```
+
+`locate()` tries content before position, because "the WebMCP one" either matches exactly one node or
+none, while "the second bullet" is never _absent_ — only possibly the wrong one. When several nodes
+match it returns all of them rather than guessing; slide 31 says "TODO" three times, so that case is
+real. Sub-bullets are counted within their own list, so "the fourth bullet" on slide 9 is the fourth
+bullet a presenter sees and not the first nested one.
 
 There are also **sized views**, because context is the scarce resource on a 2B model with an 8k
 window. `deckDump.context(question)` runs the same rule a turn would and shows you the cost:
@@ -107,7 +121,7 @@ window. `deckDump.context(question)` runs the same rule a turn would and shows y
    46 ch  [position]         "go to the last slide"
   257 ch  [position+slide]   "summarize this slide"
  1079 ch  [position+outline] "which slide covers WebMCP?"
- 7198 ch  [position+index]   "find every TODO in the whole deck"
+ 7258 ch  [position+index]   "find every TODO in the whole deck"
 ```
 
 Navigation needs no slide content at all, which is why the default is ~80 tokens rather than the

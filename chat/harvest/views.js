@@ -40,7 +40,7 @@
  * seam is the only thing that delivers it.
  */
 import { getSnapshot } from "../bus.js";
-import { harvestDeck, harvestSlide } from "./index.js";
+import { harvestDeck, harvestSlide, resolveNode } from "./index.js";
 
 /**
  * Where the deck is, right now.
@@ -117,21 +117,62 @@ const outlineText = (slides) =>
   );
 
 /**
+ * A bullet nested inside another one is a "sub-bullet" to everybody except the
+ * fiber tree, where both are a `ListItem`. The ROLE stays `bullet` so the
+ * vocabulary does not fork -- only what it is called out loud changes.
+ */
+const roleName = (role, depth) =>
+  role === "bullet" && depth > 1 ? "sub-bullet" : role;
+
+/**
+ * How many nodes on this slide share a name, so the caller knows whether the
+ * ordinal is needed to tell them apart.
+ *
+ * Keyed by the SPOKEN name and the depth, matching how `addressNodes` counts:
+ * four bullets and three sub-bullets are two groups of siblings, not one group
+ * of seven.
+ */
+const nameCounts = (nodes) => {
+  const totals = new Map();
+  for (const { role, depth } of nodes) {
+    const key = `${roleName(role, depth)}:${depth}`;
+    totals.set(key, (totals.get(key) ?? 0) + 1);
+  }
+  return totals;
+};
+
+/**
+ * What to call one node, out loud.
+ *
+ * The ordinal is only added when the name REPEATS at that depth. "title 1" where
+ * there is one title is noise the model reads past on every turn, but "bullet 2"
+ * is how a presenter names the thing -- and without it "replace the first bullet"
+ * has nothing to attach to. The deleted `deck-adapter.js` recorded that failure:
+ * it rewrote a slide title instead.
+ *
+ * SHARED with `describeNode`, deliberately. A confirmation that says "bullet"
+ * where the roster said "bullet 2" is worse than no confirmation, because the
+ * user agrees to a different thing than the one that will change.
+ */
+const labelOf = (node, totals) => {
+  const name = roleName(node.role, node.depth);
+  return totals.get(`${name}:${node.depth}`) > 1
+    ? `${name} ${node.roleOrdinal}`
+    : name;
+};
+
+/**
  * A node line: id, what it is, and its text.
  *
- * The role ordinal is only printed when the role REPEATS on that slide. "title
- * 1" where there is one title is noise the model has to read past on every
- * turn, but "bullet 2" is how a presenter names the thing -- and without it,
- * "replace the first bullet" has nothing to attach to. The deleted
- * `deck-adapter.js` recorded that failure: it rewrote a slide title instead.
+ * Indented by list depth, which costs two spaces and tells the model that three
+ * of slide 9's bullets sit under the one above them. Without it the roster reads
+ * as seven siblings and "the last bullet" picks the wrong one.
  */
 const nodeLines = (nodes) => {
-  const totals = new Map();
-  for (const { role } of nodes) totals.set(role, (totals.get(role) ?? 0) + 1);
-
-  return nodes.map(({ id, role, roleOrdinal, text }) => {
-    const label = totals.get(role) > 1 ? `${role} ${roleOrdinal}` : role;
-    return `${id} ${label}: ${text}`;
+  const totals = nameCounts(nodes);
+  return nodes.map((node) => {
+    const indent = "  ".repeat(Math.max(0, node.depth - 1));
+    return `${node.id} ${indent}${labelOf(node, totals)}: ${node.text}`;
   });
 };
 
@@ -147,6 +188,32 @@ const slideText = (slide) =>
     : "";
 
 const indexText = (nodes) => tagged("deck-nodes", nodeLines(nodes));
+
+/**
+ * One node, as the sentence you would read back before changing it.
+ *
+ *   slide 9, bullet 2 -- "One API: document.modelContext"
+ *
+ * THE CHEAPEST SAFETY THERE IS. Every way an address can go wrong here ends the
+ * same way -- the right-looking id for the wrong thing -- and none of them are
+ * visible from the id. Resolving it and quoting the text back turns all of them
+ * into something the user can catch in one glance, for the cost of one lookup.
+ *
+ * The label comes from the same `labelOf` the roster uses, so the words in the
+ * confirmation are the words the model was offered.
+ *
+ * Names the SLIDE as well as the node, because the id already encodes it and a
+ * confirmation that omits it cannot catch the one failure that matters most:
+ * having resolved against the wrong slide entirely.
+ */
+export const describeNode = (id) => {
+  const node = resolveNode(id);
+  if (!node) return null;
+
+  const slide = harvestSlide(node.slide);
+  const label = labelOf(node, nameCounts(slide.nodes));
+  return `slide ${node.slide}, ${label} — "${node.text}"`;
+};
 
 // --- Selection --------------------------------------------------------------
 
@@ -255,4 +322,12 @@ export const contextFor = (text) => {
   };
 };
 
-export { indexText, outlineText, positionText, slideText };
+export {
+  indexText,
+  labelOf,
+  nameCounts,
+  outlineText,
+  positionText,
+  roleName,
+  slideText,
+};
