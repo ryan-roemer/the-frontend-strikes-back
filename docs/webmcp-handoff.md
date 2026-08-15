@@ -14,6 +14,11 @@ and calls them." After this, that is not a diagram of somebody else's app.
 
 Read [deck-context-handoff.md](deck-context-handoff.md) first — this consumes everything it built.
 
+**Status:** built, measured, committed, and working against the console harness. **Never exercised
+against a real MCP host** — see §6 for what that is likely to shake out. §3 is the most useful
+section if you are changing anything here; it is six ways this produced confident wrong answers, and
+none of them failed loudly.
+
 ---
 
 ## 1. The API
@@ -67,19 +72,39 @@ downstream can recover from.
 
 ### Testing without a host
 
-`window.deckMcp = { list(), call(name, args), editing, host }` is installed either way:
+`window.deckMcp` is installed whether or not a `modelContext` exists:
+
+|                    |                                                                                                                  |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `list()`           | every tool: `short` (a call signature like `find_node({ phrase, slide })`), `name`, `description`, `inputSchema` |
+| `call(name, args)` | run one. Throws only for an unknown tool name — everything else comes back as a result                           |
+| `schema(name)`     | the tool's declared `outputSchema`, for checking results against their own contract                              |
+| `editing`          | whether `?mcp` unlocked the writing tools                                                                        |
+| `host`             | whether a real `modelContext` was found                                                                          |
 
 ```js
+deckMcp.list().map((t) => t.short); // what can I call?
 await deckMcp.call("find_node", { phrase: "the second bullet" });
 await deckMcp.call("go_to_slide", { slide: 21 });
 ```
 
-Worth having built first. "Are the tools right" and "is the extension connected" fail identically
-from the console, and this separates them.
+Worth having built first, and worth keeping. "Are the tools right" and "is the extension connected"
+fail identically from the console, and this separates them — every bug in §3 was found through this
+surface, not through a host.
 
 ---
 
-## 3. Two bugs this found, both pre-existing
+## 3. Six things this got wrong, and what each one teaches
+
+Two were pre-existing bugs in the harvest; four were mistakes in this layer's own design. They are
+written up in full because **every one of them was a silent wrong answer rather than a crash** — the
+tools returned well-formed, confident, incorrect results, and the automated checks passed
+throughout.
+
+**All six were found by a person running tool calls by hand.** That is the load-bearing fact for
+whoever picks this up: assertions that outputs are well-formed cannot tell you an answer is wrong.
+Drive the tools manually after any change here, and be suspicious of a confident result you did not
+ask a question you already knew the answer to.
 
 ### The harvest dropped slides after any navigation
 
@@ -343,22 +368,94 @@ Dev server `:3000`, Chrome CDP `:9222`. Every tool is scriptable through `deckMc
 | `?exportMode=true` / `?printMode=true`                         | `window.deckMcp` undefined                                                                                                       |
 
 **Fingerprint the live DOM, not the harvest.** A harvest-based fingerprint is identical before and
-after an edit — because the fibers never change — so it proves nothing about reset. That mistake
-hid a broken reset through two rounds of "verification".
+after an edit — because the fibers never change — so it proves nothing about reset. That mistake hid
+a broken reset through two rounds of "verification".
+
+### The `locate()` fixtures
+
+Twenty-four phrases with expected ids, run against the live deck in one pass. Reproduced here
+because they encode decisions that are not obvious from the code, and rebuilding them from scratch
+would lose the reasons. Slide 9 is the nested-list slide; slide 6 is the one with three mentions of
+"browser".
+
+| phrase                                                                        | slide | expects                 | why it is in the list                                            |
+| ----------------------------------------------------------------------------- | ----- | ----------------------- | ---------------------------------------------------------------- |
+| `One API` / `document.modelContext` / `registers tools` / `browser extension` | 9     | `9.3` `9.3` `9.2` `9.6` | content matching, both directions                                |
+| `the second bullet` / `bullet 2` / `the third bullet`                         | 9     | `9.3` `9.3` `9.4`       | ordinals, worded and numeric                                     |
+| **`the fourth bullet`**                                                       | 9     | **`9.8`**               | **the depth test.** A flat count makes this the first sub-bullet |
+| `the last bullet`                                                             | 9     | `9.8`                   | relative ordinal                                                 |
+| `the first` / `second` / `last sub-bullet`                                    | 9     | `9.5` `9.6` `9.7`       | sub-bullets counted within their own list                        |
+| `the heading` / `the title`                                                   | 9     | `9.1`                   | bare role, single instance, via the alias table                  |
+| `the fifth bullet`                                                            | 9     | none                    | overshoot is a specific wrong belief, not an ambiguity           |
+| `TODO: session + when`                                                        | 7     | ambiguous ×3            | genuine repeated content                                         |
+| `the bullet`                                                                  | 9     | ambiguous ×4            | role with no position                                            |
+| `completely absent phrase xyzzy`                                              | 9     | none                    | miss returns the roster                                          |
+| **`browser`**                                                                 | 6     | **ambiguous ×3**        | **must not collapse to the shortest**                            |
+| `Part B · The agent-ready browser`                                            | 6     | `6.6`                   | exact match wins over siblings sharing the word                  |
+| `A full agent workflow runs in a browser tab`                                 | 6     | `6.9`                   | same, on a longer node                                           |
+| `transformers.js` / `Chrome Prompt API` / `the second matrix row`             | 21    | `21.4` `21.2` `21.4`    | matrix cells, content and ordinal                                |
 
 Then `npm run format`.
 
 ---
 
-## 6. Next
+## 6. Where this stands, and what is next
 
-**`chat/agent/prompt.js` is now partly wrong.** It says "You have no access to the slides, the web,
-or any tools". Still true of the in-page chat model, which is not wired here — but no longer true of
-the _page_. Worth a sentence so the two do not silently disagree.
+Everything in §§1–5 is built, measured and committed. The tool layer works end to end against
+`window.deckMcp`; it has **not** been exercised against a real host, because none was connected
+during the session that built it. That is the first thing to find out, and the likeliest place for a
+surprise:
 
-**A demo option, not taken:** the code panes on slides 10–12 show an invented `search_documents`
+- **`outputSchema` / `structuredContent` are unproven over a real bridge.** Both are standard MCP
+  fields and the registration call accepts them, but whether a given host forwards them is untested.
+  If a host rejects the registration outright, drop `outputSchema` first — the prose in the text
+  block still carries every id, so nothing becomes unusable.
+- **`registerTool` is called once per tool at mount**, and there is no unregister. If tools need to
+  change at runtime, that is new ground.
+
+### If you are doing WebMCP UI work
+
+The state a UI would want to show is already published and already free of React:
+
+| want                         | read from                                                                                                         |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| where the deck is, live      | `chat/bus.js` `getSnapshot()` / `subscribe()`, or `useDeck()` in React                                            |
+| what is on the current slide | `views.js` `position()` and `slideView(n)` — or `deckMcp.call("get_current_slide")` for the same thing with ids   |
+| whether editing is unlocked  | `deckMcp.editing`, or the `?mcp` check in `chat/mcp/index.js`                                                     |
+| what has been changed so far | `chat/edit/patches.js` `summary()` — `{ count, canUndo, canRedo, labels, stale }` — and `subscribe()` for changes |
+
+`patches.js` already has a `subscribe()` that fires on every apply, undo and reset, and nothing
+consumes it. That is the seam an edit-history panel or an "N changes · undo · reset" affordance
+hangs off, and it exists precisely so a UI does not have to poll.
+
+Two constraints a UI must respect, both learned the hard way and written up in
+[chat-handoff.md](chat-handoff.md):
+
+1. **Mount outside the deck's React root.** `chat/index.js` explains why at length — slides are
+   portaled into a `transform: scale()` box with `overflow: hidden`, `TemplateWrapper` is
+   `pointer-events: none`, and presenter/overview mode remounts the entire View subtree. A panel
+   mounted inside loses its state to a stray `mod+shift+P`.
+2. **Respect the paged guard.** `paged-mode` / `print-mode` on `<html>` means no viewport and no
+   business carrying an overlay; a `position: fixed` panel already cost this deck a phantom page
+   once.
+
+### Still open
+
+**`chat/agent/prompt.js` is now partly wrong.** It tells the in-page model "You have no access to the
+slides, the web, or any tools". Still true of that model — it is not wired to any of this — but no
+longer true of the _page_. One sentence, so the two do not silently disagree.
+
+**The demo option not taken:** the code panes on slides 10–12 show an invented `search_documents`
 tool. They could show the deck's _actual_ registered tools, making the code on screen the code
-running the deck. That edits talk content, so it is the author's call.
+running the deck. That edits talk content, so it is the author's call rather than a refactor.
 
 **Deferred, unchanged:** items 4–7 in [deck-context-handoff.md](deck-context-handoff.md) §9. Item 4
-(step awareness) is the one with a live trigger now that an agent can drive the deck.
+(step awareness — the roster lists four bullets while the audience sees two) now has a live trigger,
+because an agent can drive the deck through steps and read a slide that disagrees with the screen.
+
+**The bigger arc is unchanged too:** wiring the on-device model through the `remember` seam
+([chat-handoff.md](chat-handoff.md) §6). The whole point of building this layer first was to
+exercise addressing, resolution and mutation with something deterministic, so that when the 2B model
+arrives the only new variable is the model. That worked — six bugs surfaced here that would
+otherwise have surfaced with a model in the loop, where telling "the model got it wrong" from "the
+tools got it wrong" is much harder.

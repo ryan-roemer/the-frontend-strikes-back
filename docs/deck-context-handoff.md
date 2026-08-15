@@ -553,8 +553,9 @@ and `pretty` will fail on it rather than on your change.
 
 ## 9. If you only do one thing
 
-§5 is settled and the extraction is built. What is left is the two halves of actually using it, and
-they are not symmetrical.
+§5 is settled, the extraction is built, and it is now **consumed** — by WebMCP tools rather than by
+the model ([webmcp-handoff.md](webmcp-handoff.md)). The one thing still not done is the model half,
+below.
 
 **Deferred deliberately, and none of it is blocking:**
 
@@ -572,33 +573,38 @@ usable answers to 2-of-5, and `remember` exists precisely to send context withou
 the transcript. `chat/agent/providers/litert.js` has the note where it was removed;
 `chat/agent/providers/chrome.js` has no equivalent and will need one.
 
-### Then: navigation, end to end, before anything touches content
+### Navigation and mutation: both built, via WebMCP rather than the model
 
-The two command families in §4 look symmetrical and are not.
+This section used to say "build navigation end to end before anything touches content", on the
+reasoning that it is the whole pipeline — parse a request, resolve it against a view, act on the
+deck, report back — with none of the risk. **That advice was taken, and then generalised**: rather
+than driving it with the on-device model, the whole surface went out as WebMCP tools
+([webmcp-handoff.md](webmcp-handoff.md)), so the pipeline is exercised by whatever agent connects
+while our side stays deterministic.
 
-|               | deck-wide, e.g. "go to slide 10"       | content, e.g. "replace the heading"    |
-| ------------- | -------------------------------------- | -------------------------------------- |
-| context       | position, ~15 tok — built and measured | active slide, ~65 tok — built          |
-| action        | `nav.skipTo`, already published        | DOM mutation, nothing built            |
-| if it's wrong | you are on slide 9. Press a key.       | the deck is silently altered, mid-talk |
+Both halves now exist. `chat/nav.js` moves the deck; `chat/edit/` writes to it behind `?mcp`. The
+asymmetry that motivated doing navigation first still holds and is now enforced in code — reads and
+navigation are always available, editing is opt-in, and an impossible slide number clamps for
+navigation but is refused for reads.
 
-Navigation is the whole pipeline — parse a request, resolve it against a view, act on the deck,
-report back — with none of the risk, because it never writes to the DOM. It is also nearly free:
-`chat/bridge.js` already publishes `nav`, and `chat/bus.js` already exposes `getSnapshot()`.
+Two things were recovered from `git show ef4c47f^:chat/deck-adapter.js` rather than rewritten, and
+both are in `chat/nav.js` now:
 
-Build that first. It proves the loop, exercises the view-selection rule, and tells you how well a 2B
-model handles even trivial resolution before you find out with an edit that cannot be undone.
+- **Spectacle's relative-navigation functions return `undefined`, not a boolean.**
+  `!!deckNav.advanceSlide()` was always false, so every working "next slide" reported "I couldn't
+  move the deck."
+- **`skipTo` needs BOTH indices.** It merges into the pending view, so omitting `stepIndex` carries
+  the previous slide's step onto the new slide. It also does no bounds checking — an out-of-range
+  index leaves the deck pointing at no slide, which self-cancels and looks like the command was
+  ignored.
 
-Two things to recover rather than rewrite, both in `git show ef4c47f^:chat/deck-adapter.js`:
+A third thing had to be added that the old adapter could not do: it gave up on detecting whether a
+move landed, because the state update is asynchronous and comparing indices reads the old value.
+`chat/nav.js` subscribes to the bus and waits for the publish instead, so a receipt reports where
+the deck **actually** is — and `go_to_slide` followed immediately by `get_current_slide` sees the new
+slide rather than the old one.
 
-- **Spectacle's relative-navigation functions return `undefined`, not a boolean.** `!!deckNav.advanceSlide()`
-  was always false, so every working "next slide" reported "I couldn't move the deck." Report success;
-  Spectacle clamps at both ends, so a call at the last slide is a no-op rather than a failure, and the
-  move lands via a React state update so comparing indices before and after reads the old value.
-- **`skipTo` needs BOTH indices.** It merges into the pending view, so omitting `stepIndex` carries the
-  previous slide's step onto the new slide. It also does no bounds checking — an out-of-range index
-  leaves the deck pointing at no slide, which self-cancels and looks like the command was ignored.
-
-There is also a `BroadcastChannel("spectacle_presenter_bus")` `{type:"SYNC"}` fallback in that file for
-when the bridge is unmounted. Note that it did **not** work when tried from the same tab in this
-session's presenter-mode testing — `?slideIndex=N` on load did. Verify before relying on it.
+There is also a `BroadcastChannel("spectacle_presenter_bus")` `{type:"SYNC"}` fallback in that
+deleted file for when the bridge is unmounted. It was **not** reinstated: it did not work when tried
+from the same tab in presenter-mode testing, while `?slideIndex=N` on load did. Verify before
+relying on it.

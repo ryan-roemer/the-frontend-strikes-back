@@ -162,5 +162,5 @@ Edits are live-only — they change the running deck, not the source — and `re
 everything back. `window.deckMcp` works with no extension connected, which is the easiest way to
 try any of it.
 
-Details, and the two pre-existing bugs this turned up, are in
+Details, and the six things this turned up along the way, are in
 [docs/webmcp-handoff.md](docs/webmcp-handoff.md).
