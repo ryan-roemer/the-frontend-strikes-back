@@ -25,18 +25,40 @@ import { describeNode, position } from "../harvest/views.js";
 /** `9.3` -- a slide number, a dot, an ordinal. Anything else is a phrase. */
 const ID = /^\d{1,2}\.\d{1,3}$/;
 
-/** An MCP error result, with the candidates when there are any. */
+/**
+ * An MCP error result, with the candidates when there are any.
+ *
+ * CANDIDATES GO IN `structuredContent` TOO. They are the entire reason for
+ * refusing rather than guessing, so a caller that has to recover them by parsing
+ * `"6.9 — takeaway: ..."` out of prose is back to a brittle regex at exactly the
+ * moment precision matters. The prose stays for whatever reads content blocks.
+ */
 const refuse = (text, nodes = []) => ({
   ok: false,
   result: {
     isError: true,
     content: [
-      { type: "text", text },
-      ...nodes.map((node) => ({
+      {
         type: "text",
-        text: `${node.id} — ${node.role}: ${node.text}`,
-      })),
+        text: [
+          text,
+          ...nodes.map((n) => `${n.id} — ${n.role}: ${n.text}`),
+        ].join("\n"),
+      },
     ],
+    structuredContent: {
+      candidates: nodes.map(
+        ({ id, slide, ordinal, role, roleOrdinal, depth, text: value }) => ({
+          id,
+          slide,
+          ordinal,
+          role,
+          roleOrdinal,
+          depth,
+          text: value,
+        }),
+      ),
+    },
   },
 });
 

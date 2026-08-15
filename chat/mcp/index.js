@@ -111,6 +111,11 @@ export const installTools = () => {
       if (!tool) throw new Error(`no such tool: ${name}`);
       return guard(tool)(args);
     },
+    // The declared shape of a tool's `structuredContent`. Exposed so the
+    // contract can be CHECKED against what the tool actually returns -- a value
+    // the code emits and the schema does not list is a result a strict host is
+    // entitled to reject, and that drift is invisible from either side alone.
+    schema: (name) => tools.find((t) => t.name === name)?.outputSchema ?? null,
     editing: editingEnabled(),
     host: !!getModelContext(),
   };

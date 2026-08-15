@@ -14,10 +14,16 @@
  * the fallback.
  *
  * IT NEVER PICKS AMONG EQUALS. Two nodes matching means `match: "ambiguous"` and
- * both candidates, for the caller to ask about. Slide 7 carries "TODO: session +
- * when" three times and slide 31 carries "TODO" three times, so this is not a
- * hypothetical -- something has to happen there, and choosing the first is the
- * one option that cannot be recovered from.
+ * both candidates, for the CALLER to decide about. Slide 7 carries "TODO:
+ * session + when" three times and slide 31 carries "TODO" three times, so this
+ * is not a hypothetical -- something has to happen there, and choosing the first
+ * is the one option that cannot be recovered from.
+ *
+ * Deciding is deliberately left upward, because the right answer differs by
+ * caller: a tool that EDITS a node must refuse, since acting on the wrong one of
+ * three is unrecoverable, while a tool that merely reports can hand back all
+ * three and be finished. This file's job is to be honest about what matched, not
+ * to decide whose problem that is.
  *
  * IN JS, NOT IN THE MODEL, for the same reason `views.js` chooses the view in JS:
  * a deterministic rule cannot hallucinate, and neither provider offers
@@ -127,11 +133,30 @@ const byText = (nodes, phrase) => {
   });
   if (hits.length < 2) return hits;
 
-  const shortest = Math.min(...hits.map((n) => n.text.length));
-  const best = hits.filter((n) => n.text.length === shortest);
-  // Only collapse to the shortest when it is UNIQUELY shortest. Two nodes of
-  // equal length matching the same phrase is real ambiguity, not a tie to break.
-  return best.length === 1 ? best : hits;
+  // AN EXACT MATCH OUTRANKS A CONTAINING ONE. Nothing else does.
+  //
+  // This used to collapse to the SHORTEST hit whenever that was uniquely
+  // shortest, on the reasoning that a short node matching a short phrase is more
+  // specific than a paragraph that merely quotes it. That reasoning holds for the
+  // case it was written for and fails everywhere else, because length is not
+  // relevance -- it is a proxy that happens to correlate sometimes.
+  //
+  // Measured on slide 6, searching "browser". Three nodes match:
+  //
+  //   6.6  Part B · The agent-ready browser              (32)   <- returned
+  //   6.7  Vector search in the browser works really well (46)
+  //   6.9  A full agent workflow runs in a browser tab    (43)
+  //
+  // It returned 6.6 alone, as `match: "text"` -- the tier this file describes as
+  // "the strongest answer, because it could not have been confidently wrong" --
+  // for no better reason than 32 < 43. Two real candidates were discarded
+  // silently, which is the exact behaviour the header promises never happens.
+  //
+  // Equality is a genuine discriminator rather than a proxy: a node whose whole
+  // text IS the phrase is what the phrase names. Anything short of that, with
+  // more than one hit, is ambiguity and gets reported as such.
+  const exact = hits.filter((node) => clean(node.text) === needle);
+  return exact.length === 1 ? exact : hits;
 };
 
 /**
@@ -203,7 +228,11 @@ const byOrdinal = (nodes, words) => {
  *              answer, because it could not have been confidently wrong
  *   ordinal    role plus a position, counted per depth
  *   role       the phrase named a role the slide has exactly one of
- *   ambiguous  several candidates, all in `nodes`. ASK -- do not pick
+ *   ambiguous  several candidates, all in `nodes`. NEVER pick one here -- but
+ *              what "ambiguous" should MEAN is the caller's to decide. A caller
+ *              that acts on a node has to refuse; a caller that reports one can
+ *              simply report all of them, because finding several things is a
+ *              successful find
  *   none       nothing matched. `nodes` holds the slide's roster so a caller can
  *              offer it rather than saying "no"
  */

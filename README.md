@@ -143,9 +143,20 @@ await deckMcp.call("go_to_slide", { slide: 21 });
 ```
 
 Reading and navigating are always registered; **editing only appears with `?mcp`**, so an agent
-connected during the actual talk can follow along and move the deck but cannot alter a slide. Every
-tool that names a node takes either an id (`9.3`) or a description ("the second bullet"), and a
-description matching more than one thing is refused with the candidates rather than guessed at.
+connected during the actual talk can follow along and move the deck but cannot alter a slide.
+
+Every tool that names a node takes either an id (`9.3`) or a description ("the second bullet"). When
+a description fits more than one thing, reading returns all of them and writing refuses with the
+candidates — finding three things is a successful find, but changing one of three is a coin toss.
+
+Results come back twice over: prose for whatever reads them, and `structuredContent` for whatever
+chains them, so one tool's output feeds the next with no string parsing.
+
+```js
+const { matches } = (await deckMcp.call("find_node", { phrase: "browser" }))
+  .structuredContent;
+await deckMcp.call("edit_node", { target: matches[1].id, text: "…" });
+```
 
 Edits are live-only — they change the running deck, not the source — and `reset_edits` puts
 everything back. `window.deckMcp` works with no extension connected, which is the easiest way to

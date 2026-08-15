@@ -272,12 +272,27 @@ An ordered cascade, self-verifying tiers first:
 | **text**      | "the WebMCP one", "One API"     | The only tier that **cannot be confidently wrong** — the substring is in exactly one node or it is not. So it is first   |
 | **ordinal**   | "the second bullet", "bullet 2" | Not self-verifying: there is _always_ a second bullet, so a mistake about the numbering returns a plausible wrong answer |
 | **role**      | "the heading"                   | Only when the slide has exactly one                                                                                      |
-| **ambiguous** | "TODO" on slide 31              | Several candidates, all returned. **Ask** — do not pick                                                                  |
+| **ambiguous** | "TODO" on slide 31              | Several candidates, all returned. **Never pick one here** — what to do about it belongs to the caller (see below)        |
 | **none**      | "the fifth bullet" of four      | A specific wrong belief. Returning four candidates would imply one of them is the fifth                                  |
 
 Matching runs both directions — the phrase may quote a fragment of a long bullet, or be the whole
-node text pasted back with one word changed — and among nested hits the shortest node wins, but only
-when it is _uniquely_ shortest. Two equal-length matches are real ambiguity, not a tie to break.
+node text pasted back with one word changed. When more than one node matches, **an exact match wins
+and nothing else does**: a node whose whole text IS the phrase is what the phrase names, and
+anything short of that is ambiguity.
+
+That rule replaced a "shortest hit wins" tie-break, which was wrong in a way worth remembering.
+Searching slide 6 for "browser" matched three nodes and returned one of them — as `match: "text"`,
+the tier described above as the one that _could not have been confidently wrong_ — because its text
+was 32 characters against 43 and 46. **Length is not relevance**; it is a proxy that happens to
+correlate sometimes, and a proxy is exactly what a tie-break must not be when the alternative is
+discarding real candidates in silence.
+
+**What "ambiguous" should mean is the caller's decision, not this file's.** `locate()` reports what
+matched and stops there, because the right answer differs by caller: a tool that EDITS a node has to
+refuse, since acting on the wrong one of three is unrecoverable, while a tool that merely REPORTS
+can hand back all three and be finished. Collapsing those two into one policy here is what made
+`find_node` return an error for a search that had succeeded — see
+[webmcp-handoff.md](webmcp-handoff.md).
 
 **Never picking among equals is the load-bearing rule**, and it is not hypothetical: slide 7 carries
 "TODO: session + when" three times and slide 31 carries "TODO" three times. Something has to happen

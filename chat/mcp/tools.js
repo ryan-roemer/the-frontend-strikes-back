@@ -22,6 +22,7 @@
  * React commits, so anything captured at install time is an empty deck.
  */
 import { harvestDeck, harvestSlide } from "../harvest/index.js";
+import { locate } from "../harvest/locate.js";
 import { provenanceOf } from "../harvest/provenance.js";
 import {
   outline,
@@ -42,14 +43,97 @@ import {
   resetEdits,
   undoEdit,
 } from "../edit/apply.js";
-import { withEdits } from "../edit/patches.js";
+import { summary, withEdits } from "../edit/patches.js";
 import { start as startWatchdog } from "../edit/watchdog.js";
 import { nav } from "../nav.js";
 import { echo, resolveTarget } from "./target.js";
 
+/**
+ * EVERY RESULT CARRIES BOTH A SENTENCE AND ITS DATA.
+ *
+ * A tool result has two readers with opposite needs. A model reads the text
+ * blocks and wants prose. Whatever chains one call into the next -- an agent's
+ * code, a side panel, a script -- needs the ids, and should not have to recover
+ * them with a regex from "6.9 — takeaway: A full agent workflow…".
+ *
+ * That was the shape until now, and it made the seam between two tools a parsing
+ * problem: `find_node` handed back three lines of prose and `edit_node` wanted an
+ * id. Every consumer would have written the same brittle extractor, and a
+ * mis-parse is silent -- it edits the wrong node rather than failing.
+ *
+ * So: `structuredContent` beside the text, and an `outputSchema` on the tool so a
+ * host knows the shape without guessing. Hosts that do not support it ignore the
+ * field and still get readable prose with the ids in it; hosts that do get data
+ * nobody has to parse.
+ *
+ * ONE text block, not one per line. Several blocks read as several messages, and
+ * a list is one message.
+ */
 const text = (s) => ({ type: "text", text: s });
-const ok = (...lines) => ({ content: lines.filter(Boolean).map(text) });
-const fail = (s) => ({ isError: true, content: [text(s)] });
+
+const ok = (lines, structured) => {
+  const said = (Array.isArray(lines) ? lines : [lines])
+    .filter(Boolean)
+    .join("\n");
+  const result = { content: [text(said)] };
+  if (structured) result.structuredContent = structured;
+  return result;
+};
+
+/**
+ * A refusal, which still carries its data.
+ *
+ * Candidates on an ambiguity are the whole point of refusing rather than
+ * guessing -- so they belong in `structuredContent` too, or the caller is back to
+ * parsing prose at precisely the moment it needs to be precise.
+ */
+const fail = (message, structured) => {
+  const result = { isError: true, content: [text(message)] };
+  if (structured) result.structuredContent = structured;
+  return result;
+};
+
+/** One node as data. Explicit fields, so the non-enumerable fiber cannot leak. */
+export const nodeData = (node) => ({
+  id: node.id,
+  slide: node.slide,
+  ordinal: node.ordinal,
+  role: node.role,
+  roleOrdinal: node.roleOrdinal,
+  depth: node.depth,
+  text: node.text,
+});
+
+/** The shape of a node, for every `outputSchema` that returns one. */
+const NODE_SCHEMA = {
+  type: "object",
+  properties: {
+    id: {
+      type: "string",
+      description:
+        "The address, e.g. '9.3'. Pass this to any tool taking a target.",
+    },
+    slide: { type: "integer" },
+    ordinal: {
+      type: "integer",
+      description: "Position among all addressable nodes on the slide.",
+    },
+    role: { type: "string", description: "title, bullet, takeaway, code, …" },
+    roleOrdinal: {
+      type: "integer",
+      description: "Position among same-role nodes at the same depth.",
+    },
+    depth: {
+      type: "integer",
+      description:
+        "List nesting. 0 outside a list, 1 a bullet, 2 a sub-bullet.",
+    },
+    text: { type: "string" },
+  },
+  required: ["id", "slide", "role", "text"],
+};
+
+const NODES_SCHEMA = { type: "array", items: NODE_SCHEMA };
 
 const NO_DECK =
   "The deck is not reachable right now — it may be in overview or presenter mode. Try again, or press Escape.";
@@ -97,6 +181,9 @@ const readSlide = (asked) => {
   return { ok: true, number: n };
 };
 
+/** One node, as a line a caller can read and act on. */
+const line = (node) => `${node.id} — ${node.role}: ${node.text}`;
+
 /** `slide`, as every read tool declares it. */
 const SLIDE_PARAM = {
   type: "integer",
@@ -113,6 +200,17 @@ export const READ_TOOLS = [
     description:
       "Read the slide currently on screen: its number, title, and every addressable piece of text on it with a short id (like 9.3), what kind of thing it is (title, bullet, sub-bullet, takeaway, code), and its wording. Use this first when asked to change, summarise, or describe 'this slide'. The ids it returns are what the editing tools take.",
     inputSchema: { type: "object", properties: {} },
+    outputSchema: {
+      type: "object",
+      properties: {
+        slide: { type: "integer" },
+        count: { type: "integer", description: "Slides in the deck." },
+        title: { type: ["string", "null"] },
+        chapter: { type: ["integer", "null"] },
+        nodes: NODES_SCHEMA,
+      },
+      required: ["slide", "count", "nodes"],
+    },
     execute: async () => {
       const at = position();
       if (!at.slide) return fail(NO_DECK);
@@ -124,9 +222,16 @@ export const READ_TOOLS = [
       // its own change. The harvest reads fibers and an edit writes the DOM, so
       // without this the slide reports its authored wording and the edit looks
       // like it did nothing.
+      const nodes = withEdits(slide.nodes);
       return ok(
-        `slide ${at.slide} of ${at.count}`,
-        slideText({ ...slide, nodes: withEdits(slide.nodes) }),
+        [`slide ${at.slide} of ${at.count}`, slideText({ ...slide, nodes })],
+        {
+          slide: at.slide,
+          count: at.count,
+          title: slide.title ?? null,
+          chapter: slide.chapter ?? null,
+          nodes: nodes.map(nodeData),
+        },
       );
     },
   },
@@ -135,12 +240,35 @@ export const READ_TOOLS = [
     description:
       "List every slide in the deck: number, title, chapter, and whether it carries a code example. Use this to find which slide covers a topic before navigating, or to answer questions about the deck's shape. It does not include slide body text — use search_deck for that.",
     inputSchema: { type: "object", properties: {} },
-    execute: async () => ok(outlineText(outline())),
+    outputSchema: {
+      type: "object",
+      properties: {
+        slides: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              number: { type: "integer" },
+              title: { type: ["string", "null"] },
+              chapter: { type: ["integer", "null"] },
+              kind: { type: "string" },
+              code: { type: "array", items: { type: "string" } },
+            },
+            required: ["number"],
+          },
+        },
+      },
+      required: ["slides"],
+    },
+    execute: async () => {
+      const slides = outline();
+      return ok(outlineText(slides), { slides });
+    },
   },
   {
     name: "find_node",
     description:
-      "Turn a description of something on a slide into the id that names it. Accepts either wording from the slide ('the WebMCP bullet', 'One API') or a position ('the second bullet', 'the heading', 'the last sub-bullet'). Returns one id when it is certain, and the list of candidates when the description fits more than one thing — in which case pick one and use its id. Defaults to the slide on screen.",
+      "Find what on a slide matches a description, and get the ids that name it. Accepts either wording from the slide ('the WebMCP bullet', 'One API') or a position ('the second bullet', 'the heading', 'the last sub-bullet'). Returns every match — one id when the description fits one thing, several when it fits several, and the slide's contents when it fits nothing. Use it to answer 'what on this slide mentions X' as well as to get an id before editing. Defaults to the slide on screen.",
     inputSchema: {
       type: "object",
       properties: {
@@ -153,13 +281,79 @@ export const READ_TOOLS = [
       },
       required: ["phrase"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        matches: NODES_SCHEMA,
+        slide: { type: "integer" },
+        matched: {
+          type: "string",
+          // Mirrors `locate()`'s own `match` values exactly. It must: a value
+          // the code can produce and the schema does not list is a result a
+          // strict host is entitled to reject, and "ambiguous" -- the whole
+          // multiple-matches case -- was missing from the first draft of this.
+          enum: ["text", "ordinal", "role", "ambiguous", "none"],
+          description:
+            "How it resolved. 'text' is strongest — the phrase is in the node's wording. 'ambiguous' means several matched equally; pick one by id.",
+        },
+      },
+      required: ["matches", "slide", "matched"],
+    },
+    // FINDING SEVERAL THINGS IS A SUCCESSFUL FIND, and this deliberately does
+    // NOT go through `resolveTarget` for that reason.
+    //
+    // Ambiguity is only dangerous for a tool that ACTS: `edit_node` given three
+    // candidates would change the wrong one, so it refuses. This one reports,
+    // and reporting three matches is the correct and complete answer rather than
+    // a failure. It used to return `isError` with the candidates attached, which
+    // told the host and the caller that a search had failed when it had
+    // succeeded -- and left "what on this slide mentions the browser?" with no
+    // expressible answer at all.
+    //
+    // `isError` here is reserved for what it means everywhere else: the request
+    // could not be carried out. A bad slide number qualifies; finding nothing
+    // does not, and comes back as an empty result with the slide's roster, which
+    // is the useful reply to a miss.
     execute: async ({ phrase, slide }) => {
       const where = readSlide(slide);
       if (!where.ok) return fail(where.message);
 
-      const found = resolveTarget(phrase, { slide: where.number });
-      if (!found.ok) return found.result;
-      return ok(found.node.id, echo(found.node.id));
+      const found = locate(phrase, { slide: where.number });
+
+      if (found.match === "none") {
+        const roster = found.nodes.slice(0, 12);
+        return ok(
+          [
+            found.note
+              ? `Nothing matches "${phrase}" — ${found.note}.`
+              : `Nothing on slide ${where.number} matches "${phrase}". What is there:`,
+            ...roster.map(line),
+          ],
+          // `matches` is empty and the roster rides alongside it, so a caller can
+          // tell "no result" from "here are twelve results" without counting.
+          {
+            matches: [],
+            slide: where.number,
+            matched: "none",
+            slideNodes: roster.map(nodeData),
+          },
+        );
+      }
+
+      const many = found.nodes.length > 1;
+      return ok(
+        many
+          ? [
+              `${found.nodes.length} matches for "${phrase}" on slide ${where.number} — use an id to act on one:`,
+              ...found.nodes.map(line),
+            ]
+          : [found.nodes[0].id, echo(found.nodes[0].id)],
+        {
+          matches: found.nodes.map(nodeData),
+          slide: where.number,
+          matched: found.match,
+        },
+      );
     },
   },
   {
@@ -177,6 +371,44 @@ export const READ_TOOLS = [
       },
       required: ["target"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        node: NODE_SCHEMA,
+        provenance: {
+          type: "object",
+          properties: {
+            match: {
+              type: "string",
+              enum: [
+                "data",
+                "exact",
+                "partial",
+                "ambiguous",
+                "file",
+                "too-short",
+                "not-found",
+                "unknown",
+              ],
+              description: "How confident the pointer is. Read this first.",
+            },
+            kind: { type: "string" },
+            pointer: {
+              type: ["string", "null"],
+              description: "An exact file and field, when there is one.",
+            },
+            search: {
+              type: ["string", "null"],
+              description: "What to grep for. Null when nothing will find it.",
+            },
+            file: { type: ["string", "null"] },
+            count: { type: ["integer", "null"] },
+          },
+          required: ["match", "kind"],
+        },
+      },
+      required: ["node", "provenance"],
+    },
     execute: async ({ target }) => {
       const found = resolveTarget(target);
       if (!found.ok) return found.result;
@@ -184,13 +416,16 @@ export const READ_TOOLS = [
       const { node } = found;
       const prov = await provenanceOf(node, harvestSlide(node.slide));
       return ok(
-        echo(node.id),
-        prov.pointer
-          ? `source: ${prov.pointer}`
-          : prov.search
-            ? `search index.html for: ${prov.search}`
-            : "composed at runtime — this exact string is not in the source",
-        `confidence: ${prov.match}${prov.count > 1 ? ` (${prov.count} matches)` : ""}`,
+        [
+          echo(node.id),
+          prov.pointer
+            ? `source: ${prov.pointer}`
+            : prov.search
+              ? `search index.html for: ${prov.search}`
+              : "composed at runtime — this exact string is not in the source",
+          `confidence: ${prov.match}${prov.count > 1 ? ` (${prov.count} matches)` : ""}`,
+        ],
+        { node: nodeData(node), provenance: prov },
       );
     },
   },
@@ -205,6 +440,19 @@ export const READ_TOOLS = [
       },
       required: ["query"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        matches: NODES_SCHEMA,
+        total: {
+          type: "integer",
+          description:
+            "Matches found. May exceed `matches.length` — see `truncated`.",
+        },
+        truncated: { type: "boolean" },
+      },
+      required: ["matches", "total", "truncated"],
+    },
     execute: async ({ query }) => {
       const needle = String(query ?? "")
         .trim()
@@ -215,13 +463,32 @@ export const READ_TOOLS = [
         .slides.flatMap((slide) => slide.nodes)
         .filter((node) => node.text.toLowerCase().includes(needle));
 
-      if (!hits.length) return ok(`Nothing in the deck matches "${query}".`);
+      if (!hits.length) {
+        return ok(`Nothing in the deck matches "${query}".`, {
+          matches: [],
+          total: 0,
+          truncated: false,
+        });
+      }
+
+      // CAPPED, AND IT SAYS SO. A silent cut reads as "that is all of them",
+      // which is the whole deck's worth of TODOs looking like forty.
+      const shown = hits.slice(0, 40);
       return ok(
-        `${hits.length} match${hits.length === 1 ? "" : "es"} for "${query}":`,
-        ...hits
-          .slice(0, 40)
-          .map((n) => `${n.id} (slide ${n.slide}, ${n.role}): ${n.text}`),
-        hits.length > 40 ? `…and ${hits.length - 40} more.` : null,
+        [
+          `${hits.length} match${hits.length === 1 ? "" : "es"} for "${query}":`,
+          ...shown.map(
+            (n) => `${n.id} (slide ${n.slide}, ${n.role}): ${n.text}`,
+          ),
+          hits.length > shown.length
+            ? `…and ${hits.length - shown.length} more.`
+            : null,
+        ],
+        {
+          matches: shown.map(nodeData),
+          total: hits.length,
+          truncated: hits.length > shown.length,
+        },
       );
     },
   },
@@ -235,18 +502,47 @@ export const READ_TOOLS = [
         slide: SLIDE_PARAM,
       },
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        slide: { type: "integer" },
+        notes: { type: ["string", "null"] },
+      },
+      required: ["slide", "notes"],
+    },
     execute: async ({ slide }) => {
       const where = readSlide(slide);
       if (!where.ok) return fail(where.message);
 
       const harvested = harvestSlide(where.number);
       if (!harvested) return fail(`There is no slide ${where.number}.`);
+
       return harvested.notes
-        ? ok(`Speaker notes, slide ${where.number}:`, harvested.notes)
-        : ok(`Slide ${where.number} has no speaker notes.`);
+        ? ok([`Speaker notes, slide ${where.number}:`, harvested.notes], {
+            slide: where.number,
+            notes: harvested.notes,
+          })
+        : ok(`Slide ${where.number} has no speaker notes.`, {
+            slide: where.number,
+            notes: null,
+          });
     },
   },
 ];
+
+/** What every navigation reports: where it went, measured after it landed. */
+const POSITION_SCHEMA = {
+  type: "object",
+  properties: {
+    slide: { type: "integer", description: "Where the deck is now, 1-based." },
+    from: { type: "integer", description: "Where it was before this call." },
+    count: { type: "integer" },
+    title: { type: ["string", "null"] },
+    moved: { type: "boolean", description: "False at either end of the deck." },
+    clamped: { type: "boolean" },
+  },
+  required: ["slide", "from", "count", "moved"],
+};
 
 // --- Navigate ----------------------------------------------------------------
 
@@ -276,6 +572,7 @@ export const NAV_TOOLS = [
         },
       },
     },
+    outputSchema: POSITION_SCHEMA,
     execute: async ({ slide, chapter }) => {
       let wanted = slide;
 
@@ -295,10 +592,20 @@ export const NAV_TOOLS = [
       // actually is now, which is the only number worth putting in a receipt.
       const slideAt = harvestSlide(move.to);
       return ok(
-        `Slide ${move.to} of ${nav.count()}${slideAt?.title ? ` — ${slideAt.title}` : ""}`,
-        move.clamped
-          ? `(${wanted} is out of range, so this is as far as it goes.)`
-          : null,
+        [
+          `Slide ${move.to} of ${nav.count()}${slideAt?.title ? ` — ${slideAt.title}` : ""}`,
+          move.clamped
+            ? `(${wanted} is out of range, so this is as far as it goes.)`
+            : null,
+        ],
+        {
+          slide: move.to,
+          from: move.from,
+          count: nav.count(),
+          title: slideAt?.title ?? null,
+          moved: move.moved,
+          clamped: move.clamped,
+        },
       );
     },
   },
@@ -317,6 +624,7 @@ export const NAV_TOOLS = [
       },
       required: ["where"],
     },
+    outputSchema: POSITION_SCHEMA,
     execute: async ({ where }) => {
       const move = MOVES[where];
       if (!move) return fail(`Can't move "${where}".`);
@@ -324,20 +632,31 @@ export const NAV_TOOLS = [
       const result = await move.fn();
       if (!result) return fail(NO_DECK);
 
+      const slideAt = harvestSlide(result.to);
+      const at = {
+        slide: result.to,
+        from: result.from,
+        count: nav.count(),
+        title: slideAt?.title ?? null,
+        moved: result.moved,
+        clamped: false,
+      };
+
       // A no-op at either end is a real answer, not a failure: Spectacle clamps,
       // so "next" on slide 35 legitimately does nothing and saying so is more
       // use to the caller than either "done" or "couldn't".
       if (!result.moved) {
         return ok(
           `Already at the end of the deck that way — still on slide ${result.to} of ${nav.count()}.`,
+          at,
         );
       }
 
-      const slideAt = harvestSlide(result.to);
       return ok(
         `Moved ${move.says}: slide ${result.from} → ${result.to} of ${nav.count()}${
           slideAt?.title ? ` — ${slideAt.title}` : ""
         }`,
+        at,
       );
     },
   },
@@ -361,7 +680,36 @@ const mutate = (target, run) => {
 
   const result = run(found.node);
   if (!result.ok) return fail(result.message);
-  return ok(result.label, result.note);
+
+  // The node it landed on, so a caller can chain another change to the same
+  // thing without re-resolving the phrase -- and so "which one did it pick?" has
+  // an answer that is not in prose.
+  return ok([result.label, result.note], {
+    applied: true,
+    node: nodeData(found.node),
+    edits: summary(),
+  });
+};
+
+/** What every editing tool reports. */
+const EDIT_SCHEMA = {
+  type: "object",
+  properties: {
+    applied: { type: "boolean" },
+    node: NODE_SCHEMA,
+    edits: {
+      type: "object",
+      description: "The edit log after this change.",
+      properties: {
+        count: { type: "integer" },
+        canUndo: { type: "boolean" },
+        canRedo: { type: "boolean" },
+        labels: { type: "array", items: { type: "string" } },
+        stale: { type: "array", items: { type: "string" } },
+      },
+    },
+  },
+  required: ["applied"],
 };
 
 /**
@@ -400,6 +748,7 @@ const EDIT_TOOLS = [
       },
       required: ["target", "text"],
     },
+    outputSchema: EDIT_SCHEMA,
     execute: async ({ target, text: value }) =>
       mutate(target, (node) => setText(node.id, value)),
   },
@@ -428,6 +777,7 @@ const EDIT_TOOLS = [
       },
       required: ["target", "property", "value"],
     },
+    outputSchema: EDIT_SCHEMA,
     execute: async ({ target, property, value }) =>
       mutate(target, (node) => setStyle(node.id, property, value)),
   },
@@ -451,6 +801,7 @@ const EDIT_TOOLS = [
       },
       required: ["target", "class_name", "on"],
     },
+    outputSchema: EDIT_SCHEMA,
     execute: async ({ target, class_name, on }) =>
       mutate(target, (node) => toggleClass(node.id, class_name, on)),
   },
@@ -479,11 +830,17 @@ const EDIT_TOOLS = [
       },
       required: ["name", "value", "scope"],
     },
+    outputSchema: EDIT_SCHEMA,
     execute: async ({ name, value, scope }) => {
       const at = position();
       const chapter = at.slide ? harvestSlide(at.slide)?.chapter : null;
       const result = setVariable(name, value, scope, chapter);
-      return result.ok ? ok(result.label, result.note) : fail(result.message);
+      return result.ok
+        ? ok([result.label, result.note], {
+            applied: true,
+            edits: summary(),
+          })
+        : fail(result.message);
     },
   },
   {
@@ -491,9 +848,12 @@ const EDIT_TOOLS = [
     description:
       "Undo the most recent change to the deck, one at a time. Only undoes edits — navigation is not an edit, so this never moves the deck.",
     inputSchema: { type: "object", properties: {} },
+    outputSchema: EDIT_SCHEMA,
     execute: async () => {
       const result = undoEdit();
-      return result.ok ? ok(result.label) : fail(result.message);
+      return result.ok
+        ? ok(result.label, { applied: true, edits: summary() })
+        : fail(result.message, { applied: false, edits: summary() });
     },
   },
   {
@@ -501,6 +861,8 @@ const EDIT_TOOLS = [
     description:
       "Undo every change at once and return the deck to exactly how it shipped. Use this to clean up after experimenting.",
     inputSchema: { type: "object", properties: {} },
-    execute: async () => ok(resetEdits().label),
+    outputSchema: EDIT_SCHEMA,
+    execute: async () =>
+      ok(resetEdits().label, { applied: true, edits: summary() }),
   },
 ];
