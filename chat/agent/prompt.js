@@ -97,6 +97,7 @@ const CAPABILITIES = [
   "",
   "You can see the deck's outline and argument below, and the full text of any slide you have been shown in this conversation.",
   "A slide's text is given in full, including any part that animates in later, so answer about all of it rather than guessing at what is on screen right now.",
+  "When a slide holds a code sample, its complete source is given in a fenced block and is the real file from this project, so quote and explain it directly.",
   "You cannot see the full text of other slides, the speaker notes, the web, or any tools.",
   "If a question needs a slide you have not been shown, say which slide number to go to rather than guessing at its contents.",
 ];

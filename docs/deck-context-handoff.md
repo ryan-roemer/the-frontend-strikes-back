@@ -346,6 +346,23 @@ Three of the six target commands are pure navigation and need **no slide content
 number and a count answer them. The outline, which the old default paid 350 tokens for on every
 turn, is read by exactly one family: naming a slide by topic instead of by number.
 
+> **`slide` now carries code-pane source, so the rows for slides 10–12 grew.** "go to slide 10" is
+> 166 ch → **764 ch**; every other row is unchanged, because only three slides in the deck have a
+> code pane. A `CodePane` node's text is its FILENAME, so a slide whose whole content is a sample
+> used to serialise to `code: register-tool.js` and nothing else — the assistant, asked to explain
+> the code, answered _"I cannot see the actual code within register-tool.js"_, which is honest and
+> useless on the three slides Part A is built from.
+>
+> `slideText`'s `code` option defaults **on**, unlike `ids`, and the asymmetry is deliberate: an id
+> is addressing metadata only a caller that can act on it wants, whereas the source is the slide's
+> _content_, and a view of slide 10 without it is not a smaller view, it is a wrong one.
+>
+> The cost of being wrong about that was ~450 tokens for **every code sample in the deck** (1,815
+> chars across three files), so there was never a budget argument. What it does cost is this table:
+> a pure navigation command routed to `position + slide` now pays for source it will not read.
+> Separating "go to slide 10" from "summarize slide 10" needs a seventh cascade rule for ~190
+> tokens, which is not worth it — pass `code: false` there if it ever is.
+
 **Volatility decides placement.** The system prompt is fixed when the session is created —
 `model-state.js` calls `systemPromptFn()` inside `provider.acquire()` — so the two volatile views
 cannot go there without rebuilding the session on every navigation, which on Chrome is a full

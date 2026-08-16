@@ -201,25 +201,72 @@ const labelOf = (node, totals) => {
  * true and nothing else moves. Same reasoning `provenance` is kept out of model
  * context in `deck-context-handoff.md` §5.
  */
-const nodeLines = (nodes, { ids = true } = {}) => {
-  const totals = nameCounts(nodes);
-  return nodes.map((node) => {
-    const indent = "  ".repeat(Math.max(0, node.depth - 1));
-    const label = `${indent}${labelOf(node, totals)}: ${node.text}`;
-    return ids ? `${node.id} ${label}` : label;
-  });
+const nodeLine = (node, totals, { ids }) => {
+  const indent = "  ".repeat(Math.max(0, node.depth - 1));
+  const label = `${indent}${labelOf(node, totals)}: ${node.text}`;
+  return ids ? `${node.id} ${label}` : label;
 };
 
-const slideText = (slide, { ids = true } = {}) =>
-  slide
-    ? tagged(
-        "slide",
-        nodeLines(slide.nodes, { ids }),
-        ` n="${slide.number}"${slide.chapter ? ` chapter="${slide.chapter}"` : ""}${
-          slide.title ? ` title="${slide.title.replace(/"/g, "'")}"` : ""
-        }`,
-      )
-    : "";
+const nodeLines = (nodes, { ids = true } = {}) => {
+  const totals = nameCounts(nodes);
+  return nodes.map((node) => nodeLine(node, totals, { ids }));
+};
+
+/**
+ * A code pane's actual source, fenced.
+ *
+ * A `CodePane` node's TEXT IS ITS FILENAME -- `code: register-tool.js` -- because
+ * that is what `roleOf` can see on the fiber. Which meant a slide whose entire
+ * content is a code sample serialised to two lines, and the assistant, asked to
+ * explain the code, correctly and uselessly answered "I cannot see the actual
+ * code within register-tool.js. I can only see the slide title and the file name."
+ * On a talk whose first chapter is three slides of WebMCP registration code, that
+ * is the single worst place to be blind.
+ *
+ * The source is right there on `slide.code[]` and always has been; nothing was
+ * reading it. Whole deck: three slides, 1,815 characters, ~450 tokens for ALL of
+ * it, so there is no budget argument for leaving it out -- one code slide's block
+ * goes from ~40 characters to ~620, still under 160 tokens.
+ *
+ * Matched by FILE NAME rather than by position, because the node's text is
+ * exactly the key `render()` builds its line from (`file ?? language`), and
+ * matching on order would silently pair the wrong source on any slide that ever
+ * grows a second pane.
+ */
+const codeFence = (slide, node) => {
+  const entry = (slide.code ?? []).find(
+    (c) => (c.file ?? c.language) === node.text,
+  );
+  if (!entry?.source) return [];
+  return ["```" + (entry.language ?? ""), entry.source, "```"];
+};
+
+/**
+ * `code` defaults ON, unlike `ids`.
+ *
+ * The two flags look symmetrical and are not. An id is addressing metadata that
+ * only a caller able to act on it wants; the source of a code pane is the slide's
+ * CONTENT, and a view of slide 10 without it is not a smaller view of slide 10,
+ * it is a wrong one. So the only caller who should turn this off is one that has
+ * measured that it cannot afford it, and none currently do.
+ */
+const slideText = (slide, { ids = true, code = true } = {}) => {
+  if (!slide) return "";
+  const totals = nameCounts(slide.nodes);
+  const lines = slide.nodes.flatMap((node) => {
+    const line = nodeLine(node, totals, { ids });
+    return code && node.role === "code"
+      ? [line, ...codeFence(slide, node)]
+      : [line];
+  });
+  return tagged(
+    "slide",
+    lines,
+    ` n="${slide.number}"${slide.chapter ? ` chapter="${slide.chapter}"` : ""}${
+      slide.title ? ` title="${slide.title.replace(/"/g, "'")}"` : ""
+    }`,
+  );
+};
 
 const indexText = (nodes) => tagged("deck-nodes", nodeLines(nodes));
 

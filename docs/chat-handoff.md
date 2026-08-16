@@ -390,17 +390,21 @@ WebMCP one keeps it: an agent has to advance steps, the chat cannot, and telling
 
 ### Measured, Gemma, 2026-08-16
 
-| Check                                    | Result                                                        |
-| ---------------------------------------- | ------------------------------------------------------------- |
-| System prompt                            | 2,965 chars ≈ **~740 tok**                                    |
-| One slide block                          | 245–575 chars                                                 |
-| Context after 5 turns / 2 pinned slides  | **1,407–1,470 tok, ~18% of 8,192**                            |
-| Turn latency, warm                       | 0.3–1.4s (was ~0.9–1.2s with no context)                      |
-| Slide → summary, slide → comparison      | correct, grounded in the pinned block                         |
-| "which slide covers vector search?"      | "Slide 15" — correct, from the outline, no navigation         |
-| Number → title, on a **fresh** chat      | **4 / 4 correct** (30, 12, 22, 35)                            |
-| Number → title, at turn 5 of a full chat | **wrong** — gave slide 32's title for slide 30, right chapter |
-| Chrome, same three turns                 | identical behaviour; 1,089 → 1,497 tok                        |
+| Check                                      | Result                                                        |
+| ------------------------------------------ | ------------------------------------------------------------- |
+| System prompt                              | 2,965 chars ≈ **~740 tok**                                    |
+| One slide block                            | 245–575 chars; **705 with a code pane**                       |
+| All code in the deck                       | 3 slides, 1,815 chars ≈ **~450 tok**                          |
+| Context after 5 turns / 2 pinned slides    | **1,407–1,470 tok, ~18% of 8,192**                            |
+| Same, where both pinned slides hold code   | 1,345 tok — code is close to free at this scale               |
+| Turn latency, warm                         | 0.3–1.4s (was ~0.9–1.2s with no context)                      |
+| Slide → summary, slide → comparison        | correct, grounded in the pinned block                         |
+| "which slide covers vector search?"        | "Slide 15" — correct, from the outline, no navigation         |
+| Number → title, on a **fresh** chat        | **4 / 4 correct** (30, 12, 22, 35)                            |
+| Number → title, at turn 5 of a full chat   | **wrong** — gave slide 32's title for slide 30, right chapter |
+| "What does `sortBy` allow?" on slide 10    | the real enum — `relevance`, `newest`, `oldest`               |
+| Slide 11 asked as "how is this different?" | contrasts declarative HTML attrs against `registerTool`       |
+| Chrome, same three turns                   | identical behaviour; 1,089 → 1,497 tok                        |
 
 That second-to-last row is the honest limit and it is worth knowing before a demo: **outline recall
 degrades as the conversation fills.** A cold question about any slide number is reliable; the same
