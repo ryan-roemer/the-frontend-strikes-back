@@ -1,4 +1,5 @@
 /* global AbortController:false, DOMException:false, setTimeout:false, clearTimeout:false */
+import { nextContext } from "./deck-context.js";
 import {
   activeProvider,
   getSession,
@@ -149,16 +150,37 @@ export const streamAnswer = async ({ text, onChunk, signal, onPrompt }) => {
   const guard = withIdleTimeout(signal);
   let accumulated = "";
 
+  const { pin, note } = nextContext();
+
   try {
-    // The question, verbatim. There used to be an `answerTurn()` wrapper here that
-    // attached retrieved slide excerpts and a `remember` option so only the bare
-    // question entered the transcript -- excerpts that accumulated turn over turn
-    // degraded answers into "please provide the context" by the third question. With
-    // no retrieval, what is sent and what is remembered are the same string again.
+    // The question goes verbatim; deck context rides alongside it, never
+    // concatenated here.
+    //
+    // THE PLACEMENT BELONGS TO THE PROVIDER, which is the whole reason these are
+    // separate arguments. The two providers put `pin` in different structures --
+    // LiteRT in a region of the preface it rebuilds every turn, Chrome inline in
+    // the sent string because its session is durable and there is nowhere else --
+    // and neither placement is the caller's business. Folding either into `text`
+    // here would also put it in the transcript bubble, which renders `text`.
+    //
+    // READ AT SEND TIME, deliberately: a slide the presenter walked past without
+    // asking about never enters the model's context at all.
+    //
+    // There used to be an `answerTurn()` wrapper here attaching retrieved excerpts
+    // per turn, with a `remember` option so only the bare question was kept. Those
+    // excerpts accumulated and degraded answers into "please provide the context"
+    // by the third question. `deck-context.js` is the opposite bargain for `pin`:
+    // each slide is sent once and kept, rather than re-sent every turn and dropped.
+    //
     // `onPrompt` fires only from here down, which is deliberate: every refusal
     // above this line returned before the model was reached, so those turns have
     // no context to show and their bubbles get no button.
-    const stream = session.stream(text, { signal: guard.signal, onPrompt });
+    const stream = session.stream(text, {
+      pin,
+      note,
+      signal: guard.signal,
+      onPrompt,
+    });
     for await (const chunk of stream) {
       if (signal?.aborted) throw aborted();
       guard.arm();

@@ -626,12 +626,50 @@
   margin: 0 0 8px;
 }
 
-.chat-empty ul {
+/* Suggestions are BUTTONS, not list markers: one tap sends, because the person
+ * reading this may be holding a clicker in front of a room. `list-style: none`
+ * and no padding, so the chips align with the paragraph above them. */
+.chat-empty__suggestions {
   margin: 0;
-  padding-left: 18px;
-  font-family: var(--mono, ui-monospace, monospace);
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.chat-empty__suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: inherit;
+  font: inherit;
   font-size: 12.5px;
-  line-height: 1.8;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.chat-empty__suggestion:hover,
+.chat-empty__suggestion:focus-visible {
+  border-color: var(--chapter-accent, #78eec5);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* The return glyph carries "this sends" on its own, so the label does not have
+ * to say it. Accented from rest, because it is the only affordance here. */
+.chat-empty__suggestion i {
+  color: var(--chapter-accent, #78eec5);
+  font-size: 13px;
 }
 
 .chat-error {
@@ -1232,6 +1270,14 @@
  * turns between them are context in both senses. */
 .chat-context__message--system,
 .chat-context__message--user:last-child {
+  border-left-color: var(--chapter-accent, #78eec5);
+}
+
+/* Deck blocks are neither preface nor turn -- they were sent once and kept, and
+ * nobody typed them. Dashed so that reads at a glance without competing with the
+ * two solid accents above. */
+.chat-context__message--deck {
+  border-left-style: dashed;
   border-left-color: var(--chapter-accent, #78eec5);
 }
 

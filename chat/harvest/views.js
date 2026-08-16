@@ -33,11 +33,19 @@
  * nothing and cannot hallucinate its way into the wrong scope, which a
  * model-driven selector can and eventually would.
  *
- * NOTHING HERE IS WIRED TO THE MODEL YET. `chat/agent/prompt.js` still says the
- * assistant has no access to the slides, and that stays true until the
- * `remember` seam chat-handoff §6 describes is restored -- the volatile views
- * below must be sent per-turn WITHOUT accumulating in the transcript, and that
- * seam is the only thing that delivers it.
+ * WHO CONSUMES WHAT. Two callers now, and they take opposite halves:
+ *
+ *   WebMCP / `deckDump.context()`  `selectView` + `contextFor` -- the per-request
+ *                                  cascade above, with node ids, for an agent
+ *                                  that can act on them.
+ *   the chat  `chat/agent/deck-context.js` -- `outlineText` once in the system
+ *             prompt, and `slideText(slide, { ids: false })` pinned at most once
+ *             per slide. It does NOT use the cascade: it has two fixed sources,
+ *             and routing between five views per question is the complexity that
+ *             sank the last attempt.
+ *
+ * The cascade stays regardless. It is the seam for the chat driving navigation
+ * itself, which is the next thing after this one.
  */
 import { getSnapshot } from "../bus.js";
 import { harvestDeck, harvestSlide, resolveNode } from "./index.js";
@@ -98,10 +106,27 @@ export const nodeIndex = () =>
 const tagged = (tag, lines, attrs = "") =>
   [`<${tag}${attrs}>`, ...lines, `</${tag}>`].join("\n");
 
-const positionText = ({ slide, step, count }) =>
+/**
+ * `step` is reported to an agent and withheld from the chat, which is not an
+ * inconsistency but the same rule applied twice.
+ *
+ * A SLIDE'S CONTENT IS WHAT IT SAYS, NOT WHAT HAS FADED IN YET. `harvestSlide`
+ * reads the fiber tree, so `Appear`-wrapped bullets are present from step 0 --
+ * measured identical before and after stepping through slide 3 -- and that is the
+ * behaviour we want: a question asked before the last bullet animates should get
+ * the same answer as one asked after. Animation is pacing for the room, not a
+ * fact about the deck.
+ *
+ * Which makes `step` actively misleading in the chat's context. Handing a model
+ * every bullet AND "step 1 of 4" invites it to reason about what the audience can
+ * currently see, from a number that says nothing about which nodes those are. An
+ * agent driving the deck genuinely needs the step, because it has to be able to
+ * advance it; the chat cannot, so it does not get it.
+ */
+const positionText = ({ slide, step, count }, { showStep = true } = {}) =>
   tagged("deck-position", [
     slide
-      ? `slide ${slide} of ${count}${step ? `, step ${step}` : ""}`
+      ? `slide ${slide} of ${count}${showStep && step ? `, step ${step}` : ""}`
       : `${count ?? "?"} slides, current slide unknown`,
   ]);
 
@@ -162,25 +187,34 @@ const labelOf = (node, totals) => {
 };
 
 /**
- * A node line: id, what it is, and its text.
+ * A node line: optionally its id, what it is, and its text.
  *
  * Indented by list depth, which costs two spaces and tells the model that three
  * of slide 9's bullets sit under the one above them. Without it the roster reads
  * as seven siblings and "the last bullet" picks the wrong one.
+ *
+ * `ids` IS A FLAG, NOT A SECOND RENDERER. The WebMCP layer needs the `12.3`
+ * vocabulary because an agent addresses nodes by it; the chat does not, because
+ * it has no tools and cannot act on an id -- so ids there are ~15% of the block
+ * spent on something whose only observable effect would be a 2B model reading
+ * "12.3" out loud. The day the chat can navigate or edit, this flips back to
+ * true and nothing else moves. Same reasoning `provenance` is kept out of model
+ * context in `deck-context-handoff.md` §5.
  */
-const nodeLines = (nodes) => {
+const nodeLines = (nodes, { ids = true } = {}) => {
   const totals = nameCounts(nodes);
   return nodes.map((node) => {
     const indent = "  ".repeat(Math.max(0, node.depth - 1));
-    return `${node.id} ${indent}${labelOf(node, totals)}: ${node.text}`;
+    const label = `${indent}${labelOf(node, totals)}: ${node.text}`;
+    return ids ? `${node.id} ${label}` : label;
   });
 };
 
-const slideText = (slide) =>
+const slideText = (slide, { ids = true } = {}) =>
   slide
     ? tagged(
         "slide",
-        nodeLines(slide.nodes),
+        nodeLines(slide.nodes, { ids }),
         ` n="${slide.number}"${slide.chapter ? ` chapter="${slide.chapter}"` : ""}${
           slide.title ? ` title="${slide.title.replace(/"/g, "'")}"` : ""
         }`,
@@ -188,6 +222,30 @@ const slideText = (slide) =>
     : "";
 
 const indexText = (nodes) => tagged("deck-nodes", nodeLines(nodes));
+
+/**
+ * "You are here, and you have seen this one already."
+ *
+ * The cheap half of the chat's per-turn context: ~20 tokens instead of the ~65 a
+ * slide block costs, for the case where the deck has moved back to a slide whose
+ * content is already in the conversation. Naming the title as well as the number
+ * is what makes it a REFERENCE rather than a bare coordinate -- the model has to
+ * be able to find the block this points at, and it was tagged with that title.
+ *
+ * SPELLED OUT RATHER THAN TERSE, and that was measured. "Now on slide 9 of 35
+ * ("How WebMCP works"), already shown above" left a 2B model answering about the
+ * slide from the previous exchange instead. Naming the earlier block explicitly,
+ * and saying that the question is about this slide, is what actually redirects it
+ * -- 15 tokens is a bad place to economise.
+ */
+export const positionRef = ({ slide, count, title }) =>
+  tagged("deck-position", [
+    `The deck has moved to slide ${slide}${count ? ` of ${count}` : ""}${
+      title ? `: "${title.replace(/"/g, "'")}"` : ""
+    }.`,
+    `Its content was given earlier in this conversation, in the block tagged n="${slide}".`,
+    "The question below is about THIS slide, not the one discussed in the previous exchange.",
+  ]);
 
 /**
  * One node, as the sentence you would read back before changing it.

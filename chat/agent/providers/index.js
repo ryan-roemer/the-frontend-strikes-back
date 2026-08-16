@@ -42,13 +42,41 @@ import { provider as chrome } from "./chrome.js";
  *
  * THE CHAT HANDLE that `acquire()` resolves to:
  *
- *   stream(text, { signal, onPrompt })
+ *   stream(text, { pin, note, signal, onPrompt })
  *                             async generator over DELTAS. Must be a GENERATOR -- Safari has
  *                             no `Symbol.asyncIterator` on ReadableStream and `session.js`
  *                             uses `for await`.
+ *                             `pin` and `note` are deck context, usually both "". They are
+ *                             two arguments rather than one because they have OPPOSITE
+ *                             LIFETIMES, and the contract is the lifetime, not the
+ *                             placement:
+ *                               pin   sent with this turn and STILL PRESENT on every later
+ *                                     one, without the caller re-sending it. A slide's
+ *                                     text, offered once per slide per conversation.
+ *                               note  sent with this turn and GONE after it. Where the deck
+ *                                     is, which is false as soon as it moves.
+ *                             How each is honoured is not the caller's business. LiteRT
+ *                             appends `pin` to a region of the preface it rebuilds each
+ *                             turn, kept outside the trimmed history, and prepends `note`
+ *                             to the sent string while recording only `text`. Chrome puts
+ *                             both in the sent string -- its durable session keeps `pin`
+ *                             with no help, and cannot drop `note`, which is an accepted
+ *                             ~20 tokens per navigation.
+ *                             NEITHER may be folded into `text`: `text` is the question the
+ *                             transcript bubble renders. Whatever holds `pin` must be
+ *                             cleared wherever the transcript is -- see `restart()`, where
+ *                             forgetting it puts two copies of a slide in one preface.
+ *                             `note` IS the removed `remember` seam, restored for the one
+ *                             thing it suited. `pin` is its opposite and is new: `remember`
+ *                             existed to keep per-turn excerpts OUT of the model's memory,
+ *                             which measured badly (chat-handoff.md §6) and which Chrome
+ *                             cannot express at all. See `chat/agent/deck-context.js`.
  *                             `onPrompt` is optional and called AT MOST ONCE, before the
- *                             first delta, with `{ provider, system, history, message,
- *                             historyLimit }` -- the ingredients this turn was built from.
+ *                             first delta, with `{ provider, system, pinned, history,
+ *                             message, historyLimit }` -- the ingredients this turn was
+ *                             built from. `pinned` is the separate context region where the
+ *                             provider has one and empty where it does not, in which case
+ *                             the block is already inside `message`.
  *                             Not the final prompt: both providers hand a structured
  *                             message array to a runtime that applies the model's own turn
  *                             template on the far side of a wasm or process boundary, so

@@ -23,9 +23,11 @@ deliberately deck-unaware. The read-only deck bridge (`bus.js`, `bridge.js`, `us
 still wired and still unconsumed, because it is the seam those features come back through.
 
 > **Since then:** deck reading is back, in [`chat/harvest/`](../chat/harvest/) — a fiber-tree walk
-> that emits the whole deck as Markdown, including speaker notes the DOM harvest could not see.
-> It is not wired into the model: `agent/prompt.js` is still the seam and still returns a fixed
-> line. See [deck-context-handoff.md](deck-context-handoff.md) for what exists and what comes next.
+> that emits the whole deck as Markdown, including speaker notes the DOM harvest could not see —
+> **and it is now wired to the model.** The assistant knows the deck's outline and argument, and
+> the full text of any slide a question has been asked from. See
+> [§6a](#6a-what-the-model-knows-about-the-deck), and
+> [deck-context-handoff.md](deck-context-handoff.md) for the extraction underneath it.
 
 ---
 
@@ -291,10 +293,29 @@ third turn:
 | one conversation, excerpts accumulating | **2 / 5** | 0 → 1364 → 1764 → 2673 → **4338** |
 | a fresh conversation per question       | **5 / 5** | 0 every time                      |
 
-The excerpts are gone, so `stream()` no longer takes a separate `remember` argument — what is
-sent and what is remembered are the same string again. **The rebuild-per-turn design stays**,
-because its _other_ justification (cancel-poisoning, above) did not go away. If retrieval
-returns, put `remember` back rather than inventing something new.
+**The rebuild-per-turn design stays**, because its _other_ justification (cancel-poisoning, above)
+did not go away.
+
+### Deck context: `pin` and `note`
+
+The deck _is_ context again — see [§6a](#6a-what-the-model-knows-about-the-deck) — and the lesson
+above is the reason it is shaped the way it is. `stream()` takes two extra arguments, and they
+exist as two because they have **opposite lifetimes**:
+
+| arg    | holds                 | lifetime                               | LiteRT                              | Chrome                       |
+| ------ | --------------------- | -------------------------------------- | ----------------------------------- | ---------------------------- |
+| `pin`  | a slide's text        | sent once, **kept** for the whole chat | its own preface region, untrimmed   | inline; the session keeps it |
+| `note` | where the deck is now | sent with this turn, **dropped**       | prepended to the send, not recorded | inline; cannot be dropped    |
+
+`note` **is** the old `remember` seam, restored for the one thing it suited. `pin` is its
+opposite, and it is new: `remember` existed to keep per-turn excerpts _out_ of the model's memory,
+which is exactly what measured badly above, and which Chrome's durable session cannot express at
+any price. So the guidance in the previous version of this section — "put `remember` back rather
+than inventing something new" — was half right.
+
+The table's LiteRT column has one rule attached to it: **whatever holds `pin` must be cleared
+wherever the transcript is.** `restart()` clears both. Missing that puts two copies of one slide in
+a single preface, which is the measured failure in miniature.
 
 ### The transcript follows the model's memory
 
@@ -308,6 +329,87 @@ nothing.
 Switching providers is the newest member of that list and the most obviously correct one: the
 two models have entirely separate memories, so a carried-over transcript would show an exchange
 the new model has never seen.
+
+**`deck-context.js` is now on that list too, and it joined by _reading_ `epoch` rather than by
+being told.** Its seen-set is part of what the model remembers, so a broom that cleared the
+session but not the set would leave a later turn saying "shown earlier" about content nobody
+holds. Deriving the reset from `epoch` — the same trick `ui/panel.js` uses — means the call site
+that forgets cannot exist.
+
+---
+
+## 6a. What the model knows about the deck
+
+Two sources, no per-question routing. That last clause is the design: an earlier build chose among
+five views per question, and the complexity is most of why it was removed.
+
+| source            | where                         | when                                             |     cost |
+| ----------------- | ----------------------------- | ------------------------------------------------ | -------: |
+| the deck's spine  | system prompt, built once     | every turn, unavoidably                          | ~700 tok |
+| the current slide | `pin`, at most once per slide | the first question asked from it                 |  ~65 tok |
+| where it is now   | `note`, per turn              | only when the deck moved since the last question |  ~20 tok |
+
+The spine is `<deck-facts>` (five chapters, six takeaways with their details, the two audiences —
+read straight from `deck/chapters.js` and `deck/takeaways.js`) plus `<deck-outline>` (35 titles).
+**Not** the whole deck as Markdown: that is 16,100 characters ≈ 4,000 tokens, half the window, and
+because LiteRT re-prefills the preface every turn it would add ~2.5s to every answer. It also
+carries the speaker notes, which are full of timings and "first cut if we're running long".
+
+### The empty state is the demo
+
+The panel opens on "Ask me about this presentation or the slide you're on" and three chips that
+**send on click**, not fill the composer — one tap matters when you are holding a clicker. They run
+the three sources in order: the outline, the current slide, the argument. The middle one reads the
+bus, so it says _"Summarize slide 21"_ and re-renders on every navigation — the cheapest possible
+proof the thing is watching the deck, offered before anyone has typed. It falls back to "this
+slide" when the bridge is down.
+
+### The rule that makes it safe
+
+**A slide's text appears at most once per conversation.** Growth is therefore linear in _distinct
+slides asked about_, not in turns — which is the difference between this and the 4,338-token soup
+above. Bounded by the deck at 35 blocks; five to a dozen in a real talk. There is deliberately no
+eviction: dropping content the model has been _told_ it was shown is a dangling reference, which is
+the one failure this is built to avoid.
+
+Three consequences fall out of reading position at **send time** rather than on navigation:
+
+- A slide walked past and never asked about never enters context at all.
+- Re-asking on the same slide adds nothing.
+- The rule is **agnostic to who moved the deck**, so when the chat can navigate itself, a question
+  about the slide it just moved to already works — provided the caller reads after `nav.settle()`.
+
+### Animated content is not special
+
+`Appear`-wrapped bullets are in the fiber tree from step 0, so a slide's block holds everything on
+it whether or not it has faded in — verified identical on slide 3 before and after stepping. A
+question asked early gets the same answer as one asked late; animation is pacing for the room, not
+a fact about the deck. Which is why the chat's position line **omits the step index** while the
+WebMCP one keeps it: an agent has to advance steps, the chat cannot, and telling a model "step 1 of
+4" while handing it all four invites it to reason about a visibility state nothing else reflects.
+
+### Measured, Gemma, 2026-08-16
+
+| Check                                    | Result                                                        |
+| ---------------------------------------- | ------------------------------------------------------------- |
+| System prompt                            | 2,965 chars ≈ **~740 tok**                                    |
+| One slide block                          | 245–575 chars                                                 |
+| Context after 5 turns / 2 pinned slides  | **1,407–1,470 tok, ~18% of 8,192**                            |
+| Turn latency, warm                       | 0.3–1.4s (was ~0.9–1.2s with no context)                      |
+| Slide → summary, slide → comparison      | correct, grounded in the pinned block                         |
+| "which slide covers vector search?"      | "Slide 15" — correct, from the outline, no navigation         |
+| Number → title, on a **fresh** chat      | **4 / 4 correct** (30, 12, 22, 35)                            |
+| Number → title, at turn 5 of a full chat | **wrong** — gave slide 32's title for slide 30, right chapter |
+| Chrome, same three turns                 | identical behaviour; 1,089 → 1,497 tok                        |
+
+That second-to-last row is the honest limit and it is worth knowing before a demo: **outline recall
+degrades as the conversation fills.** A cold question about any slide number is reliable; the same
+question at turn five, with two slides pinned and three exchanges of history, drifted to a
+neighbouring chapter-5 title. The broom fixes it. This is small-model attention, not a bug in the
+outline — the outline was verified correct at the moment it was misread.
+
+One cosmetic tell from the same runs: asked for slide 12's title, the model answered `"What you get
+for free [ch1]"`, reading the outline's `[ch1]` tag as part of the title.
 
 ---
 
@@ -433,8 +535,13 @@ Panel → useConversation(streamAnswer)
   switcher is the mitigation and must stay reachable in every state.
 - **Chrome's download is invisible.** No byte counts, no cancel, and no completion event for a
   download it started itself — hence the 5s `availability()` poller.
-- **Answer quality is a small model's.** With no deck context, the assistant is a
-  general-purpose chat and should be introduced as one.
+- **Answer quality is a small model's.** Deck context makes it reliably good on the slide in front
+  of it and on the outline, which is most of what it will be asked. It stays a 2B model: see the
+  degrading outline recall in [§6a](#6a-what-the-model-knows-about-the-deck), and press the broom
+  before a demo rather than after five turns.
+- **Slide text carries the deck's own TODOs.** Slide 21's matrix notes read "TODO: Full HF,
+  crashy." and the model will happily quote them, because they are on the slide and the audience
+  can already see them. Presenter notes are excluded; draft slide copy is not, and cannot be.
 - **LiteRT logs six `INFO`/`WARNING` lines to `console.error`** per engine create, plus
   `GetProfileSummary not implemented for backend: GpuArtisan` per turn. Benign, not silenceable.
   Filter `/^(INFO|WARNING|ERROR):\s*\[/` before concluding a console check has failed.
@@ -443,11 +550,17 @@ Panel → useConversation(streamAnswer)
 
 ### What is deliberately NOT built
 
-- **Deck as context, _in the prompt_.** Extraction is built again — see
-  [`chat/harvest/`](../chat/harvest/) and [deck-context-handoff.md](deck-context-handoff.md) — but
-  nothing reaches the model yet. `agent/prompt.js` is untouched and still the seam. Whatever wires
-  it up inherits the rule that retrieval fed excerpts per turn and they must not accumulate: see
-  [§6](#6-the-transcript-is-the-providers).
+- **~~Deck as context, _in the prompt_.~~** Built — see [§6a](#6a-what-the-model-knows-about-the-deck).
+- **The chat driving the deck.** It can say _which_ slide to go to and cannot go there. The
+  outline resolves "which slide covers vector search" today, so what is missing is the action, not
+  the context. Neither provider has grammar-constrained decoding (below), so the likely shape is
+  `selectView()` in [`harvest/views.js`](../chat/harvest/views.js) parsing the intent and calling
+  [`nav.js`](../chat/nav.js) — which is why that cascade is kept even though the chat bypasses it.
+  Read position **after** `nav.settle()` and the rest already works.
+- **Invalidating a pinned slide when the deck is edited.** Nothing in the chat can edit, so there
+  is nothing to invalidate yet. When there is: a slide pinned at turn 2 and edited at turn 5 leaves
+  stale text in the model's context, and on Chrome it cannot be removed. The fix is for the edit
+  path to drop that slide from `deck-context.js`'s map so the next question re-pins it.
 - **Deck as mutable.** Also removed. If it returns, the durability constraint that mattered
   most: **never `textContent`** — it removes nodes React's fiber still references, and the next
   commit touching that subtree can throw `NotFoundError` from `removeChild` and unmount the
@@ -474,8 +587,28 @@ quick to rebuild; what is worth keeping is the list of what to check:
 | Info modal on Gemma                               | delete button, GPU / storage / wasm rows populated            |
 | 35-slide sweep with the panel open                | zero real console errors; export/print mount no chat          |
 
+And for deck context specifically — all of these are one `nextContext()` call each, no model
+needed, which makes them cheap enough to run on every change:
+
+| Check                                 | Expected                                                  |
+| ------------------------------------- | --------------------------------------------------------- |
+| Ask on a slide, then ask again on it  | full block, then `{ pin: "", note: "" }`                  |
+| Walk 5 → 9 → 12, ask only on 12       | 9 never enters the map                                    |
+| Ask on 12, go back to 5, ask          | `note` only — no second copy of slide 5                   |
+| Broom, then ask about a pinned slide  | re-pinned; provider's block count **1, not 3**            |
+| Switch providers                      | map empties                                               |
+| `bus.publish({ activeView: null })`   | both empty; nothing pinned, nothing guessed               |
+| Question at turn 3 after moving back  | answers about the **current** slide, not the previous one |
+| Context viewer after any of the above | pinned region matches; badge counts blocks                |
+
+That last-but-one row is a regression test with a scar: putting the position line in the pinned
+region instead of next to the question made the model answer about the previous slide, because the
+pinned region lives in the preface and a per-turn fact ended up nowhere near its turn.
+
 The shape of a driver: connect to the already-running Chrome on `:9222`, find a
 `localhost:3000` tab, `Runtime.evaluate` an async IIFE returning JSON. **Reload the page between
 code edits** — ES modules are cached per page, so an edit is invisible without it, which cost
 real confusion twice. And **kill a backgrounded driver before starting another**: one left
-running typed into the same tab and polluted several measurements.
+running typed into the same tab and polluted several measurements. Give the deck ~5s after a
+reload before probing WebGPU: a probe fired at 3s reported "this browser can't run WebGPU" once
+and passed on every retry.

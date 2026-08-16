@@ -118,20 +118,45 @@ const wrap = (raw, system) => {
      * Yields DELTAS. Chrome already streams deltas, so unlike LiteRT there is nothing to
      * un-accumulate here.
      */
-    async *stream(text, { signal = null, onPrompt = null } = {}) {
+    async *stream(
+      text,
+      { pin = "", note = "", signal = null, onPrompt = null } = {},
+    ) {
+      // BOTH go inline, in front of the question, because there is nowhere else
+      // for either: Chrome's session is durable and owns its own history, so there
+      // is no preface to rebuild the way LiteRT does.
+      //
+      // For `pin` that is the one place Chrome's can't-un-send is an ADVANTAGE. The
+      // slide needs to persist for the rest of the conversation, and here it does
+      // so by itself -- no pinned region, no bookkeeping, no reset path to forget.
+      // `deck-context.js` guarantees a slide is offered at most once, which is what
+      // makes an unremovable send safe.
+      //
+      // For `note` it is a small, accepted loss. LiteRT drops the position line
+      // after its turn; Chrome cannot, so a conversation that wanders the deck
+      // accumulates ~20 tokens per move. Cheap, and the alternative -- not sending
+      // it -- is a model that does not know the deck moved.
+      const outgoing = [pin, note, text].filter(Boolean).join("\n\n");
+
       // Reported BEFORE the send, and from the mirror rather than from the session:
       // `sent` is what this page has put in, and the turn below is about to be added
       // to it. Copied, so a caller can hold it after later turns have appended.
+      //
+      // `message` is what actually goes to the model, block and all, rather than the
+      // bare question -- the viewer's whole job is showing what was really sent, and
+      // on this provider the block is part of the message. `pinned` is empty for the
+      // same reason: there is no separate region here to show.
       onPrompt?.({
         provider: "chrome",
         system,
+        pinned: [],
         history: sent.map((message) => ({ ...message })),
-        message: text,
+        message: outgoing,
         historyLimit: null,
       });
 
       let answer = "";
-      const reader = raw.promptStreaming(text, { signal }).getReader();
+      const reader = raw.promptStreaming(outgoing, { signal }).getReader();
       try {
         for (;;) {
           const { done, value } = await reader.read();
@@ -146,8 +171,10 @@ const wrap = (raw, system) => {
         reader.releaseLock?.();
         // Recorded even on abort, matching LiteRT: Chrome keeps a cancelled turn in
         // its own history, so a mirror that dropped it would drift from the session.
+        // `outgoing`, not `text`: the block went to the session, so a mirror holding
+        // the bare question would understate what the model is carrying.
         sent.push(
-          { role: "user", content: text },
+          { role: "user", content: outgoing },
           { role: "assistant", content: answer },
         );
       }

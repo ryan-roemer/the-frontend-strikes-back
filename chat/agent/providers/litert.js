@@ -485,13 +485,25 @@ export const deleteModel = async () => {
  * generation. That single measured fact is what makes the self-healing below affordable,
  * and it is why nothing here bothers to cache or clone conversations.
  */
-const newConversation = (system, history, { temperature, maxOutputTokens }) =>
+const newConversation = (
+  system,
+  pinned,
+  history,
+  { temperature, maxOutputTokens },
+) =>
   engine.createConversation({
     // Gemma has no true system role, so the runtime folds the preface into its prompt
     // template. That works, but it does mean an instruction here binds a little less
     // firmly than the same words did as a Prompt API `initialPrompts` system message.
+    //
+    // THREE REGIONS, IN THIS ORDER, and the middle one is the point. `pinned` holds
+    // deck context -- a slide's text, sent the first time a question is asked from
+    // it. It sits OUTSIDE `history` because history is trimmed to
+    // `MAX_HISTORY_MESSAGES` and this must not be: a slide pinned six messages ago
+    // is still a slide a later turn may say the model has already been shown, and
+    // trimming it away turns that into a reference to nothing.
     preface: {
-      messages: [{ role: "system", content: system }, ...history],
+      messages: [{ role: "system", content: system }, ...pinned, ...history],
     },
     sessionConfig: {
       samplerParams: { temperature },
@@ -638,7 +650,21 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
 
   /** The transcript WE keep. The `Conversation` is disposable; this is not. */
   let transcript = [];
-  let conversation = await newConversation(system, [], { temperature });
+
+  /**
+   * Deck context already handed to the model, in the order it was sent.
+   *
+   * APPEND-ONLY AND NEVER TRIMMED, which is the one way it differs from
+   * `transcript`. `chat/agent/deck-context.js` guarantees a slide is offered here
+   * at most once, so this grows with distinct slides asked about rather than with
+   * turns -- bounded by the deck at 35 blocks, and five to a dozen in a real talk.
+   * It is exactly what the removed `remember` option could not express: that
+   * option existed to keep per-turn excerpts OUT of the model's memory, and this
+   * one exists to keep them in it, once.
+   */
+  let pinned = [];
+
+  let conversation = await newConversation(system, [], [], { temperature });
 
   /** Last sampled token count, and the one-at-a-time guard for sampling it. */
   let tokens = 0;
@@ -646,7 +672,9 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
 
   const rebuild = async () => {
     const dead = conversation;
-    conversation = await newConversation(system, transcript, { temperature });
+    conversation = await newConversation(system, pinned, transcript, {
+      temperature,
+    });
     try {
       dead.cancel();
     } catch {
@@ -664,19 +692,37 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
     /**
      * Stream one turn.
      *
-     * There used to be a `remember` option here: `text` went to the model and `remember`
-     * went into the transcript, so per-turn slide excerpts could be sent without
-     * accumulating. Nothing wraps the question any more, so the two are always the same
-     * string and the option is gone. Put it back, not something new, if retrieval returns.
+     * `pin` is a slide's text, the first time a question comes from that slide. It
+     * goes into `pinned` rather than into `text`, so it survives history trimming
+     * and the transcript keeps the question the user actually typed.
+     *
+     * `note` is where the deck is right now, and it goes the OTHER way -- prepended
+     * to the sent string and deliberately left out of the transcript, so it is gone
+     * next turn. That asymmetry is the point: a position line is false as soon as
+     * the deck moves, and pinning one put it in the preface, far above the exchange
+     * it was about. The model then answered about the previous slide.
+     *
+     * `note` is therefore exactly the removed `remember` seam, restored for the one
+     * thing it was right for; `pin` is its opposite and is new. The old option sent
+     * excerpts and kept only the question. This sends the question, keeps the slide,
+     * and drops the position.
      */
-    async *stream(text, { signal = null, onPrompt = null } = {}) {
+    async *stream(
+      text,
+      { pin = "", note = "", signal = null, onPrompt = null } = {},
+    ) {
       let answer = "";
       try {
         for await (const delta of streamFrom({
-          text,
+          // What is SENT. `text` alone is what gets remembered, below.
+          text: note ? `${note}\n\n${text}` : text,
           signal,
           // Inside the lock, so the rebuild can never race a live generation.
           prepare: async () => {
+            // Pinned BEFORE the rebuild, so this turn's conversation is built with
+            // the slide already in its preface -- the question that triggered the
+            // pin is the first question that gets to use it.
+            if (pin) pinned.push({ role: "user", content: pin });
             await rebuild();
             // Reported from here, after the rebuild that consumed it, because THIS
             // is the preface the conversation was actually built from -- not what
@@ -689,8 +735,11 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
             onPrompt?.({
               provider: "litert",
               system,
+              pinned: pinned.map((message) => ({ ...message })),
               history: transcript.map((message) => ({ ...message })),
-              message: text,
+              // What was SENT, note and all -- the viewer's job is to show what
+              // actually went, not the tidier thing the transcript will keep.
+              message: note ? `${note}\n\n${text}` : text,
               historyLimit: MAX_HISTORY_MESSAGES,
             });
             return conversation;
@@ -702,6 +751,11 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
       } finally {
         // Recorded even on abort: the presenter saw a partial answer and the transcript
         // should match what is on screen. Trimmed from the front, in pairs.
+        //
+        // BARE `text`, not the sent string: `note` is deliberately dropped here. That
+        // is the whole of the restored `remember` behaviour -- a position line is true
+        // for one turn, and a transcript accumulating five contradictory ones is the
+        // accumulation failure in miniature.
         transcript.push(
           { role: "user", content: text },
           { role: "assistant", content: answer },
@@ -767,9 +821,18 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
      * transcript is what actually clears the context, since the next turn rebuilds from it.
      * Mutates in place, so every reference to the session stays valid; an earlier version
      * returned a new handle and the second restart had nothing to call.
+     *
+     * `pinned` MUST BE CLEARED WITH IT, and this is not optional bookkeeping. Every
+     * caller of `restart()` bumps `epoch`, and `deck-context.js` clears its seen-set
+     * from `epoch` -- so a `pinned` that survived would meet a policy that has
+     * forgotten those slides and offers them again, putting two copies of the same
+     * slide in one preface. Duplicate blocks are the precise failure
+     * `chat-handoff.md` §6 measured. The two structures track the same fact and
+     * therefore reset on the same signal.
      */
     async restart() {
       transcript = [];
+      pinned = [];
       tokens = 0;
       await rebuild();
       return session;
@@ -777,6 +840,7 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
 
     destroy() {
       transcript = [];
+      pinned = [];
       tokens = null;
       try {
         conversation.cancel();

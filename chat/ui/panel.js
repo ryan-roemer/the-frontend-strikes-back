@@ -2,6 +2,7 @@ import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import htm from "htm";
 import { setEnabled } from "../state.js";
 import { useConversation } from "../use-conversation.js";
+import { useDeck } from "../use-deck.js";
 import {
   STATES,
   getState,
@@ -20,20 +21,66 @@ import { Unavailable } from "./unavailable.js";
 const html = htm.bind(createElement);
 
 /**
- * Deliberately says nothing about the deck.
+ * The first thing anyone sees, and the only place the assistant gets to say what
+ * it is good at.
  *
- * The chat knows the model runs on this machine and nothing else. Deck knowledge
- * comes back later, on purpose, once the two providers are solid.
+ * IT NAMES THE DECK NOW, because it can -- `agent/deck-context.js` gives it the
+ * outline and the slide a question is asked from. A panel that opened saying "ask
+ * it anything" was honest when the model knew nothing; now it undersells, and the
+ * failure mode is a room full of people asking a 2B model general-knowledge
+ * questions it answers badly instead of deck questions it answers well.
+ *
+ * THE SUGGESTIONS SEND ON CLICK rather than filling the composer. One tap is the
+ * whole point from a stage -- and each one is chosen to exercise a different
+ * source, so the three of them are a live demo of the context design in order:
+ * the outline, the current slide, then the argument in the system prompt.
+ *
+ * The middle one NAMES THE SLIDE, from the bus, so it re-reads on every
+ * navigation. That is the cheapest possible proof the thing is actually watching
+ * the deck, offered before anyone has typed a word. It degrades to "this slide"
+ * when the bridge is down -- overview and presenter mode both unmount it, and a
+ * confident wrong slide number in the greeting would be a bad first impression.
  */
-const EmptyState = () => html`
-  <div className="chat-empty">
-    <p>A model running entirely on this machine. Ask it anything.</p>
-    <ul>
-      <li>“Explain WebGPU in two sentences.”</li>
-      <li>“Write a haiku about shipping on a Friday.”</li>
-    </ul>
-  </div>
-`;
+const SUGGESTIONS = (slide) => [
+  "What is this talk about?",
+  slide ? `Summarize slide ${slide}` : "Summarize this slide",
+  "What should I take away from it?",
+];
+
+const EmptyState = ({ onSend }) => {
+  // Through `useDeck` rather than `views.position()`: this has to RE-RENDER when
+  // the deck moves, and a plain snapshot read would only be right until it did.
+  const { ready, activeView } = useDeck();
+  const slide = ready && activeView ? activeView.slideIndex + 1 : null;
+
+  return html`
+    <div className="chat-empty">
+      <p>
+        Ask me about this presentation or the slide you're on. I'm a small model
+        running entirely on this machine.
+      </p>
+      <ul className="chat-empty__suggestions">
+        ${SUGGESTIONS(slide).map(
+          (text) => html`
+            <li key=${text}>
+              <button
+                type="button"
+                className="chat-empty__suggestion"
+                onClick=${() => onSend(text)}
+              >
+                <i
+                  className="ph ph-arrow-elbow-down-left"
+                  aria-hidden="true"
+                ></i>
+                <span>${text}</span>
+              </button>
+            </li>
+          `,
+        )}
+      </ul>
+    </div>
+  `;
+};
 
 const useModelState = () => {
   const [state, setState] = useState(getState);
@@ -190,7 +237,7 @@ export const Panel = ({ enabled }) => {
             streaming=${streaming}
             busy=${busy}
             error=${error}
-            empty=${html`<${EmptyState} />`}
+            empty=${html`<${EmptyState} onSend=${send} />`}
           />`}
 
       <${Composer}

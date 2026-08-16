@@ -22,17 +22,39 @@ const html = htm.bind(createElement);
  * exchanges, so a long conversation on screen is a short one in the model, and that
  * gap is the explanation for half of the surprising answers a small model gives.
  *
+ * THE PINNED REGION is the same idea one level down. `deck-context.js` sends a
+ * slide's text the first time a question is asked from that slide and never again,
+ * so the model is carrying deck content that appears nowhere in the transcript and
+ * was never typed by anyone. On LiteRT that arrives as its own `pinned` array and is
+ * shown as its own region; on Chrome there is no such region -- the block is
+ * prepended to the question and shows up inside the message it rode in on, which is
+ * exactly where it is in the session.
+ *
  * Lazily loaded; see `gate.js`. Default export because `lazy()` requires one.
  */
 
 const PROVIDERS = { litert: "LiteRT-LM", chrome: "Chrome Prompt API" };
 
-const ROLES = { system: "System", user: "User", assistant: "Assistant" };
+const ROLES = {
+  system: "System",
+  user: "User",
+  assistant: "Assistant",
+  deck: "Deck",
+};
+
+/** Tolerates a capture from before the pinned region existed, and Chrome, which
+ *  has no separate region to report. */
+const pinnedOf = (context) => context.pinned ?? [];
 
 /** Characters, not tokens. A token count would have to come from the runtime, and
  *  asking it now would answer for the context it holds NOW, not the one shown. */
 const size = (context) =>
-  [context.system, ...context.history.map((m) => m.content), context.message]
+  [
+    context.system,
+    ...pinnedOf(context).map((m) => m.content),
+    ...context.history.map((m) => m.content),
+    context.message,
+  ]
     .join("")
     .length.toLocaleString();
 
@@ -70,6 +92,7 @@ const ContextModal = ({ context }) => {
   const copy = useCallback(async () => {
     const text = [
       `[${ROLES.system}]\n${context.system}`,
+      ...pinnedOf(context).map((m) => `[${ROLES.deck}]\n${m.content}`),
       ...context.history.map(
         (m) => `[${ROLES[m.role] ?? m.role}]\n${m.content}`,
       ),
@@ -98,6 +121,8 @@ const ContextModal = ({ context }) => {
   const dropped =
     context.historyLimit != null &&
     context.history.length >= context.historyLimit;
+
+  const pinned = pinnedOf(context);
 
   return html`
     <div
@@ -131,6 +156,11 @@ const ContextModal = ({ context }) => {
             <span
               >${`${exchanges} prior ${exchanges === 1 ? "exchange" : "exchanges"}`}</span
             >
+            ${pinned.length
+              ? html`<span
+                  >${`${pinned.length} pinned ${pinned.length === 1 ? "block" : "blocks"}`}</span
+                >`
+              : null}
             <span>${size(context)} chars</span>
           </span>
           <button
@@ -158,6 +188,20 @@ const ContextModal = ({ context }) => {
 
         <div className="chat-context__body-scroll" ref=${body}>
           <${Message} role="system" content=${context.system} />
+          ${
+            "" /* Between the preface and the turns, which is where they are in the
+                  preface the provider built -- and reading order is the only cue a
+                  viewer has for that ordering. */
+          }
+          ${pinned.map(
+            (message, i) =>
+              html`<${Message}
+                key=${`pinned-${i}`}
+                role="deck"
+                content=${message.content}
+                note=${i === 0 ? "sent once, kept" : null}
+              />`,
+          )}
           ${context.history.map(
             (message, i) =>
               html`<${Message}
@@ -174,14 +218,19 @@ const ContextModal = ({ context }) => {
         </div>
 
         ${
-          "" /* Two footnotes, and both exist because a reader who does not know them
-                will misread what is above. The first is the wasm boundary; the second
-                is why a panel showing six exchanges can be a model shown three. */
+          "" /* Three footnotes, each because a reader who does not know it will
+                misread what is above: the wasm boundary; why a panel showing six
+                exchanges can be a model shown three; and why deck text nobody typed
+                is sitting in the preface. */
         }
         <footer className="chat-context__foot">
           The runtime wraps these in the model's own turn template before
           decoding, so the final string is never a value this page can
-          read.${dropped
+          read.${pinned.length
+            ? html` Deck blocks are sent the first time you ask from a slide and
+              kept for the rest of the conversation, so each slide appears at
+              most once.`
+            : null}${dropped
             ? html` Older exchanges are dropped: this provider keeps the last
               ${context.historyLimit / 2} and no more.`
             : null}

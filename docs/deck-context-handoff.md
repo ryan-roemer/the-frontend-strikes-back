@@ -72,10 +72,11 @@ Measurements, all reproducible with the driver in §8:
 - **the node signature is byte-identical** under `?animate=false`, `?presenterMode=true` and
   `?slideIndex=N` — see §4 on why that had to be checked rather than assumed
 
-**Nothing is wired into the model yet, and that is deliberate.** `chat/agent/prompt.js` still
-returns a fixed line and still says the assistant has no access to the slides. The views are built
-and measured; connecting them needs the `remember` seam restored
-([chat-handoff.md §6](chat-handoff.md)), which is the next piece of work and not this one.
+**It IS wired to the model now.** `chat/agent/prompt.js` builds the outline and the talk's argument
+into the system prompt, and `chat/agent/deck-context.js` pins the active slide the first time a
+question is asked from it. Two sources, no per-question routing — see
+[chat-handoff.md §6a](chat-handoff.md#6a-what-the-model-knows-about-the-deck) for the budget and
+the measurements. The sections below predate that and are annotated where it changed the answer.
 
 **It IS wired to WebMCP.** [webmcp-handoff.md](webmcp-handoff.md) describes the fourteen tools the
 deck registers on `document.modelContext`, which is where all of this gets exercised end to end by
@@ -348,8 +349,31 @@ turn, is read by exactly one family: naming a slide by topic instead of by numbe
 **Volatility decides placement.** The system prompt is fixed when the session is created —
 `model-state.js` calls `systemPromptFn()` inside `provider.acquire()` — so the two volatile views
 cannot go there without rebuilding the session on every navigation, which on Chrome is a full
-`create()`. facts + outline → system prompt, built once; position + active slide → per turn, through
-the `remember` seam.
+`create()`. facts + outline → system prompt, built once; position + active slide → per turn.
+
+> **Built, and volatility turned out to have three values, not two.** The chat now uses facts +
+> outline in the system prompt and the active slide per turn, as proposed. What this section got
+> wrong is that "per turn" is one category. The active slide and the position have opposite
+> lifetimes:
+>
+> |              | lifetime                                                          | seam                       |
+> | ------------ | ----------------------------------------------------------------- | -------------------------- |
+> | active slide | sent once, **kept** — a later question may be about it again      | `pin`, new                 |
+> | position     | sent with one turn, **dropped** — false as soon as the deck moves | `note`, the old `remember` |
+>
+> Collapsing them into one durable string was a measured bug, not a style question: the pinned
+> region lives in the _preface_, so a "the deck moved to slide 9" line sat far above the last
+> exchange and the model answered about slide 21. See
+> [chat-handoff.md §6a](chat-handoff.md#6a-what-the-model-knows-about-the-deck).
+>
+> Two other departures from what this section assumed. The chat **does not use `selectView()`** —
+> it has two fixed sources and no per-question routing, because choosing among five views per
+> question is most of what made the last attempt too complicated. And it renders slides with
+> `ids: false`: a node id is ~15% of the block spent on something a tool-less chat cannot act on
+> and might read out loud, which is the same argument this document already makes for keeping
+> provenance out of context (§5).
+>
+> The cascade stays regardless. It is the seam for the chat driving navigation itself.
 
 **Scope is a safety property, not only a budget.** If only the active slide's ids are in context, a
 content command _cannot_ address slide 22 — the blast radius is bounded by construction rather than
@@ -366,9 +390,20 @@ slide and answer with a 270-token outline the request has no use for.
 
 **Per-turn context must not accumulate.** [chat-handoff.md §6](chat-handoff.md) has the measurement
 that forced this: excerpts accumulating across one conversation degraded answers to 2 of 5 usable
-with context growing 0 → 4,338 tokens, while a fresh conversation per question stayed 5 of 5. When
-this is wired up, put the `remember` argument back on `stream()` rather than inventing something
-new.
+with context growing 0 → 4,338 tokens, while a fresh conversation per question stayed 5 of 5.
+
+> **What was actually built inverts this, and the inversion is the point.** That failure was not a
+> window problem — 4,338 of 8,192 is half a window and the model was already useless — it was a
+> **repetition** problem: retrieval re-sent overlapping views of the same few slides every turn.
+>
+> So the rule is not "context must not accumulate", it is **a slide's text appears at most once per
+> conversation**. Growth becomes linear in _distinct slides asked about_ rather than in turns, and
+> near-duplicate blocks disappear entirely. Measured at 1,407–1,470 tokens after five turns with
+> two slides pinned, against 4,338 for the version that failed.
+>
+> Which is why `remember` came back for the position line only. `remember` keeps things _out_ of
+> the model's memory; slide text needs to stay _in_ it, and Chrome's durable session cannot drop
+> anything anyway.
 
 ### Retrieval
 
@@ -398,6 +433,20 @@ buys a 2B model nothing it can act on, and the ~80-token default is the whole po
 it against a view, act on the deck, report back — with none of the risk, because it never writes to
 the DOM. `chat/bridge.js` already publishes `nav`, `chat/bus.js` already exposes `getSnapshot()`,
 and `selectView()` now routes the three navigation commands to a 46-character context. See §9.
+
+> **Still true, and now the only gap in a four-step sequence** the chat is otherwise ready for:
+> (1) a question about the deck → (2) a question about the current slide → (3) find a slide on a
+> new topic and go there → (4) a question about the slide it just navigated to.
+>
+> 1, 2 and 4 work today. 4 works **for free**, because `deck-context.js` reads position at send
+> time and compares it against the slide the last question came from — a rule that never asks who
+> moved the deck. A slide the assistant navigated to is "new" on the next question exactly as one
+> the presenter walked to is.
+>
+> 3 is missing the _action_, not the context: the outline is already in the system prompt, so
+> "which slide covers vector search" resolves to "slide 15" correctly today. Whatever builds it
+> must read position **after `nav.settle()`** — `nextContext()` is a pure read of the current
+> snapshot, so that ordering is the entire integration.
 
 ---
 
