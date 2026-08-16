@@ -30,6 +30,7 @@ import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
 import { DeckBridge } from "../chat/bridge.js";
 import { ChatToggle } from "../chat/toggle.js";
+import { ToolsToggle } from "../chat/tools/toggle.js";
 
 const html = htm.bind(createElement);
 
@@ -288,25 +289,26 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
           width=${1}
         >
           ${
-            "" /* Fullscreen first, robot second, on EVERY slide including the title.
-                  The controls are not chrome in the decorative sense -- they are the
-                  two things a presenter reaches for, and going fullscreen is the
-                  first of them, which makes slide 1 the slide it is needed on most.
+            "" /* Fullscreen first, sparkle second, plug third, on EVERY slide including
+                  the title. The controls are not chrome in the decorative sense --
+                  they are the things a presenter reaches for, and going fullscreen is
+                  the first of them, which makes slide 1 the slide it is needed on most.
                   Gating it behind `chrome` alongside the counter and the progress bar
                   conflated "information about position in the deck", which a title
                   slide genuinely should not carry, with "controls", which it should.
-                  Rendering unconditionally also means the robot's x needs no
+                  Rendering unconditionally also means the sparkle's x needs no
                   reserved-box trickery to stay put. */
           }
-          <${FlexBox} alignItems="center">
+          <${FlexBox} className="deck-controls" alignItems="center">
             <${FullScreen} color=${colors.midnight[30]} size=${20} />
             <${ChatToggle} />
+            <${ToolsToggle} />
           <//>
           ${
             "" /* The counter is the tallest thing in this row, so dropping it on the
-                  title slide let the row collapse and lifted the robot 13px. Rendered
+                  title slide let the row collapse and lifted the sparkle 13px. Rendered
                   with `visibility: hidden` rather than omitted: the box keeps the row
-                  at one height, so the robot holds its y as well as its x. */
+                  at one height, so the sparkle holds its y as well as its x. */
           }
           <${Text}
             className=${`deck-meta__count${chrome ? "" : " deck-meta__count--reserved"}`}

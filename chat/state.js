@@ -11,7 +11,7 @@
  *
  * CLOSED ON LOAD, ALWAYS. This deck is a talk first and an assistant second: the
  * audience should see slides, and a floating window over slide 1 is the wrong
- * first impression. The robot in the deck chrome is how it opens.
+ * first impression. The sparkle in the deck chrome is how it opens.
  *
  * That is why the flag is no longer PERSISTED across reloads either. It used to be,
  * to save a click -- but a panel that reappears by itself after a refresh is a panel

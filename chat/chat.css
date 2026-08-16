@@ -17,7 +17,7 @@
   position: static;
 }
 
-/* --- The robot in the deck chrome ---------------------------------------- */
+/* --- The sparkle in the deck chrome -------------------------------------- */
 
 /*
  * `pointer-events` is load-bearing, not tidy-up.
@@ -25,19 +25,18 @@
  * Spectacle's `TemplateWrapper` -- the absolutely positioned box the deck
  * template renders into -- is `pointer-events: none`, and nothing in the deck's
  * CSS re-enables it. Spectacle's own `FullScreen` sets `pointerEvents: "all"`
- * inline on itself for exactly this reason. Without the rule below the robot
+ * inline on itself for exactly this reason. Without the rule below the sparkle
  * renders in the right place, highlights on hover in devtools, and cannot be
  * clicked.
+ *
+ * SPACING IS NOT HERE ANY MORE. It was a `margin-left` on this button, which
+ * spaced the markup evenly and the screen unevenly -- the fullscreen control is a
+ * bare svg and these are padded boxes, so the same margin read as two different
+ * gaps. `.deck-controls` in `deck/styles.css` owns the row's `gap` now; this file
+ * still owns everything about how the button itself looks.
  */
 .chat-toggle {
   pointer-events: auto;
-  /* Gap to the fullscreen button that PRECEDES it. Spectacle's FlexBox resolves its
-   * props through styled-system's flexbox group, which has no `gap`, so the spacing
-   * has to come from CSS -- and living on the robot rather than on the group keeps
-   * it here, in the deletable file. It is `margin-left` for the same reason: the
-   * robot now comes second, and putting the gap on Spectacle's own button would
-   * leave a stray 8px behind if the chat were ever removed. */
-  margin-left: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -169,7 +168,7 @@
 /* --- Provider switcher ---------------------------------------------------- */
 
 /*
- * Two pills, left-aligned next to the robot rather than in the action group.
+ * Two pills, left-aligned next to the sparkle rather than in the action group.
  *
  * Deliberately on the other side of the bar from the model's controls, because it is a
  * different kind of control: everything on the right acts on the current model, this one
@@ -742,6 +741,389 @@
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 13px;
   color: var(--muted, #97a1b8);
+}
+
+/* --- Tool inspector ------------------------------------------------------ */
+
+/*
+ * A full-screen scrim, unlike the info modal a few sections up -- and the
+ * difference is deliberate rather than inconsistent. That one is a footnote
+ * about the model that has to not interrupt; this one IS the demo, and while it
+ * is open the deck behind it is the backdrop, not the subject. It is also the
+ * only surface here that a room reads from twenty feet away, which wants the
+ * width a scrim gives and an anchored popover does not.
+ *
+ * z-index clears `.chat-panel`'s 10000: opening the tools from a slide with the
+ * assistant already up must not put the panel through the scrim.
+ */
+.chat-tools {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(2, 10, 20, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.chat-tools:focus-visible {
+  /* Focused on mount so Escape has somewhere to land; the ring would only draw
+   * a box around the whole screen. */
+  outline: none;
+}
+
+.chat-tools__card {
+  /* Dark form controls without restyling `select` and `number` by hand: this is
+   * what tells the UA to render its own widgets, spinners and dropdown list
+   * included, for a dark surface. */
+  color-scheme: dark;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1100px;
+  /* A FIXED height, not a maximum. Sized to its content the card was a different
+   * shape for every tool -- 300px for `get_current_slide`, twice that for
+   * `find_node` -- so choosing from the select resized the window under the
+   * pointer. It also kept the result pane small exactly when the tool had little
+   * to say and large when it had lots, which is backwards. */
+  height: 82vh;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  background: rgba(2, 10, 20, 0.98);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  /* Same face and colour as `.chat-panel`. Without this the descriptions inherit
+   * the deck's body serif, which is right for a slide and wrong for a control. */
+  color: #fff;
+  font-family: var(--sans, "Inter", system-ui, sans-serif);
+  font-size: 15px;
+}
+
+.chat-tools__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+}
+
+.chat-tools__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.chat-tools__title i {
+  color: var(--chapter-accent, #78eec5);
+  font-size: 18px;
+}
+
+/*
+ * The picker. Sized to the longest tool name rather than to its content, so
+ * choosing a tool does not resize the header around the pointer.
+ */
+.chat-tools__select {
+  min-width: 20ch;
+  padding: 4px 8px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+}
+
+.chat-tools__select:focus {
+  outline: none;
+  border-color: var(--chapter-accent, #78eec5);
+}
+
+.chat-tools__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-tools__badge {
+  padding: 1px 6px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+}
+
+.chat-tools__badge--on {
+  border-color: var(--chapter-accent, #78eec5);
+  color: var(--chapter-accent, #78eec5);
+}
+
+.chat-tools__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/*
+ * Docs and form on the left, the result on the right, and each scrolls alone.
+ *
+ * Two independent scrollers rather than one for the card: a long schema must
+ * never be able to push the result off the bottom, because pressing Execute and
+ * seeing nothing move is indistinguishable from pressing Execute and nothing
+ * happening. `min-width: 0` on both is what lets them actually shrink -- a flex
+ * item's automatic minimum is its content, and a `<pre>` full of JSON has a very
+ * wide one.
+ */
+.chat-tools__pane {
+  flex: 1 1 42%;
+  min-width: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+}
+
+.chat-tools__doc {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+}
+
+.chat-tools__name {
+  margin: 0 0 6px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 16px;
+  font-weight: 400;
+  color: #fff;
+}
+
+.chat-tools__desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-tools__schema {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.chat-tools__schema th {
+  padding: 0 8px 4px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+  text-align: left;
+}
+
+.chat-tools__schema td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--surface-2, rgba(255, 255, 255, 0.02));
+  color: var(--muted, #97a1b8);
+  vertical-align: top;
+}
+
+.chat-tools__schema code {
+  font-family: var(--mono, ui-monospace, monospace);
+  color: #fff;
+}
+
+.chat-tools__required {
+  margin-left: 2px;
+  color: var(--nf-feedback-error, #fc6986);
+}
+
+.chat-tools__none {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted, #97a1b8);
+}
+
+/* No bottom rule: the form is the last thing in this column, and a divider under
+ * the last thing divides it from nothing. */
+.chat-tools__form {
+  padding: 14px 16px;
+}
+
+.chat-tools__fields {
+  display: grid;
+  gap: 10px;
+}
+
+.chat-tools__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.chat-tools__field--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-tools__label {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-tools__input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+}
+
+.chat-tools__input:focus {
+  outline: none;
+  border-color: var(--chapter-accent, #78eec5);
+}
+
+.chat-tools__run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.chat-tools__execute {
+  padding: 6px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--chapter-accent, #78eec5);
+  color: #04121b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-tools__execute:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-tools__hint {
+  font-size: 12px;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-tools__output {
+  display: flex;
+  /* The larger share of the width. JSON is the widest thing in this modal and
+   * the only thing here that a room reads at distance. */
+  flex: 1 1 58%;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-tools__output-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 6px 16px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-tools__error-chip {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--nf-feedback-error, #fc6986);
+  border-radius: 4px;
+  color: var(--nf-feedback-error, #fc6986);
+}
+
+.chat-tools__result {
+  flex: 1;
+  margin: 0;
+  padding: 12px 16px;
+  overflow: auto;
+  background: var(--surface-2, rgba(255, 255, 255, 0.02));
+  color: var(--muted, #97a1b8);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-tools__result--error {
+  color: var(--nf-feedback-error, #fc6986);
+}
+
+/*
+ * Two columns need width. Below it they stack -- docs and form first, result
+ * under them -- and the result keeps a floor so it cannot be squeezed to a strip.
+ *
+ * The short-viewport half of the query is not a duplicate of the narrow one: a
+ * projector is 16:9 and a laptop in fullscreen is wider than it is tall, so the
+ * card runs out of height first, and stacking is the wrong answer there. Only the
+ * measures that buy vertical room apply below.
+ */
+@media (max-width: 900px), (max-height: 560px) {
+  .chat-tools {
+    padding: 12px;
+  }
+
+  .chat-tools__card {
+    height: 92vh;
+  }
+
+  .chat-tools__badges {
+    display: none;
+  }
+
+  /* Descriptions here run to four lines, which on a 480px-tall window is most of
+   * the docs pane and puts Execute below its fold. Clamped rather than hidden:
+   * the opening sentence is the part that says what the tool is for, and the
+   * schema table underneath still carries the whole parameter list. */
+  .chat-tools__desc {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+}
+
+/* Stacking is for NARROW only -- see above. */
+@media (max-width: 900px) {
+  .chat-tools__body {
+    flex-direction: column;
+  }
+
+  .chat-tools__pane {
+    flex: 0 1 auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  }
+
+  .chat-tools__output {
+    flex: 1 1 0;
+    min-height: 160px;
+  }
 }
 
 /* --- Paged output -------------------------------------------------------- */

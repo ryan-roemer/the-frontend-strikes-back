@@ -1,6 +1,6 @@
 # Deck assistant — the model layer
 
-The deck has a chat assistant in [`chat/`](../chat/): a robot button in the deck chrome opens a
+The deck has a chat assistant in [`chat/`](../chat/): a sparkle button in the deck chrome opens a
 floating window that answers questions. It runs an on-device model through **either of two
 providers**, switchable live from the panel header:
 

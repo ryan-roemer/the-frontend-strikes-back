@@ -42,7 +42,7 @@ export const getModelContext = () =>
  * Bare `?mcp` as well as `?mcp=true`, following `chat/state.js`: a flag you have
  * to remember the value of is a flag you will get wrong at the podium.
  */
-const editingEnabled = () => {
+export const editingEnabled = () => {
   try {
     const params = new URLSearchParams(window.location.search);
     if (!params.has("mcp")) return false;
@@ -78,6 +78,24 @@ const guard = (tool) => async (args) => {
 let installed = false;
 
 /**
+ * The tools as registered, for the in-page inspector.
+ *
+ * `registerTool` is the whole page-facing API -- there is no `listTools` coming
+ * back the other way, because enumeration is the AGENT's side of the protocol.
+ * So a UI in the page that wants to show what it registered has to remember,
+ * and this is the remembering. `call` is the same `guard()`ed function the host
+ * got, not a second path to the same tool: the inspector and the agent are
+ * running identical code, which is the only version of this worth demoing.
+ *
+ * `group` is inspector-only. The three arrays already mean something -- read,
+ * move, change -- and that grouping is the first thing a person needs in a list
+ * of fourteen names.
+ */
+let registry = [];
+
+export const getTools = () => registry;
+
+/**
  * Register the deck's tools, and leave a console harness behind either way.
  *
  * Returns a teardown, matching `mountChat()`. There is no unregister in the API
@@ -88,8 +106,27 @@ export const installTools = () => {
   if (installed) return () => {};
   installed = true;
 
-  const tools = [...READ_TOOLS, ...NAV_TOOLS];
-  if (editingEnabled()) tools.push(...installEditTools());
+  // `installEditTools()` also starts the watchdog, so it is called once, here,
+  // and the result is reused for both the registry and the registration below.
+  const groups = [
+    { group: "read", tools: READ_TOOLS },
+    { group: "navigate", tools: NAV_TOOLS },
+  ];
+  if (editingEnabled())
+    groups.push({ group: "edit", tools: installEditTools() });
+
+  const tools = groups.flatMap((group) => group.tools);
+
+  registry = groups.flatMap(({ group, tools: list }) =>
+    list.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      outputSchema: tool.outputSchema,
+      group,
+      call: guard(tool),
+    })),
+  );
 
   // THE HARNESS GOES UP EVEN WITH NO HOST. "Are the tools right" and "is the
   // extension connected" fail in ways that look identical from the console, and

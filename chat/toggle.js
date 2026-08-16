@@ -5,7 +5,7 @@ import { isEnabled, subscribe, toggleEnabled } from "./state.js";
 const html = htm.bind(createElement);
 
 /**
- * The robot, sitting next to Spectacle's fullscreen button in the deck chrome.
+ * The sparkle, sitting next to Spectacle's fullscreen button in the deck chrome.
  *
  * Hooks are safe here for the same reason they are safe in `DeckBridge`: this is
  * rendered as an element, so it owns its own fiber. It must not become a plain
@@ -33,6 +33,6 @@ export const ChatToggle = () => {
     title=${enabled ? "Close deck assistant" : "Open deck assistant"}
     aria-label=${enabled ? "Close deck assistant" : "Open deck assistant"}
   >
-    <i className="ph-fill ph-robot" aria-hidden="true"></i>
+    <i className="ph-fill ph-sparkle" aria-hidden="true"></i>
   </button>`;
 };

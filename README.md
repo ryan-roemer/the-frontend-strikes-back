@@ -45,7 +45,7 @@ Transitions are also disabled automatically under `prefers-reduced-motion`.
 
 ## Deck assistant
 
-The robot button in the deck chrome opens a chat panel backed by a model running **entirely on
+The sparkle button in the deck chrome opens a chat panel backed by a model running **entirely on
 your machine**. It is self-contained in [`chat/`](chat/) and mounted dynamically, so the deck
 works with it removed.
 

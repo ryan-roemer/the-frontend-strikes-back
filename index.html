@@ -577,7 +577,7 @@
           ${
             "" /* TODO: Demo? — this deck IS the demo for this chapter.
              *
-             * The robot button opens a chat panel running a model on this machine, with
+             * The sparkle button opens a chat panel running a model on this machine, with
              * TWO swappable providers: Gemma 4 E2B on WebGPU (LiteRT-LM, a 2 GB model this
              * page owns) and Gemini Nano (Chrome Prompt API, the browser's, invisible to
              * us). One click switches mid-conversation.
@@ -828,9 +828,9 @@
       //
       // Removing the assistant is three edits, and they have to go TOGETHER:
       // this call, the stylesheet link in <head>, and the `DeckBridge` /
-      // `ChatToggle` imports and elements in `Template`. Those last two are
-      // static imports -- deleting `chat/` while `components.js` still refers to
-      // it is the one combination that does break the deck.
+      // `ChatToggle` / `ToolsToggle` imports and elements in `Template`. Those
+      // last three are static imports -- deleting `chat/` while `components.js`
+      // still refers to it is the one combination that does break the deck.
       import("./chat/index.js")
         .then(({ mountChat }) => mountChat())
         .catch((err) => console.warn("[chat] not mounted:", err.message));

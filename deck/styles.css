@@ -667,18 +667,44 @@ body::after {
 }
 
 /*
- * Optically align the fullscreen icon with the robot beside it.
+ * Optically align the fullscreen icon with the sparkle beside it.
  *
  * Spectacle renders its fullscreen control as an `<svg>` left at `display: inline`,
  * so the wrapper is taller than the icon by the font's descender -- 23.7px around a
  * 19px glyph, measured -- and centring the WRAPPER therefore lifts the ICON about
- * 2.4px above true centre. The robot next to it is a flex-centred button with no
+ * 2.4px above true centre. The sparkle next to it is a flex-centred button with no
  * such gap, so the two read as misaligned even though both boxes centre perfectly.
  *
  * `display: block` drops the baseline, and the wrapper collapses to the icon.
  */
 .spectacle-fullscreen-button svg {
   display: block;
+}
+
+/*
+ * One gap, and three boxes of the same size to measure it between.
+ *
+ * The controls used to space themselves with a `margin-left` on each button after
+ * the first, which looked even in the markup and was not on screen: Spectacle's
+ * fullscreen control is a bare 19px svg, while the buttons beside it are 28px
+ * boxes with the glyph centred. The same 8px margin therefore left 11px of visible
+ * space after the svg and 15px between two buttons. Giving the svg the same box
+ * makes the whitespace between glyphs equal, and `gap` on the row then means what
+ * it says -- add or remove a control and the spacing needs no arithmetic.
+ *
+ * `gap` rather than margins for the deletability reason too: with the assistant
+ * removed this row has one child, and a gap between one thing is nothing.
+ */
+.deck-controls {
+  gap: 8px;
+}
+
+.deck-controls .spectacle-fullscreen-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
 }
 
 /*
@@ -691,7 +717,7 @@ body::after {
  * them. `visibility` rather than `display` is the whole point.
  *
  * Note the split this draws: position readouts are hidden here, CONTROLS are not. The
- * fullscreen button and the robot render on every slide, because they are what a
+ * fullscreen button and the assistant render on every slide, because they are what a
  * presenter reaches for and slide 1 is where fullscreen is needed most.
  */
 .deck-meta__count--reserved,

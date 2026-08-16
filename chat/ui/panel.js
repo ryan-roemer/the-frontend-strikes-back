@@ -131,10 +131,10 @@ export const Panel = ({ enabled }) => {
                 narrow enough that a title was crowding the controls that matter. */
         }
         <span className="chat-panel__title">
-          <i className="ph-fill ph-robot" aria-hidden="true"></i>
+          <i className="ph-fill ph-sparkle" aria-hidden="true"></i>
         </span>
         ${
-          "" /* Left-aligned, next to the robot and away from the action group. It is the
+          "" /* Left-aligned, next to the sparkle and away from the action group. It is the
                 one control here that changes WHAT is answering rather than what happens to
                 it, and it earned the space the undo and revert buttons used to take. */
         }
