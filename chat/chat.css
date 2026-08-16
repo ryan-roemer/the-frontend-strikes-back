@@ -513,6 +513,61 @@
   color: var(--muted, #97a1b8);
 }
 
+/*
+ * "What did the model actually get?", in the answer's bottom-right corner.
+ *
+ * Absolutely positioned, with the bubble reserving the room for it: the padding
+ * below is what stops a long last line from running underneath the icon, and
+ * `:has()` applies it only to the bubbles that actually carry one, so an answer
+ * without a captured context is not padded for a button it does not have. Doing
+ * it the other way -- the button in the flow -- costs a whole line under every
+ * answer, which on a one-word reply is more chrome than message.
+ *
+ * Visible at rest, not on hover. This is meant to be pointed at from the front of
+ * a room, and a control that appears under the pointer cannot be pointed at.
+ */
+.chat-bubble:has(.chat-bubble__context) {
+  position: relative;
+  padding-right: 30px;
+}
+
+/*
+ * 9 and 6, not 11 and 8, and the difference is the point rather than a fudge.
+ *
+ * The bubble's padding is `8px 11px`, which is where the TEXT starts -- but this
+ * button carries 2px of its own padding around the glyph so it has something to
+ * highlight on hover. Setting it flush to 11/8 would inset the visible mark by
+ * 13/10 and it would read as further from the corner than the text is. Two px
+ * back on each axis puts the ink on the text's margins, which is what the eye
+ * is actually lining up.
+ */
+.chat-bubble__context {
+  position: absolute;
+  right: 9px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted, #97a1b8);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+  transition:
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+.chat-bubble__context:hover,
+.chat-bubble__context:focus-visible {
+  color: var(--chapter-accent, #78eec5);
+  opacity: 1;
+}
+
 /* --- Typing dots --------------------------------------------------------- */
 
 .chat-typing {
@@ -743,20 +798,25 @@
   color: var(--muted, #97a1b8);
 }
 
-/* --- Tool inspector ------------------------------------------------------ */
+/* --- Sheets: the shared scrim, card and bar ------------------------------- */
 
 /*
- * A full-screen scrim, unlike the info modal a few sections up -- and the
+ * Two things use this -- the tool inspector and the context viewer -- and both
+ * are full-screen scrims, unlike the info modal a few sections up. The
  * difference is deliberate rather than inconsistent. That one is a footnote
- * about the model that has to not interrupt; this one IS the demo, and while it
- * is open the deck behind it is the backdrop, not the subject. It is also the
- * only surface here that a room reads from twenty feet away, which wants the
- * width a scrim gives and an anchored popover does not.
+ * about the model that has to not interrupt; these ARE the demo, and while one
+ * is open the deck behind it is the backdrop, not the subject. They are also the
+ * only surfaces here a room reads from twenty feet away, which wants the width a
+ * scrim gives and an anchored popover does not.
  *
- * z-index clears `.chat-panel`'s 10000: opening the tools from a slide with the
+ * Everything below is what the two have in common and nothing more. What differs
+ * -- a three-pane workbench, a scrolling column of messages -- stays in the
+ * `.chat-tools*` and `.chat-context*` sections that follow.
+ *
+ * z-index clears `.chat-panel`'s 10000: opening a sheet from a slide with the
  * assistant already up must not put the panel through the scrim.
  */
-.chat-tools {
+.chat-sheet {
   position: fixed;
   inset: 0;
   z-index: 10001;
@@ -768,13 +828,13 @@
   backdrop-filter: blur(2px);
 }
 
-.chat-tools:focus-visible {
+.chat-sheet:focus-visible {
   /* Focused on mount so Escape has somewhere to land; the ring would only draw
    * a box around the whole screen. */
   outline: none;
 }
 
-.chat-tools__card {
+.chat-sheet__card {
   /* Dark form controls without restyling `select` and `number` by hand: this is
    * what tells the UA to render its own widgets, spinners and dropdown list
    * included, for a dark surface. */
@@ -801,7 +861,23 @@
   font-size: 15px;
 }
 
-.chat-tools__bar {
+/*
+ * One column of prose does not want 1100px of it -- that is a measure nobody can
+ * track a line across. The context viewer takes the narrower card, and takes its
+ * height from its content.
+ *
+ * The fixed height above exists because the tool inspector changes what it shows
+ * while it is open, and a card that resized under the select was worse than a
+ * card with slack in it. Nothing changes inside this one: it opens on a single
+ * captured turn and shows exactly that, so hugging the content is free.
+ */
+.chat-sheet__card--narrow {
+  max-width: 780px;
+  height: auto;
+  max-height: 82vh;
+}
+
+.chat-sheet__bar {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -809,7 +885,7 @@
   border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
 }
 
-.chat-tools__title {
+.chat-sheet__title {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -820,7 +896,7 @@
   color: #fff;
 }
 
-.chat-tools__title i {
+.chat-sheet__title i {
   color: var(--chapter-accent, #78eec5);
   font-size: 18px;
 }
@@ -845,7 +921,7 @@
   border-color: var(--chapter-accent, #78eec5);
 }
 
-.chat-tools__badges {
+.chat-sheet__badges {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -855,13 +931,13 @@
   color: var(--muted, #97a1b8);
 }
 
-.chat-tools__badge {
+.chat-sheet__badge {
   padding: 1px 6px;
   border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
   border-radius: 999px;
 }
 
-.chat-tools__badge--on {
+.chat-sheet__badge--on {
   border-color: var(--chapter-accent, #78eec5);
   color: var(--chapter-accent, #78eec5);
 }
@@ -1084,15 +1160,15 @@
  * measures that buy vertical room apply below.
  */
 @media (max-width: 900px), (max-height: 560px) {
-  .chat-tools {
+  .chat-sheet {
     padding: 12px;
   }
 
-  .chat-tools__card {
+  .chat-sheet__card {
     height: 92vh;
   }
 
-  .chat-tools__badges {
+  .chat-sheet__badges {
     display: none;
   }
 
@@ -1124,6 +1200,79 @@
     flex: 1 1 0;
     min-height: 160px;
   }
+}
+
+/* --- Context viewer ------------------------------------------------------- */
+
+/*
+ * One scrolling column of messages, in the order the model received them.
+ *
+ * Laid out as a transcript rather than as the JSON it literally is, because the
+ * point being made is "here is a conversation you did not know you were having" --
+ * the system preface the user never wrote, and the handful of earlier turns the
+ * provider chose to keep. `{"role":"user"}` says that less well than a heading
+ * does, and the copy button hands over something diffable either way.
+ */
+.chat-context__body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-context__message {
+  border-left: 2px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  padding-left: 12px;
+}
+
+/* The preface and the live question are the two a reader is looking for; the
+ * turns between them are context in both senses. */
+.chat-context__message--system,
+.chat-context__message--user:last-child {
+  border-left-color: var(--chapter-accent, #78eec5);
+}
+
+.chat-context__role {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-context__note {
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--chapter-accent, #78eec5);
+}
+
+.chat-context__body {
+  margin: 0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  line-height: 1.55;
+  /* `pre-wrap`, not `pre`: the system preface is newline-separated sentences and
+   * the questions are prose, so hard-wrapping would put a horizontal scrollbar
+   * under every message to no purpose. */
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #fff;
+}
+
+.chat-context__foot {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted, #97a1b8);
 }
 
 /* --- Paged output -------------------------------------------------------- */

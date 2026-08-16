@@ -62,7 +62,7 @@ const aborted = () => new DOMException("Aborted", "AbortError");
  * ON_DISK should just work, and the keystroke that submitted it is a perfectly
  * good user activation.
  */
-export const streamAnswer = async ({ text, onChunk, signal }) => {
+export const streamAnswer = async ({ text, onChunk, signal, onPrompt }) => {
   if (!isReady()) {
     // RE-SAMPLE BEFORE REFUSING, but only where the status is not a fact.
     //
@@ -155,7 +155,10 @@ export const streamAnswer = async ({ text, onChunk, signal }) => {
     // question entered the transcript -- excerpts that accumulated turn over turn
     // degraded answers into "please provide the context" by the third question. With
     // no retrieval, what is sent and what is remembered are the same string again.
-    const stream = session.stream(text, { signal: guard.signal });
+    // `onPrompt` fires only from here down, which is deliberate: every refusal
+    // above this line returned before the model was reached, so those turns have
+    // no context to show and their bubbles get no button.
+    const stream = session.stream(text, { signal: guard.signal, onPrompt });
     for await (const chunk of stream) {
       if (signal?.aborted) throw aborted();
       guard.arm();

@@ -95,95 +95,131 @@ const startPoll = () => {
 let session = null;
 
 /** Wraps a Chrome `LanguageModel` session in the shared chat-handle contract. */
-const wrap = (raw, system) => ({
+const wrap = (raw, system) => {
   /**
-   * MUST STAY A GENERATOR.
+   * What this page has handed the session, kept only so `onPrompt` can report it.
    *
-   * `promptStreaming` returns a ReadableStream, and Safari has no `Symbol.asyncIterator` on
-   * those -- but `session.js` consumes this with `for await`. Chrome-only code that happens
-   * to work is not the same as code that is correct, and this contract is shared.
-   *
-   * Yields DELTAS. Chrome already streams deltas, so unlike LiteRT there is nothing to
-   * un-accumulate here.
+   * Chrome's history lives in the browser process and is not readable from here,
+   * so unlike LiteRT this is a MIRROR rather than the source of truth. It is
+   * accurate because it is written on the same code path that does the sending --
+   * but it is a record of what went in, not a read of what the session holds, and
+   * it is unbounded for the same reason Chrome's is.
    */
-  async *stream(text, { signal = null } = {}) {
-    const reader = raw.promptStreaming(text, { signal }).getReader();
-    try {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) return;
-        // An empty yield would re-arm the idle timeout in `session.js` forever.
-        if (value) yield value;
+  let sent = [];
+
+  return {
+    /**
+     * MUST STAY A GENERATOR.
+     *
+     * `promptStreaming` returns a ReadableStream, and Safari has no `Symbol.asyncIterator` on
+     * those -- but `session.js` consumes this with `for await`. Chrome-only code that happens
+     * to work is not the same as code that is correct, and this contract is shared.
+     *
+     * Yields DELTAS. Chrome already streams deltas, so unlike LiteRT there is nothing to
+     * un-accumulate here.
+     */
+    async *stream(text, { signal = null, onPrompt = null } = {}) {
+      // Reported BEFORE the send, and from the mirror rather than from the session:
+      // `sent` is what this page has put in, and the turn below is about to be added
+      // to it. Copied, so a caller can hold it after later turns have appended.
+      onPrompt?.({
+        provider: "chrome",
+        system,
+        history: sent.map((message) => ({ ...message })),
+        message: text,
+        historyLimit: null,
+      });
+
+      let answer = "";
+      const reader = raw.promptStreaming(text, { signal }).getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) return;
+          // An empty yield would re-arm the idle timeout in `session.js` forever.
+          if (value) {
+            answer += value;
+            yield value;
+          }
+        }
+      } finally {
+        reader.releaseLock?.();
+        // Recorded even on abort, matching LiteRT: Chrome keeps a cancelled turn in
+        // its own history, so a mirror that dropped it would drift from the session.
+        sent.push(
+          { role: "user", content: text },
+          { role: "assistant", content: answer },
+        );
       }
-    } finally {
-      reader.releaseLock?.();
-    }
-  },
+    },
 
-  /**
-   * Synchronous and exact, which is the one place Chrome is straightforwardly better.
-   *
-   * The session tracks its own occupancy, so there is a real number to read rather than
-   * LiteRT's cached async sample. Measured on Chrome 151: 9 / 9216 on a fresh session with
-   * a short system prompt, 24 after one turn.
-   *
-   * TWO SPELLINGS, and both are checked because the spec renamed them mid-flight.
-   * `contextUsage`/`contextWindow` are what Chrome 151 actually ships; `inputUsage`/
-   * `inputQuota` are the older names still in much of the published documentation. Reading
-   * only the documented pair returned `undefined` here and silently hid the meter -- which
-   * looked exactly like a provider that has no context to report, so it took a property
-   * dump on a live session to notice.
-   *
-   * A non-finite or zero window reads as "no context" rather than as a percentage: a
-   * percent of Infinity is NaN, which renders as a broken meter.
-   */
-  context() {
-    const used = raw.contextUsage ?? raw.inputUsage;
-    const total = raw.contextWindow ?? raw.inputQuota;
-    if (typeof used !== "number" || typeof total !== "number") return null;
-    if (!Number.isFinite(total) || total <= 0) return null;
-    return { used, total, pct: Math.round((used / total) * 100) };
-  },
+    /**
+     * Synchronous and exact, which is the one place Chrome is straightforwardly better.
+     *
+     * The session tracks its own occupancy, so there is a real number to read rather than
+     * LiteRT's cached async sample. Measured on Chrome 151: 9 / 9216 on a fresh session with
+     * a short system prompt, 24 after one turn.
+     *
+     * TWO SPELLINGS, and both are checked because the spec renamed them mid-flight.
+     * `contextUsage`/`contextWindow` are what Chrome 151 actually ships; `inputUsage`/
+     * `inputQuota` are the older names still in much of the published documentation. Reading
+     * only the documented pair returned `undefined` here and silently hid the meter -- which
+     * looked exactly like a provider that has no context to report, so it took a property
+     * dump on a live session to notice.
+     *
+     * A non-finite or zero window reads as "no context" rather than as a percentage: a
+     * percent of Infinity is NaN, which renders as a broken meter.
+     */
+    context() {
+      const used = raw.contextUsage ?? raw.inputUsage;
+      const total = raw.contextWindow ?? raw.inputQuota;
+      if (typeof used !== "number" || typeof total !== "number") return null;
+      if (!Number.isFinite(total) || total <= 0) return null;
+      return { used, total, pct: Math.round((used / total) * 100) };
+    },
 
-  /** Nothing to sample: `context()` reads the session directly. */
-  async sampleContext() {},
+    /** Nothing to sample: `context()` reads the session directly. */
+    async sampleContext() {},
 
-  /** `params()` was absent in Chrome 151, so there is nothing honest to report. */
-  async benchmark() {
-    return null;
-  },
+    /** `params()` was absent in Chrome 151, so there is nothing honest to report. */
+    async benchmark() {
+      return null;
+    },
 
-  /**
-   * Empty the context window and keep talking.
-   *
-   * NOT `clone()`. Cloning copies the conversation history, which is precisely what the
-   * broom exists to drop -- so it would leave the meter exactly where it was. A fresh
-   * `create()` is the only real reset, and it is expensive, which is why
-   * `capabilities.cheapRestart` is false and `model-state.js` routes this through a spinner.
-   */
-  async restart() {
-    const next = await LanguageModel.create({
-      ...PROMPT_OPTIONS,
-      initialPrompts: [{ role: "system", content: system }],
-    });
-    try {
-      raw.destroy();
-    } catch {
-      /* already gone */
-    }
-    raw = next;
-    session = next;
-  },
+    /**
+     * Empty the context window and keep talking.
+     *
+     * NOT `clone()`. Cloning copies the conversation history, which is precisely what the
+     * broom exists to drop -- so it would leave the meter exactly where it was. A fresh
+     * `create()` is the only real reset, and it is expensive, which is why
+     * `capabilities.cheapRestart` is false and `model-state.js` routes this through a spinner.
+     */
+    async restart() {
+      const next = await LanguageModel.create({
+        ...PROMPT_OPTIONS,
+        initialPrompts: [{ role: "system", content: system }],
+      });
+      try {
+        raw.destroy();
+      } catch {
+        /* already gone */
+      }
+      raw = next;
+      session = next;
+      // The new session starts with an empty history, so the mirror must too.
+      sent = [];
+    },
 
-  destroy() {
-    try {
-      raw.destroy();
-    } catch (err) {
-      console.warn("[chat] session.destroy() failed:", err.message);
-    }
-    if (session === raw) session = null;
-  },
-});
+    destroy() {
+      try {
+        raw.destroy();
+      } catch (err) {
+        console.warn("[chat] session.destroy() failed:", err.message);
+      }
+      if (session === raw) session = null;
+    },
+  };
+};
 
 export const provider = {
   id: "chrome",

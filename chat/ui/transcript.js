@@ -1,11 +1,20 @@
 import { createElement, useEffect, useRef } from "react";
 import htm from "htm";
 import { renderMarkdown } from "../agent/markdown.js";
+import { showContext } from "../context/state.js";
 
 const html = htm.bind(createElement);
 
-/** One bubble. Markdown is rendered from pre-escaped HTML -- see markdown.js. */
-const Bubble = ({ role, text, stopped }) => html`
+/**
+ * One bubble. Markdown is rendered from pre-escaped HTML -- see markdown.js.
+ *
+ * `prompt` is present only on assistant entries whose turn actually reached the
+ * model, so the button is its own answer to "is there anything to show" and needs
+ * no separate flag. It is rendered rather than revealed on hover deliberately: a
+ * control nobody can see until the pointer is on it does not exist to a room
+ * watching a projector.
+ */
+const Bubble = ({ role, text, stopped, prompt }) => html`
   <div
     className=${`chat-bubble chat-bubble--${role}${stopped ? " chat-bubble--stopped" : ""}`}
   >
@@ -14,6 +23,17 @@ const Bubble = ({ role, text, stopped }) => html`
       dangerouslySetInnerHTML=${{ __html: renderMarkdown(text) }}
     ></div>
     ${stopped ? html`<span className="chat-bubble__flag">stopped</span>` : null}
+    ${prompt
+      ? html`<button
+          type="button"
+          className="chat-bubble__context"
+          onClick=${() => showContext(prompt)}
+          title="Show the context sent to the model"
+          aria-label="Show the context sent to the model"
+        >
+          <i className="ph ph-brackets-curly" aria-hidden="true"></i>
+        </button>`
+      : null}
   </div>
 `;
 

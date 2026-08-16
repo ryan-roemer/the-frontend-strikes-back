@@ -669,7 +669,7 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
      * accumulating. Nothing wraps the question any more, so the two are always the same
      * string and the option is gone. Put it back, not something new, if retrieval returns.
      */
-    async *stream(text, { signal = null } = {}) {
+    async *stream(text, { signal = null, onPrompt = null } = {}) {
       let answer = "";
       try {
         for await (const delta of streamFrom({
@@ -678,6 +678,21 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
           // Inside the lock, so the rebuild can never race a live generation.
           prepare: async () => {
             await rebuild();
+            // Reported from here, after the rebuild that consumed it, because THIS
+            // is the preface the conversation was actually built from -- not what
+            // the UI transcript happens to hold. The two diverge by design: this
+            // one is trimmed to `MAX_HISTORY_MESSAGES` and the panel's is not.
+            //
+            // Copied, not passed by reference. `transcript` is reassigned by the
+            // slice below on the very next turn, and a caller keeping this around
+            // to show later must see what was sent, not what is current.
+            onPrompt?.({
+              provider: "litert",
+              system,
+              history: transcript.map((message) => ({ ...message })),
+              message: text,
+              historyLimit: MAX_HISTORY_MESSAGES,
+            });
             return conversation;
           },
         })) {

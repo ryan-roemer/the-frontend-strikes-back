@@ -14,9 +14,16 @@ import { useCallback, useRef, useState } from "react";
  * hand their UI, and it means a dropped chunk cannot desync the display), and
  * resolves with the final string.
  *
- * Entries are `{ role, text, stopped? }`. The streaming turn is kept OUT of the
- * entry list, in `streaming`, so a partial answer can be discarded on abort
+ * Entries are `{ role, text, stopped?, prompt? }`. The streaming turn is kept OUT
+ * of the entry list, in `streaming`, so a partial answer can be discarded on abort
  * without having to unwind an array.
+ *
+ * `prompt` is what the responder reported through `onPrompt` -- the context that
+ * produced THIS answer, frozen at send time. It rides on the entry rather than
+ * being looked up later because the model's history is trimmed and rewritten as
+ * the conversation goes on: by the time anyone clicks to see it, the answer to
+ * "what was sent" no longer exists anywhere else. Absent on entries whose turn
+ * never reached the model.
  *
  * STOPPING DOES NOT WAIT FOR THE RESPONDER.
  *
@@ -48,6 +55,9 @@ export const useConversation = (respond) => {
   const streamingRef = useRef(null);
   // Identifies the current turn. Anything from an older turn is ignored.
   const runRef = useRef(0);
+  // The context the responder reported for the turn in flight, held here until
+  // there is an entry to attach it to.
+  const promptRef = useRef(null);
 
   const send = useCallback(
     async (text) => {
@@ -62,6 +72,7 @@ export const useConversation = (respond) => {
       setError(null);
       setStreaming("");
       streamingRef.current = "";
+      promptRef.current = null;
       setBusy(true);
 
       const current = () => runRef.current === run;
@@ -75,13 +86,21 @@ export const useConversation = (respond) => {
             streamingRef.current = accumulated;
             setStreaming(accumulated);
           },
+          onPrompt: (context) => {
+            if (!current()) return;
+            promptRef.current = context;
+          },
         });
 
         if (!current()) return;
 
         setEntries((prev) => [
           ...prev,
-          { role: "assistant", text: result ?? streamingRef.current ?? "" },
+          {
+            role: "assistant",
+            text: result ?? streamingRef.current ?? "",
+            prompt: promptRef.current,
+          },
         ]);
       } catch (err) {
         // `stop()` has already recorded the partial and cleared the busy state, so
@@ -112,14 +131,18 @@ export const useConversation = (respond) => {
     runRef.current += 1;
 
     const partial = streamingRef.current;
+    // Read before the reset below. A stopped answer was still produced from a real
+    // context, and that is exactly the turn someone wants to inspect.
+    const prompt = promptRef.current;
     abortRef.current?.abort();
     abortRef.current = null;
     streamingRef.current = null;
+    promptRef.current = null;
 
     if (partial) {
       setEntries((prev) => [
         ...prev,
-        { role: "assistant", text: partial, stopped: true },
+        { role: "assistant", text: partial, stopped: true, prompt },
       ]);
     }
     setStreaming(null);
@@ -133,6 +156,7 @@ export const useConversation = (respond) => {
     abortRef.current?.abort();
     abortRef.current = null;
     streamingRef.current = null;
+    promptRef.current = null;
     setEntries([]);
     setStreaming(null);
     setError(null);

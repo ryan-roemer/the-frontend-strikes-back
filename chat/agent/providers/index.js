@@ -42,9 +42,19 @@ import { provider as chrome } from "./chrome.js";
  *
  * THE CHAT HANDLE that `acquire()` resolves to:
  *
- *   stream(text, { signal })  async generator over DELTAS. Must be a GENERATOR -- Safari has
+ *   stream(text, { signal, onPrompt })
+ *                             async generator over DELTAS. Must be a GENERATOR -- Safari has
  *                             no `Symbol.asyncIterator` on ReadableStream and `session.js`
  *                             uses `for await`.
+ *                             `onPrompt` is optional and called AT MOST ONCE, before the
+ *                             first delta, with `{ provider, system, history, message,
+ *                             historyLimit }` -- the ingredients this turn was built from.
+ *                             Not the final prompt: both providers hand a structured
+ *                             message array to a runtime that applies the model's own turn
+ *                             template on the far side of a wasm or process boundary, so
+ *                             the string the model actually reads is never a JS value.
+ *                             Implementations MUST pass a copy, since a caller may hold it
+ *                             long after later turns have mutated the history.
  *   context()                 SYNC { used, total, pct } | null. Called in a component body.
  *   sampleContext()           Promise. Refreshes what `context()` returns; may be a no-op.
  *   restart()                 Promise. Empty the context window, keep talking.

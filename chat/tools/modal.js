@@ -265,7 +265,7 @@ const ToolInspector = () => {
   return html`
     <div
       ref=${overlay}
-      className="chat-tools"
+      className="chat-sheet"
       role="dialog"
       aria-modal="true"
       aria-label="WebMCP tools"
@@ -275,9 +275,9 @@ const ToolInspector = () => {
         if (event.target === event.currentTarget) close();
       }}
     >
-      <div className="chat-tools__card">
-        <header className="chat-tools__bar">
-          <span className="chat-tools__title">
+      <div className="chat-sheet__card">
+        <header className="chat-sheet__bar">
+          <span className="chat-sheet__title">
             <i className="ph-fill ph-plugs-connected" aria-hidden="true"></i>
             WebMCP tools
           </span>
@@ -311,7 +311,7 @@ const ToolInspector = () => {
               `;
             })}
           </select>
-          <span className="chat-tools__badges">
+          <span className="chat-sheet__badges">
             <span>${tools.length} registered</span>
             ${
               "" /* Whether a host is attached is the question every failure here
@@ -320,11 +320,11 @@ const ToolInspector = () => {
                     from this modal either way, which is itself the point. */
             }
             <span
-              className=${`chat-tools__badge${getModelContext() ? " chat-tools__badge--on" : ""}`}
+              className=${`chat-sheet__badge${getModelContext() ? " chat-sheet__badge--on" : ""}`}
               >${getModelContext() ? "host connected" : "no host"}</span
             >
             ${editingEnabled() &&
-            html`<span className="chat-tools__badge chat-tools__badge--on"
+            html`<span className="chat-sheet__badge chat-sheet__badge--on"
               >editing</span
             >`}
           </span>
