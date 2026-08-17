@@ -1,5 +1,4 @@
-/* global URLSearchParams:false,window:false,matchMedia:false */
-import { Fragment, createElement } from "react";
+import { Fragment, Suspense, createElement, lazy } from "react";
 import htm from "htm";
 import {
   Appear,
@@ -23,11 +22,12 @@ import {
   TableRow,
   TableCell,
 } from "spectacle";
-import { LiveEditor, LivePreview, LiveError, LiveProvider } from "react-live";
-import { themes } from "prism-react-renderer";
 import { colors, photoBackground } from "./theme.js";
 import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
+import { DeckBridge } from "../chat/bridge.js";
+import { ChatToggle } from "../chat/toggle.js";
+import { ToolsToggle } from "../chat/tools/toggle.js";
 
 const html = htm.bind(createElement);
 
@@ -249,44 +249,206 @@ export const AccentRule = ({ className = "" }) => html`
  * for whichever of the two it was not measured against.
  */
 export const Template = ({ slideNumber, numberOfSlides } = {}) => {
-  // The title slide carries its own composition; chrome would only crowd it,
-  // and a bar at 1-of-N there is a stub rather than information.
-  if (slideNumber === 1) return null;
+  // The title slide carries its own composition; a counter and a bar at 1-of-N
+  // there are a stub rather than information, so both stay off it.
+  //
+  // This used to be `if (slideNumber === 1) return null`, and it cannot be that
+  // any more. Spectacle calls `template` as a PLAIN FUNCTION inside `Deck`'s own
+  // render rather than mounting it as a component, so anything with hooks in it
+  // borrows Deck's hook list -- and an early return here would change the hook
+  // count on the first navigation and take the deck down with it. `DeckBridge`
+  // has hooks. It is safe only because it is an ELEMENT with its own fiber, and
+  // only if it renders on every slide. Hence a branch on what the chrome
+  // CONTAINS, never on whether the template renders at all.
+  //
+  // The empty band left on slide 1 costs nothing: `.deck-chrome` inherits
+  // `pointer-events: none` from Spectacle's `TemplateWrapper` and paints no
+  // background, so it neither shows nor blocks anything.
+  const chrome = slideNumber !== 1;
 
   const progress = numberOfSlides
     ? Math.round((slideNumber / numberOfSlides) * 100)
     : 0;
 
   return html`
-    <${Box} className="deck-chrome" position="absolute" bottom="0px" width=${1}>
-      <${FlexBox}
-        className="deck-meta"
-        justifyContent="space-between"
-        alignItems="center"
+    <${Fragment}>
+      <${DeckBridge} />
+      <${Box}
+        className="deck-chrome"
+        position="absolute"
+        bottom="0px"
         width=${1}
       >
-        <${FlexBox} alignItems="center">
-          <${FullScreen} color=${colors.midnight[30]} size=${20} />
+        <${FlexBox}
+          className="deck-meta"
+          justifyContent="space-between"
+          alignItems="center"
+          width=${1}
+        >
+          ${
+            "" /* Fullscreen first, sparkle second, plug third, on EVERY slide including
+                  the title. The controls are not chrome in the decorative sense --
+                  they are the things a presenter reaches for, and going fullscreen is
+                  the first of them, which makes slide 1 the slide it is needed on most.
+                  Gating it behind `chrome` alongside the counter and the progress bar
+                  conflated "information about position in the deck", which a title
+                  slide genuinely should not carry, with "controls", which it should.
+                  Rendering unconditionally also means the sparkle's x needs no
+                  reserved-box trickery to stay put. */
+          }
+          <${FlexBox} className="deck-controls" alignItems="center">
+            <${FullScreen} color=${colors.midnight[30]} size=${20} />
+            <${ChatToggle} />
+            <${ToolsToggle} />
+          <//>
+          ${
+            "" /* The counter is the tallest thing in this row, so dropping it on the
+                  title slide let the row collapse and lifted the sparkle 13px. Rendered
+                  with `visibility: hidden` rather than omitted: the box keeps the row
+                  at one height, so the sparkle holds its y as well as its x. */
+          }
+          <${Text}
+            className=${`deck-meta__count${chrome ? "" : " deck-meta__count--reserved"}`}
+            fontSize="18px"
+            margin="0px"
+            aria-hidden=${chrome ? undefined : true}
+          >
+            ${String(slideNumber).padStart(2, "0")} /
+            ${String(numberOfSlides).padStart(2, "0")}
+          </${Text}>
         <//>
-        <${Text} className="deck-meta__count" fontSize="18px" margin="0px">
-          ${String(slideNumber).padStart(2, "0")} / ${String(numberOfSlides).padStart(2, "0")}
-        </${Text}>
-      <//>
-      <${Box} className="deck-progress" width=${1}>
-        <${Box} className="deck-progress__fill" width=${`${progress}%`} />
+        ${
+          "" /* Reserved on the title slide, like the counter, and for a reason that is
+                easy to miss: `.deck-chrome` bottom-aligns its contents, so omitting
+                this 3.8px bar let the whole meta row DROP by 3.8px -- the icons sat
+                lower on slide 1 and jumped up on the first navigation. Measured. */
+        }
+        <${Box}
+          className=${`deck-progress${chrome ? "" : " deck-progress--reserved"}`}
+          width=${1}
+          aria-hidden=${chrome ? undefined : true}
+        >
+          <${Box} className="deck-progress__fill" width=${`${progress}%`} />
+        <//>
       <//>
     <//>
   `;
 };
 
-const MdNotes = ({ notes }) =>
-  !notes
+/**
+ * Handles a click on an overview-mode thumbnail. Passed to `Deck` as
+ * `onSlideClick`, which replaces Spectacle's own handler. It has to: Spectacle's
+ * cannot navigate to the first slide.
+ *
+ * A thumbnail click is a full page load. Spectacle's `useMode` hook assigns
+ * `window.location.search` and the deck re-initializes from the query string.
+ * The index it writes comes out of `toggleMode`:
+ *
+ *     let stepIndex = 0, slide = senderSlideIndex || "";
+ *     const params = parse(window.location.search);
+ *     if (!slide) { slide = params.slideIndex; stepIndex = params.stepIndex; }
+ *
+ * `senderSlideIndex || ""` -- SLIDE INDEX 0 IS FALSY, so clicking the first
+ * thumbnail looks the same as no slide being clicked, and the fallback sends you
+ * to the slide the URL already names: the one you opened overview mode from.
+ * Measured: enter overview at slide 10, click thumbnail 1, land back on slide 10.
+ * Every other thumbnail works, so it reads as flaky rather than broken.
+ *
+ * The override takes effect because Spectacle spreads the deck's props over its
+ * internal defaults (`{overviewMode, onSlideClick: theirs, ...}, ourProps`).
+ * `Deck` has already turned the clicked slide's id into a position by the time it
+ * calls this, so `index` needs no lookup.
+ *
+ * It also keeps the deck's own flags. Spectacle rebuilds the query string from
+ * scratch, so any mode change drops `?chat`, `?tools`, `?dump` and
+ * `?animate=false` -- open the chat, glance at the overview, and the chat is
+ * gone. Rewriting only the two navigation params leaves the rest alone.
+ *
+ * THE OVERVIEW CHECK IS NOT OPTIONAL. Spectacle wires this callback to `onClick`
+ * on every slide wrapper in every mode; its own handler starts with
+ * `inOverviewMode && ...`, and that test is all that keeps clicks quiet during
+ * the talk. Without it, one stray click on the slide being presented reloads the
+ * page and resets the step to 0.
+ */
+export const selectSlideFromOverview = (event, index) => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("overviewMode") !== "true") return;
+
+  event?.preventDefault();
+
+  params.set("slideIndex", String(index));
+  params.set("stepIndex", "0");
+  // Leaving overview: the mode is carried entirely by this flag.
+  params.delete("overviewMode");
+
+  window.location.search = params.toString();
+};
+
+/**
+ * Flatten a note's indentation before Spectacle ever sees it.
+ *
+ * Spectacle dedents markdown with `indentNormalizer`, which takes the SHORTEST
+ * leading-whitespace run across every line -- and then guards the strip with
+ * `prefix ? line.replace(prefix, '') : line`. So a single line at column zero
+ * makes the prefix `""`, which is falsy, and NOTHING is dedented.
+ *
+ * `DemoSlide` hits that exactly. It composes its note from two template
+ * literals, and one of them opens on the same line as its own backtick:
+ *
+ *                   * 75 sec. Same app as ch. 2.                    <- column 14
+ *
+ *     BACKUP: Cut to the recorded clip. Do NOT debug --             <- column 0
+ *                   this is a 75-second cameo.                      <- column 14
+ *
+ * The bullets stay at fourteen spaces, which is past markdown's four-space
+ * threshold, so they parse as an INDENTED CODE BLOCK -- and Spectacle renders
+ * that through its code pane. All three demo slides were showing their speaker
+ * notes as syntax-highlighted source.
+ *
+ * THE FIRST LINE DOES NOT VOTE, which is what makes this work on a plain note:
+ * it follows a backtick or a `${"${}"}` and is flush by construction, so letting it
+ * into the minimum is what drags the prefix to zero. Every other line is
+ * measured, so relative indentation -- nested bullets, wrapped continuations --
+ * survives.
+ *
+ * THAT RULE IS NOT ENOUGH FOR A COMPOSED NOTE, which is why `DemoSlide` calls
+ * this on each piece BEFORE joining rather than leaning on the pass below. A
+ * flush line only gets a free pass for being first; once the backup moved to the
+ * end of the note, its column-zero line sat in the middle, voted, and took the
+ * prefix back to zero. Dedenting the pieces separately is the general answer --
+ * each one is measured against its own indentation, which is the only thing it
+ * was ever consistent with.
+ *
+ * Kept on `MdNotes` as well because that is the one funnel every hand-written
+ * note passes through, so a component that composes a note and forgets still
+ * gets the simple case right. Notes on markdown slides take a different path
+ * entirely (the `Notes:` line) and never arrive here.
+ */
+const dedentNote = (text) => {
+  const lines = String(text).split("\n");
+  const indents = lines
+    .slice(1)
+    .filter((line) => line.trim())
+    .map((line) => line.match(/^ */)[0].length);
+  const pad = indents.length ? Math.min(...indents) : 0;
+
+  return lines
+    .map((line, i) => (i ? line.slice(pad) : line))
+    .join("\n")
+    .trim();
+};
+
+const MdNotes = ({ notes }) => {
+  const text = notes ? dedentNote(notes) : "";
+
+  return !text
     ? null
     : html`<${Notes}>
   <${Markdown} className="notes">
-    ${notes}
+    ${text}
   </${Markdown}>
 </${Notes}>`;
+};
 
 // Slide components
 
@@ -381,42 +543,19 @@ export const TopicSlide = ({ chapter, fontSize = "88px", ...rest }) => {
   `;
 };
 
-// Code editor component
+// Code editor component. The implementation, and the `react-live` and
+// `prism-react-renderer` imports it needs, live in `./code-editor.js` so that they load
+// only if a slide actually renders one -- see the header of that file.
 //
-// Set `noInline` for imperative snippets (e.g. registering a WebMCP tool).
-// Without it, react-live requires the last expression to be renderable.
-export const CodeEditor = ({
-  code,
-  noInline = false,
-  editorHeight = "400px",
-  previewHeight = "50px",
-}) => html`
-  <${LiveProvider}
-    code=${code}
-    language="javascript"
-    theme=${themes.vsDark}
-    noInline=${noInline}
-  >
-    <div className="code-editor-container">
-      <${LiveEditor}
-        className="react-live-editor"
-        style=${{
-          minHeight: editorHeight,
-          maxHeight: editorHeight,
-        }}
-      />
-      <${LiveError}
-        className="react-live-error"
-      />
-      <${LivePreview}
-        className="react-live-preview"
-        style=${{
-          minHeight: previewHeight,
-          maxHeight: previewHeight,
-        }}
-      />
-    </div>
-  </${LiveProvider}>
+// Props are forwarded untouched, so this stays a drop-in for the eager version:
+// `code`, `noInline`, `editorHeight`, `previewHeight`.
+//
+// `fallback` is `null` rather than a spinner, matching `chat/tools/gate.js`: a scrim that
+// appears empty and then fills in looks broken.
+const LazyCodeEditor = lazy(() => import("./code-editor.js"));
+
+export const CodeEditor = (props) => html`
+  <${Suspense} fallback=${null}><${LazyCodeEditor} ...${props} /><//>
 `;
 
 // Card layout props. The surface itself (fill, border, shadow) lives on the
@@ -714,12 +853,40 @@ export const MatrixSlide = ({ chapter, title, rows = [], notes }) => html`
 `;
 
 /**
+ * The fallback plan, as it appears in the speaker notes.
+ *
+ * An EMOJI rather than a Phosphor icon, because this line is markdown on its way
+ * to the notes pane, not JSX -- `Icon` would arrive as literal `<i>` markup. The
+ * extinguisher is deliberately an old one (Emoji 11, 2018): `takeaways.js`
+ * records the deck already losing dingbats to tofu on a projector and nowhere
+ * else, and a note nobody can read is worse than a note with no mark on it.
+ *
+ * A URL becomes a LINK. A bare URL only autolinks under GFM, which is not what
+ * Spectacle parses with, and the whole point of a backup is that it is reachable
+ * without anyone retyping it mid-talk. Matched whole-string: prose that merely
+ * mentions a URL is left alone.
+ */
+const BACKUP_MARK = "🧯";
+
+const isUrl = (text) => /^https?:\/\/\S+$/.test(text);
+
+const backupNote = (backup) => {
+  // Dedented BEFORE the label goes on, so the prefix cannot skew the measurement
+  // -- see `dedentNote` for why a composed note has to be flattened piecewise.
+  const content = dedentNote(backup);
+  const body = isUrl(content) ? `[${content}](${content})` : content;
+
+  return `**${BACKUP_MARK} BACKUP:** ${body}`;
+};
+
+/**
  * A hand-off to a live demo.
  *
  * Its real job is the `backup` prop. Three times in this talk the slides stop
  * and a live app takes over, and the one thing that must not be improvised on
- * stage is what to do when the demo fails -- so the fallback plan is pushed into
- * the speaker notes, above everything else, at the moment it would be needed.
+ * stage is what to do when the demo fails -- so the fallback plan rides along in
+ * the speaker notes, closing them, where it is the last thing read before the
+ * demo starts.
  */
 // TODO(Ryan): Check this `backup` thing and see about video backups for live demos.
 export const DemoSlide = ({
@@ -757,7 +924,7 @@ export const DemoSlide = ({
       }
     <//>
     <${MdNotes}
-      notes=${[backup && `**IF IT BREAKS:** ${backup}`, notes]
+      notes=${[notes && dedentNote(notes), backup && backupNote(backup)]
         .filter(Boolean)
         .join("\n\n")}
     />

@@ -38,5 +38,149 @@ the remaps and scopes work, which upgrades are deliberately blocked, and how to 
 | `?slideIndex=N`       | Jump directly to a slide                                      |
 | `?exportMode=true`    | All slides stacked, deck styling intact — print this to PDF   |
 | `?printMode=true`     | All slides stacked, light ink-saving theme for paper handouts |
+| `?chat`               | Open the deck assistant on load (see below)                   |
+| `?dump`               | Show the whole deck as one Markdown document (see below)      |
+| `?tools`              | Open the WebMCP tool inspector (see below)                    |
+| `?tool=NAME`          | ...opened on one tool, so any tool is a link                  |
+| `?mcp`                | Also register the WebMCP tools that **change** slides         |
+
+All five flags accept a bare `?chat` as well as `?chat=true` — a flag you have to remember the
+value of is a flag you will get wrong at the podium.
 
 Transitions are also disabled automatically under `prefers-reduced-motion`.
+
+## Deck assistant
+
+The sparkle button in the deck chrome opens a chat panel backed by a model running **entirely on
+your machine**. It is self-contained in [`chat/`](chat/) and mounted dynamically, so the deck
+works with it removed.
+
+Two providers, switchable live from the panel header:
+
+| Provider   | Runtime                                                                       | Model                                         | Needs                       |
+| ---------- | ----------------------------------------------------------------------------- | --------------------------------------------- | --------------------------- |
+| **Gemma**  | [LiteRT-LM](https://developers.google.com/edge/litert-lm/js)                  | Gemma 4 E2B — a 2 GB download the page owns   | WebGPU, any desktop browser |
+| **Chrome** | [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) `LanguageModel` | Gemini Nano — Chrome's, invisible to the page | Chrome only                 |
+
+The panel is closed by default and deliberately does not remember being open, so a normal deck
+load touches no model at all. `?chat` opens it. Nothing is sent anywhere.
+
+The Chrome pill only appears when the browser exposes `LanguageModel`; the Gemma pill is always
+offered and explains itself when WebGPU is unavailable.
+
+> **Before presenting:** fetch the Gemma model on a connection you trust and ask one question on
+> each provider. See the pre-flight in [docs/chat-handoff.md](docs/chat-handoff.md), which is also
+> the record of what each provider can and cannot do, and the measured numbers behind those
+> choices.
+
+### The deck as Markdown
+
+[`chat/harvest/`](chat/harvest/) reads the running deck — every heading, bullet, code block and
+speaker note — and emits it as one Markdown document. `?dump` shows it over the deck; in the
+console, `window.deckDump` offers `.markdown()`, `.slides()` and `.log()`.
+
+It reads React's fiber tree rather than the DOM, which is what makes structure survive: Spectacle
+renders `Heading` and `Text` both as `styled.div`, so a rendered slide has no headings to find,
+no lists to nest, and code panes only as Prism spans. The fiber tree has the components, the code
+panes' original source, the markdown slides' original markdown, and the speaker notes — which are
+in no DOM at all, because `Notes` renders `null` outside presenter mode.
+
+Speaker notes are fenced in `<speaker-notes>` tags so a consumer can drop them wholesale; they
+carry TODOs and presenter-private asides.
+
+### Addressing what is on a slide
+
+The document above is readable but not _pointable_. Every text run on every slide also gets a short
+global id — `9.2` is the second addressable node on slide 9 — with the role a presenter would use
+for it, a pointer at the source that produced it, and a handle on the live element:
+
+```js
+deckDump.nodes(); // all 162, addressed
+deckDump.node("9.2"); // + the live DOM element
+await deckDump.where("9.2"); // + where it came from. JSON-safe, for pasting
+```
+
+`where()` is honest about how well it knows. 39 nodes trace exactly to a field in `deck/takeaways.js`
+or `deck/chapters.js`; 66 more appear verbatim exactly once in `index.html`; 17 are only findable as
+a fragment, because `em()` and `<br />` split a rendered line across several literals. Seven are
+composed at runtime and exist as a string nowhere — for those it says so and returns no search key,
+because a wrong pointer costs more than an absent one.
+
+You can also just say what you mean, and read it back before changing anything:
+
+```js
+deckDump.locate("document.modelContext"); // -> 9.3, matched on content
+deckDump.locate("the second bullet"); // -> 9.3, matched on position
+deckDump.describe("9.3"); // 'slide 9, bullet 2 — "One API: document.modelContext"'
+```
+
+`locate()` tries content before position, because a quoted phrase either matches exactly one node or
+none, while "the second bullet" is never _absent_ — only possibly the wrong one. Content matching is
+a substring test in both directions, so it wants words that are actually on the slide rather than a
+description of them. When several nodes match it returns all of them rather than guessing; slide 31
+says "TODO" four times, so that case is real. Sub-bullets are counted within their own list, so "the
+fourth bullet" on slide 9 is the fourth bullet a presenter sees and not the first nested one.
+
+There are also **sized views**, because context is the scarce resource on a 2B model with an 8k
+window. `deckDump.context(question)` runs the same rule a turn would and shows you the cost:
+
+```
+   46 ch  [position]         "go to the last slide"
+  527 ch  [position+slide]   "summarize this slide"
+ 1079 ch  [position+outline] "which slide covers WebMCP?"
+ 7258 ch  [position+index]   "find every TODO in the whole deck"
+```
+
+Navigation needs no slide content at all, which is why the default is ~80 tokens rather than the
+~750 a whole-deck summary would cost. The view is chosen in JavaScript, never by the model.
+
+The assistant reads both halves of this. `chat/agent/prompt.js` puts the outline and the talk's
+argument in the system prompt once, and `chat/agent/deck-context.js` pins the full text of a slide
+the first time a question is asked from it — once per slide, never re-sent, so context grows with
+slides asked about rather than with turns. The design, the measurements and what is still deferred
+are in [docs/deck-context-handoff.md](docs/deck-context-handoff.md).
+
+### The deck is a WebMCP server
+
+The talk teaches `document.modelContext`. The deck also uses it: it registers its own tools, so an
+agent in a browser side panel can read what is on a slide, move the deck, and change it.
+
+```js
+deckMcp.list(); // 8 tools, or 14 with ?mcp
+await deckMcp.call("find_node", { phrase: "the second bullet" });
+await deckMcp.call("go_to_slide", { slide: 21 });
+```
+
+Reading and navigating are always registered; **editing only appears with `?mcp`**, so an agent
+connected during the actual talk can follow along and move the deck but cannot alter a slide.
+
+Every tool that names a node takes either an id (`9.3`) or a description ("the second bullet"). When
+a description fits more than one thing, reading returns all of them and writing refuses with the
+candidates — finding three things is a successful find, but changing one of three is a coin toss.
+
+Results come back twice over: prose for whatever reads them, and `structuredContent` for whatever
+chains them, so one tool's output feeds the next with no string parsing.
+
+```js
+const { matches } = (await deckMcp.call("find_node", { phrase: "browser" }))
+  .structuredContent;
+await deckMcp.call("edit_node", { target: matches[1].id, text: "…" });
+```
+
+Edits are live-only — they change the running deck, not the source — and `reset_edits` puts
+everything back. `window.deckMcp` works with no extension connected, which is the easiest way to
+try any of it.
+
+### The tool inspector
+
+A devtools console is not a demo. The plug button next to the sparkle — or `?tools` — opens a
+sheet listing every registered tool with its schema, a generated form, and the raw MCP result:
+`content` blocks and `structuredContent` side by side, which is exactly what arrives at the other
+end of the protocol.
+
+It calls the **registered** functions, not a parallel implementation that agrees with them today,
+so pressing Execute does what happens when an agent calls the tool. `?tool=find_node` opens it on
+one tool, which makes any single tool a link worth bookmarking before a talk.
+
+Details, and the six things this turned up along the way, are in
+[docs/webmcp-handoff.md](docs/webmcp-handoff.md).

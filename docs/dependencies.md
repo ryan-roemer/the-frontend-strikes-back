@@ -49,6 +49,35 @@ These rewrite the baked-in URLs. They do two things:
   "invalid hook call" / "Cannot read properties of null (reading 'useMemo')".
 - **Drag Spectacle's pinned deps forward** onto React 19-compatible releases.
 
+### Exact-URL keys (entry-point swaps)
+
+```json
+"react-syntax-highlighter/prism": "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@16.1.1/dist/esm/prism.js/+esm",
+"https://cdn.jsdelivr.net/npm/react-syntax-highlighter@15.6.6/+esm": "./deck/rsh-prism.js"
+```
+
+A key with no trailing `/` matches one URL and nothing else, which makes it the tool for
+**replacing a single entry point** while leaving the rest of the package alone. Native ESM has
+no tree shaking and this repo has no build step, so when a dependency's main entry statically
+imports far more than the deck uses, redirecting that one URL is the only lever available.
+
+Spectacle imports `{ Prism }` from `react-syntax-highlighter`'s main entry, which is the
+**highlight.js** build: it pulls all 191 highlight.js language modules plus `lowlight` before
+re-exporting `Prism`. The two entries above send that request to
+[`deck/rsh-prism.js`](../deck/rsh-prism.js), which re-exports the same component from the
+package's Prism-only entry — refractor and four Babel helpers, no highlight.js. Measured on a
+cold load: **194 fewer requests and 476 KB less**, with no rendering change.
+
+The pair matters. The bare `react-syntax-highlighter/prism` specifier is what keeps the
+**version out of the shim**: this file is the lockfile, so a subpath alias here means
+`rsh-prism.js` names a dependency rather than pinning one, exactly like `react-dom/client`.
+Bumping the pin stays a one-line edit in this table's neighbourhood.
+
+The neighbouring `react-syntax-highlighter@15.6.6/` **prefix** remap also has to stay.
+Spectacle imports two style modules underneath it (`dist/cjs/styles/prism/index.js` and
+`…/vs-dark.js`) which still need to land on 16.1.1. The exact key wins for the main entry
+because longer keys are matched first — see [below](#resolution-rules-worth-remembering).
+
 ### Scopes
 
 ```json
@@ -77,20 +106,92 @@ nobody else. See [§5](#5-the-react-19-compat-shim).
 
 ## 3. Current pins
 
-| Package                          | Pin           | Notes                                                                                   |
-| -------------------------------- | ------------- | --------------------------------------------------------------------------------------- |
-| `react`, `react-dom`, `react-is` | 19.2.8        | Every other copy in the graph remaps here                                               |
-| `spectacle`                      | 10.2.3        | **Required** for React 19 — see below                                                   |
-| `styled-components`              | 6.5.1         | Forced over Spectacle's `^5.3.6`; needs the bridge in [§5](#5-the-react-19-compat-shim) |
-| `react-spring`                   | 10.0.4        | Forced over Spectacle's `^9.5.5`                                                        |
-| `kbar`                           | 0.1.0-beta.48 | Forced over Spectacle's pinned `beta.40`                                                |
-| `react-syntax-highlighter`       | 16.1.1        | Forced over Spectacle's `^15.5.0`                                                       |
-| `react-live`                     | 4.1.8         | Latest                                                                                  |
-| `prism-react-renderer`           | 2.4.1         | `2.4.0` (pulled by react-live) remaps here                                              |
-| `htm`                            | 3.1.1         | Latest                                                                                  |
-| `styled-system`                  | 5.1.5         | Latest — see [§6](#6-things-deliberately-not-upgraded)                                  |
-| `use-resize-observer`            | 9.1.0         | Deliberately **not** bumped — see [§6](#6-things-deliberately-not-upgraded)             |
-| `@emotion/is-prop-valid`         | 1.4.0         | Only for the styled-components v6 bridge                                                |
+| Package                          | Pin           | Notes                                                                                                                      |
+| -------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `react`, `react-dom`, `react-is` | 19.2.8        | Every other copy in the graph remaps here                                                                                  |
+| `spectacle`                      | 10.2.3        | **Required** for React 19 — see below                                                                                      |
+| `styled-components`              | 6.5.1         | Forced over Spectacle's `^5.3.6`; needs the bridge in [§5](#5-the-react-19-compat-shim)                                    |
+| `react-spring`                   | 10.0.4        | Forced over Spectacle's `^9.5.5`                                                                                           |
+| `kbar`                           | 0.1.0-beta.48 | Forced over Spectacle's pinned `beta.40`                                                                                   |
+| `react-syntax-highlighter`       | 16.1.1        | Forced over Spectacle's `^15.5.0`; main entry swapped for the Prism-only one — see [§2](#exact-url-keys-entry-point-swaps) |
+| `react-live`                     | 4.1.8         | Latest. **Lazy** — see [§3 below](#react-live-loads-on-demand)                                                             |
+| `prism-react-renderer`           | 2.4.1         | `2.4.0` (pulled by react-live) remaps here. Lazy with it                                                                   |
+| `htm`                            | 3.1.1         | Latest                                                                                                                     |
+| `styled-system`                  | 5.1.5         | Latest — see [§6](#6-things-deliberately-not-upgraded)                                                                     |
+| `use-resize-observer`            | 9.1.0         | Deliberately **not** bumped — see [§6](#6-things-deliberately-not-upgraded)                                                |
+| `@emotion/is-prop-valid`         | 1.4.0         | Only for the styled-components v6 bridge                                                                                   |
+| `@litert-lm/core`                | 0.15.0        | The deck assistant's on-device model. Loads a wasm runtime — see below                                                     |
+
+### `react-live` loads on demand
+
+`react-live` and `prism-react-renderer` are still pinned in the import map, but nothing fetches
+them on a normal load. They exist for `CodeEditor`, and **no slide currently renders one**, so
+they sit behind a `lazy()` boundary: [`deck/code-editor.js`](../deck/code-editor.js) holds the
+component and both imports, and [`deck/components.js`](../deck/components.js) exports a gate
+that names it through a dynamic `import()`. Cold-load saving: **17 requests and ~133 KB**,
+`sucrase` being the bulk of it.
+
+The limit worth knowing before relying on it: Spectacle mounts every slide into a portal up
+front, so the first slide that _does_ use `CodeEditor` pulls the chunk during the initial
+render anyway. That is what an eager import already did, so the boundary never costs anything —
+it just stops charging for a component nothing renders.
+
+### `@litert-lm/core` and its wasm
+
+The only dependency the deck loads for a reason other than rendering slides: it runs Gemma 4
+on the GPU for the assistant in [`chat/`](../chat/). Two things about it are unlike everything
+else in this table.
+
+**Only one of the assistant's two providers appears here at all**, and that asymmetry is the
+point rather than an omission. The Chrome Prompt API provider adds **nothing** to this
+table — no import-map entry, no wasm, no model bytes — because the runtime and the weights are
+the browser's. What it costs instead is everything the page gives up by not owning them: no
+progress, no cancel, no delete, and a status that has been measured to flap. See
+[chat-handoff.md](chat-handoff.md) §1.
+
+**It fetches a wasm runtime separately from its JavaScript, and the two must match.** The
+reference implementation this was ported from keeps a second hardcoded URL next to its import
+map entry, with a "bump both together" comment — a rule that works right up until somebody
+forgets. This deck derives it instead, so the claim at the top of this document stays true and
+there is exactly one pin:
+
+```js
+// chat/agent/providers/litert.js
+const LITERT_WASM_URL = new URL(
+  "./wasm",
+  import.meta.resolve("@litert-lm/core"),
+).href;
+```
+
+`import.meta.resolve` returns the import-map-resolved URL, and `+esm` sits at the package root
+alongside `wasm/`, so `./wasm` lands on the right directory. It shipped in Chrome 105, Firefox
+106 and Safari 16.4 — all far older than any browser with WebGPU, so every browser that can
+run the model at all has it. The derivation asserts the resolved URL still looks like a
+versioned jsDelivr path, because the one thing it couples to is that URL _layout_: repointing
+this entry at another CDN, or at a `/dist/index.mjs`-style path, would otherwise silently
+derive a wrong `./wasm`.
+
+**It is the deck's only lazily-loaded dependency.** Nothing above is fetched until a presenter
+asks for it: `mountChat()` imports the chat dynamically, and the wasm and the ~2 GB model come
+later still, on an explicit click. A deck presented without ever opening the assistant pays
+nothing for it.
+
+**The model is not a dependency in this table's sense.** `gemma-4-E2B-it-web.litertlm` is
+2,008,432,640 bytes, fetched from HuggingFace on first use and cached in the Cache API, pinned by
+repo and filename in `chat/agent/providers/litert.js`, and deletable from the panel's info modal.
+
+**Its size is checked twice, against two different numbers, and the distinction matters.** The bytes
+on disk are verified against the `content-length` of the response they came from — live during the
+download, and read back off the cached entry's own stored headers on every later run. That is the
+truncation check, and only the server's own count can answer it. Separately, `EXPECTED_BYTES` is a
+version pin: HuggingFace exposes no other cheap version marker, so a disagreement means upstream has
+republished the file. It **warns and continues** rather than refusing. Checking truncation against
+the pinned constant instead — which is what this used to do — made an upstream reupload
+unrecoverable: the download would complete, be judged incomplete, delete itself, and fail the same
+way on every retry.
+
+**Downloading it is a pre-flight step for a talk, not a detail** — do it on a connection you trust,
+then confirm the status row says "on disk" before you go anywhere near a stage.
 
 `spectacle@10.2.1` **cannot** run on React 19: it sets `defaultProps` on function components
 in 19 places, which React 19 removed support for. `10.2.3` has zero (`curl …/+esm | grep -c
@@ -248,30 +349,50 @@ const html = readFileSync("index.html", "utf8");
 const map = JSON.parse(
   html.match(/<script type="importmap">\s*([\s\S]*?)\s*<\/script>/)[1],
 );
-const prefixes = Object.entries(map.imports)
-  .filter(([k]) => k.startsWith("https://") && k.endsWith("/"))
+// Both key shapes, longest-first. Prefix-only resolution would miss the exact-URL keys from
+// [§2] and crawl a graph the browser never loads.
+const urlKeys = Object.entries(map.imports)
+  .filter(([k]) => k.startsWith("https://"))
   .sort((a, b) => b[0].length - a[0].length);
 const resolve = (url) => {
-  for (const [k, v] of prefixes)
-    if (url.startsWith(k)) return v + url.slice(k.length);
+  for (const [k, v] of urlKeys) {
+    if (k.endsWith("/")) {
+      if (url.startsWith(k)) return v + url.slice(k.length);
+    } else if (url === k) {
+      return v;
+    }
+  }
   return url;
+};
+
+// A remap target can be a LOCAL shim rather than a CDN URL. Read those off disk and keep
+// going, or the crawl stops at the shim.
+const source = async (target) => {
+  if (target.startsWith("./")) return readFileSync(target.slice(2), "utf8");
+  const res = await fetch(target);
+  if (!res.ok) {
+    console.log(`HTTP ${res.status} ${target}`);
+    return null;
+  }
+  return res.text();
 };
 
 const seen = new Map();
 const queue = Object.entries(map.imports)
   .filter(([k]) => !k.startsWith("https://"))
-  .map(([, v]) => resolve(v))
-  .filter((u) => u.startsWith("https://"));
-const RE = /(?:from|import)\s*\(?\s*"(\/npm\/[^"]+)"/g;
+  .map(([, v]) => resolve(v));
+// Local shims spell the CDN out in full; jsDelivr's bundles use absolute `/npm/` paths.
+const RE =
+  /(?:from|import)\s*\(?\s*"(?:https:\/\/cdn\.jsdelivr\.net)?(\/npm\/[^"]+)"/g;
 
 while (queue.length) {
   await Promise.all(
     queue.splice(0, 16).map(async (u) => {
       if (seen.has(u)) return;
       seen.set(u, true);
-      const res = await fetch(u);
-      if (!res.ok) return console.log(`HTTP ${res.status} ${u}`);
-      for (const m of (await res.text()).matchAll(RE)) {
+      const text = await source(u);
+      if (text === null) return;
+      for (const m of text.matchAll(RE)) {
         const kid = resolve("https://cdn.jsdelivr.net" + m[1]);
         if (!seen.has(kid)) queue.push(kid);
       }
@@ -298,7 +419,18 @@ for (const name of [
 }
 ```
 
-Current state: **872 modules**, all four stateful packages single-copy.
+Current state: **182 modules**, all four stateful packages single-copy. It was 872 before the
+Prism-only entry swap in [§2](#exact-url-keys-entry-point-swaps).
+
+This counts everything reachable **through the map**, so `react-live`'s subtree is in the 182
+even though a normal load never fetches it. For what actually goes over the wire, measure the
+page.
+
+One property the crawl relies on: it follows `/npm/` URLs, not bare specifiers, so the bare
+imports inside the local shims (`react` in `react-compat.js`,
+`react-syntax-highlighter/prism` in `rsh-prism.js`) are covered only because every bare
+specifier is also a crawl root. Add a shim that imports a bare name **not** in the map's
+`imports` and the audit will quietly skip that subtree.
 
 ### Exercise the deep parts of the graph
 
@@ -309,8 +441,12 @@ Current state: **872 modules**, all four stateful packages single-copy.
 - **Markdown slide sets** — the `unified`/`remark`/`rehype` chain. Confirm `em()` text is
   **teal** and Phosphor icons render; that is the direct tell for the
   [§5](#5-the-react-19-compat-shim) sniff
-- **`JsSlide` code slides** — `react-syntax-highlighter` + the deep `vs-dark` style import
-- **"Live edit" slide** — `react-live` + `sucrase` + `prism-react-renderer`; type in it
+- **`JsSlide` code slides** — `react-syntax-highlighter` via the Prism-only shim, plus the deep
+  `vs-dark` style import. Three of them: two JavaScript, one HTML. Tokens must be **coloured**;
+  an unhighlighted pane means the shim stopped providing `Prism`
+- **`CodeEditor`** — `react-live` + `sucrase` + `prism-react-renderer`, now behind `lazy()`. No
+  slide renders it, so there is nothing to click: check it by rendering one temporarily and
+  confirming the chunk arrives and you can type in it
 - **`Cmd/Ctrl+K`** — `kbar` + Radix + `react-virtual`
 - **`?presenterMode=true`** — `broadcast-channel` + `history` + `query-string`
 - **Console must be empty**, and DevTools should show no leaked lowercase DOM attributes
@@ -325,6 +461,31 @@ versions in the network tab even when the dedupe is working perfectly. Preloads 
 fetches, not specifier resolutions, so they skip remapping. Those bytes are downloaded but
 never instantiated — wasted preload, not a second React. Confirm with the hook-identity check
 in [§4](#4-the-react-singleton-rule) rather than trusting the network panel.
+
+**…and the same headers produce a harmless 404 in the console.** `@litert-lm/core`'s bundle
+serves `Link: </npm/@litertjs/wasm-utils@2.5.3/+esm>; rel=modulepreload`. Browsers resolve
+`Link` headers against the **document** URL rather than the module's, so the browser requests
+`<origin>/npm/@litertjs/wasm-utils…` from the dev server and gets a 404. The real import inside
+the bundle resolves against `cdn.jsdelivr.net` and works fine. Worth knowing precisely because
+this deck is a talk about the browser and somebody in the audience will have devtools open:
+it is a wasted preload, not a broken dependency.
+
+**LiteRT's C++ runtime logs to the error channel, in _two_ formats.** They are the runtime's own
+log levels written to `console.error`, there is no option to silence them, and none of them
+indicates a problem. Both formats have to be filtered, which is easy to get half-right:
+
+| when                | looks like                                                               | filter                            |
+| ------------------- | ------------------------------------------------------------------------ | --------------------------------- |
+| engine create, once | `INFO: [environment.cc:36] Creating LiteRT environment…`                 | `/^(INFO\|WARNING\|ERROR):\s*\[/` |
+| every turn          | `W0817 04:33:52.743000 2241216 mel_filterbank.cc:137] Missing 10 bands…` | `/^[IWEF]\d{4} /`                 |
+
+The first is six lines at engine-create — the NPU accelerator failing to register, and the GPU and
+XNNPACK accelerators registering. The second is glog's own format and is the one a filter written
+against the first will miss: `mel_filterbank` complaining about mel bands (this build carries audio
+support the deck never uses) and `GetProfileSummary not implemented for backend: GpuArtisan` twice
+per turn, from the `benchmarkEnabled: true` that gives the info modal its real token counts.
+
+Filter both before concluding a "zero console errors" check has failed.
 
 **Production builds strip React's warnings.** jsDelivr serves `NODE_ENV=production`, so
 developer warnings simply do not appear. The `class`/`style` bug above was silently wrong under

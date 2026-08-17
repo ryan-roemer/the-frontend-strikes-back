@@ -1,4 +1,3 @@
-/* global document:false */
 import { colors, isLightPrint } from "./theme.js";
 import { backgrounds } from "./media.js";
 

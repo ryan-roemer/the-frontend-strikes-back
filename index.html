@@ -29,14 +29,9 @@
       href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css"
     />
     <link rel="stylesheet" type="text/css" href="./deck/styles.css" />
-    <style>
-      /* Presenter notes are a dense reading pane, not part of the deck design. */
-      .notes * {
-        padding: 0 !important;
-        line-height: 1 !important;
-        font-size: 20px !important;
-      }
-    </style>
+    <!-- Deck assistant. Self-contained in `chat/`; see the mount call at the
+         bottom of the module below. Both lines go away together. -->
+    <link rel="stylesheet" type="text/css" href="./chat/chat.css" />
     <title>The Frontend Strikes Back</title>
   </head>
   <body>
@@ -47,6 +42,7 @@
     <script type="importmap">
       {
         "imports": {
+          "@litert-lm/core": "https://cdn.jsdelivr.net/npm/@litert-lm/core@0.15.0/+esm",
           "htm": "https://cdn.jsdelivr.net/npm/htm@3.1.1/+esm",
           "prism-react-renderer": "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.1/+esm",
           "react": "https://cdn.jsdelivr.net/npm/react@19.2.8/+esm",
@@ -54,6 +50,7 @@
           "react-dom": "https://cdn.jsdelivr.net/npm/react-dom@19.2.8/+esm",
           "react-dom/client": "https://cdn.jsdelivr.net/npm/react-dom@19.2.8/client/+esm",
           "react-live": "https://cdn.jsdelivr.net/npm/react-live@4.1.8/+esm",
+          "react-syntax-highlighter/prism": "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@16.1.1/dist/esm/prism.js/+esm",
           "spectacle": "https://cdn.jsdelivr.net/npm/spectacle@10.2.3/+esm",
           "styled-components": "https://cdn.jsdelivr.net/npm/styled-components@6.5.1/+esm",
           "@emotion/is-prop-valid": "https://cdn.jsdelivr.net/npm/@emotion/is-prop-valid@1.4.0/+esm",
@@ -75,6 +72,7 @@
           "https://cdn.jsdelivr.net/npm/styled-components@5.3.11/": "https://cdn.jsdelivr.net/npm/styled-components@6.5.1/",
           "https://cdn.jsdelivr.net/npm/react-spring@9.7.5/": "https://cdn.jsdelivr.net/npm/react-spring@10.0.4/",
           "https://cdn.jsdelivr.net/npm/kbar@0.1.0-beta.40/": "https://cdn.jsdelivr.net/npm/kbar@0.1.0-beta.48/",
+          "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@15.6.6/+esm": "./deck/rsh-prism.js",
           "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@15.6.6/": "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@16.1.1/",
           "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.0/": "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.1/"
         },
@@ -143,6 +141,7 @@
         AppearComponent,
         mdSlideProps,
         deckTransition,
+        selectSlideFromOverview,
       } from "./deck/components.js";
       const html = htm.bind(createElement);
 
@@ -159,11 +158,15 @@
       // `backgroundImage` on the Deck is inherited by every slide that does not
       // set its own -- including the markdown sets, which never see a per-slide
       // prop -- so the layered background reaches every slide from here.
+      //
+      // `onSlideClick` replaces Spectacle's overview-thumbnail handler, which
+      // cannot navigate to slide 1. See `selectSlideFromOverview`.
       const Presentation = () => html`<${Deck}
           theme=${theme}
           template=${Template}
           transition=${deckTransition}
           backgroundImage=${DECK_BACKGROUND}
+          onSlideClick=${selectSlideFromOverview}
         >
           ${"" /* --- Intro --- */}
           ${"" /* `chrome={false}`: Template draws no chrome on slide 1, so this slide keeps the full 768px canvas. */}
@@ -576,13 +579,35 @@
               * **Tool calling**: the model can't actually call our tools... yet.
               * **Availability**: flags, model downloads, cold starts.
               * TODO: MORE POINTS
-
-              Notes: \
-                One line each, don't linger. Compared to cloud foundation models it's \
-                an entirely different world. The tool-calling shim gets its own slide in \
-                ch. 4, where it's doing real work.
             `}
           </${MarkdownSlideSet}>
+          ${
+            "" /* TODO: Demo? — this deck IS the demo for this chapter.
+             *
+             * The sparkle button opens a chat panel running a model on this machine, with
+             * TWO swappable providers: Gemma 4 E2B on WebGPU (LiteRT-LM, a 2 GB model this
+             * page owns) and Gemini Nano (Chrome Prompt API, the browser's, invisible to
+             * us). One click switches mid-conversation.
+             *
+             * A `<${DemoSlide} chapter=${3} .../>` belongs HERE -- after the wrinkles,
+             * before the takeaway -- so the room sees the wrinkles rather than reads them:
+             *
+             *   1. Open the panel. "This deck has been able to run a model all along."
+             *   2. Ask on Gemma. It streams, on the GPU, in the page.
+             *   3. Flip the pill to Chrome. Transcript clears -- two models, two memories.
+             *   4. Ask again, and point at what changed in the CHROME, not the answer:
+             *      download row gone, delete button gone, context meter 8,192 -> 9,216.
+             *
+             * Unlike ch. 2 and ch. 4 this needs no network and no tab switch, and a
+             * provider failing on stage IS takeaway 5 -- so there is a working demo either
+             * way. Budget 60s, not the 2 min the other demos get.
+             *
+             * Undecided, and NOT free: it costs the 30s this chapter is currently the
+             * cheapest place to cut from. The plan is to pay for it by collapsing the
+             * five-row matrix above into one verdict slide, which the kill list already
+             * calls for and which has not been done yet. Full brainstorm, with the
+             * arguments against, in docs/outline.md ch. 3. */
+          }
           <${TakeawaySlide}
             chapter=${3}
             title="Takeaway"
@@ -716,8 +741,7 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * ${em("Never cut this slide")}. It's the only one that says what to do.
-                  * Callback to the cold open: one takeaway for each half of the room.
+                  * TODO: Callback to the cold open: one takeaway for each half of the room.
                   * TODO: your closing line on the title. Then stop and let it sit.
                 `}
               </${Markdown}>
@@ -800,6 +824,34 @@
           <${Presentation} />
         </${StyleSheetManager}>`,
       );
+
+      // Deck assistant, on its own React root outside the deck.
+      //
+      // Dynamic and caught so that mounting can fail without touching the talk:
+      // the chat reads `localStorage` and creates DOM, and none of that is worth
+      // a blank deck.
+      //
+      // It also defers MOST of the chat until after the deck has rendered, which
+      // `chat/harvest/` needs rather than merely prefers, since it walks the fiber
+      // tree this render produces. Only most: `components.js` imports `DeckBridge`,
+      // `ChatToggle` and `ToolsToggle` STATICALLY, so those three and what they
+      // pull in -- `bus.js`, `state.js`, `tools/state.js`, `store.js`, `url.js` --
+      // have already evaluated by the time this line runs. That is fine, because
+      // none of them touch the fiber tree at import; `harvest/` is reached only
+      // from here.
+      //
+      // Removing the assistant is three edits, and they have to go TOGETHER: this
+      // call, the stylesheet link in <head>, and those three imports and elements
+      // in `Template`. It is the static ones that make the order matter -- deleting
+      // `chat/` while `components.js` still refers to it is the one combination
+      // that does break the deck.
+      import("./chat/index.js")
+        .then(({ mountChat }) => mountChat())
+        .catch((err) =>
+          // The value itself when there is no message on it -- a rejection that is
+          // not an Error, or an Error with an empty one, still has to say something.
+          console.warn("[chat] not mounted:", err?.message || err),
+        );
     </script>
   </body>
 </html>

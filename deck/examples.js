@@ -1,4 +1,3 @@
-/* global fetch:false */
 /**
  * Get all examples as source.
  *

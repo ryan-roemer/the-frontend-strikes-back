@@ -1,6 +1,56 @@
 import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 
+/**
+ * The browser globals this deck actually uses.
+ *
+ * SPELLED OUT RATHER THAN `globals.browser`, deliberately. The `globals` package would
+ * bring 700-odd names for the sake of the two dozen below, and it would be a dependency
+ * added for nothing but lint config -- this repo's whole claim is that it has no build
+ * step and a short dependency list, and `docs/dependencies.md` accounts for every entry.
+ *
+ * DECLARED ONCE, HERE. Every file under `chat/` and `deck/` used to carry its own
+ * hand-maintained `/* global setTimeout:false, document:false, … *\/` header -- 29 of
+ * them, each a list somebody had to remember to extend when they used a new browser API.
+ * They were noise that looked like information, and the failure mode was a lint error for
+ * using `matchMedia` rather than anything about the code.
+ *
+ * Adding a name here when you reach for a new API is the cost, and it is the right one:
+ * an explicit list is a readable statement of what this code assumes the platform has.
+ */
+const BROWSER = [
+  "AbortController",
+  "CSS",
+  "DOMException",
+  "MutationObserver",
+  "Response",
+  "TransformStream",
+  "URL",
+  "URLSearchParams",
+  "caches",
+  "clearInterval",
+  "clearTimeout",
+  "console",
+  "document",
+  "fetch",
+  "getComputedStyle",
+  "getSelection",
+  "localStorage",
+  "location",
+  "matchMedia",
+  "navigator",
+  "performance",
+  "queueMicrotask",
+  "requestAnimationFrame",
+  "setInterval",
+  "setTimeout",
+  "window",
+  // Chrome's Prompt API. Not a standard global anywhere yet, and its absence is the whole
+  // point of the provider that uses it -- `chrome.js` feature-detects rather than assuming.
+  // Listing it here only tells the linter the name is intentional.
+  "LanguageModel",
+];
+
 export default [
   {
     ignores: [".data/*"],
@@ -8,14 +58,10 @@ export default [
   js.configs.recommended,
   eslintConfigPrettier,
   {
-    files: ["examples/**/*.js"],
+    // Everything in this repo is browser code -- no build step, no bundler, no Node.
+    files: ["chat/**/*.js", "deck/**/*.js", "examples/**/*.js"],
     languageOptions: {
-      globals: {
-        console: "readonly",
-        document: "readonly",
-        fetch: "readonly",
-        window: "readonly",
-      },
+      globals: Object.fromEntries(BROWSER.map((name) => [name, "readonly"])),
     },
   },
 ];

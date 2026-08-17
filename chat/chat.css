@@ -1,0 +1,1364 @@
+/* --- Deck assistant ------------------------------------------------------
+ *
+ * Every style the chat owns. Nothing here targets a deck selector, and nothing
+ * in `deck/styles.css` targets a `.chat-*` one -- deleting `chat/` and its two
+ * lines in `index.html` leaves no orphans.
+ *
+ * Surfaces, hairlines and the mono face are read from the deck's own custom
+ * properties (`--surface-1`, `--hairline`, `--mono`, `--chapter-accent`), so the
+ * panel tracks the deck's theme -- including the per-chapter accent -- without
+ * duplicating a single hex value. The `var()` fallbacks cover this file being
+ * loaded without the deck's stylesheet.
+ *
+ * WITH FOUR EXCEPTIONS, WHERE THE FALLBACK IS THE VALUE. `--fg`,
+ * `--nf-midnight-30`, `--nf-feedback-error` and `--nf-purple-base` are not defined
+ * anywhere in this repo, by the deck or by anyone, so the literal after the comma
+ * is what always renders. Two of them disagree with the hex `deck/styles.css` uses
+ * for the same idea -- error is `#fc6986` here and `#ff6b6b` there, purple is
+ * `#b18cff` here and `#8950ff` there. Harmless today because the two never sit
+ * side by side, and worth knowing before treating any of these four as themeable.
+ */
+
+#chat-root {
+  /* The panel is the only thing in this root and positions itself. A container
+   * with dimensions here would sit over the deck and eat clicks. */
+  position: static;
+}
+
+/* --- The sparkle in the deck chrome -------------------------------------- */
+
+/*
+ * `pointer-events` is load-bearing, not tidy-up.
+ *
+ * Spectacle's `TemplateWrapper` -- the absolutely positioned box the deck
+ * template renders into -- is `pointer-events: none`, and nothing in the deck's
+ * CSS re-enables it. Spectacle's own `FullScreen` sets `pointerEvents: "all"`
+ * inline on itself for exactly this reason. Without the rule below the sparkle
+ * renders in the right place, highlights on hover in devtools, and cannot be
+ * clicked.
+ *
+ * SPACING IS NOT HERE ANY MORE. It was a `margin-left` on this button, which
+ * spaced the markup evenly and the screen unevenly -- the fullscreen control is a
+ * bare svg and these are padded boxes, so the same margin read as two different
+ * gaps. `.deck-controls` in `deck/styles.css` owns the row's `gap` now; this file
+ * still owns everything about how the button itself looks.
+ */
+.chat-toggle {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--nf-midnight-30, #97a1b8);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.chat-toggle:hover,
+.chat-toggle:focus-visible {
+  color: var(--chapter-accent, #78eec5);
+  background: var(--surface-1, rgba(255, 255, 255, 0.06));
+}
+
+.chat-toggle--on {
+  color: var(--chapter-accent, #78eec5);
+}
+
+/* --- The panel ----------------------------------------------------------- */
+
+/*
+ * `display: none !important` rather than relying on the `hidden` attribute's UA
+ * rule: `hidden` only sets `display: none` at the UA layer, so the author-level
+ * `display: flex` below would win and a "closed" panel would stay on screen.
+ */
+.chat-panel[hidden] {
+  display: none !important;
+}
+
+/*
+ * No width/height/left/top here on purpose: `geometry.js` owns all four and
+ * writes them inline. A CSS default plus a JS override is two sources of truth
+ * that disagree the first time the panel is dragged. The inline values are
+ * applied on mount, so there is no unpositioned first frame.
+ */
+.chat-panel {
+  position: fixed;
+  z-index: 10000; /* Over the film grain, which owns 9999. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  background: rgba(4, 16, 31, 0.94);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-family: var(--sans, "Inter", system-ui, sans-serif);
+  font-size: 15px;
+}
+
+.chat-panel__bar {
+  /* The positioning context for the context-usage underline, which spans the whole
+   * bar rather than sitting in its flow. */
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  /* The drag handle. `touch-action: none` is required, not decorative: without
+   * it a touch or trackpad gesture scrolls the page and the pointermove stream
+   * stops arriving mid-drag. */
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.chat-panel__bar:active {
+  cursor: grabbing;
+}
+
+/*
+ * The controls sit hard right.
+ *
+ * `margin-left: auto` used to live on a slide counter between the title and these,
+ * which is what pushed them over. Both the title text and the counter are gone --
+ * the window is unmistakably the assistant's without a label, and the deck's own
+ * chrome already shows the slide number -- so the reservation moves here.
+ */
+.chat-panel__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.chat-panel__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-panel__title i {
+  font-size: 18px;
+  color: var(--chapter-accent, #78eec5);
+}
+
+/* A scrolling middle that can actually shrink: `min-height: 0` is what stops a
+ * long transcript from pushing the composer off the bottom of the panel. */
+.chat-transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+/* --- Provider switcher ---------------------------------------------------- */
+
+/*
+ * Two pills, left-aligned next to the sparkle rather than in the action group.
+ *
+ * Deliberately on the other side of the bar from the model's controls, because it is a
+ * different kind of control: everything on the right acts on the current model, this one
+ * chooses which model that is. It sits where the undo and revert buttons used to, which is
+ * the width the deck-edit layer paid back when it was removed.
+ *
+ * NEVER given a `:disabled` state for being busy. This is the way out of a Chrome
+ * `create()` that never resolves -- see the comment in `provider-switch.js`.
+ */
+.chat-provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+}
+
+.chat-provider__pill {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.chat-provider__pill:hover {
+  color: var(--fg, #e8ecf5);
+}
+
+.chat-provider__pill--on {
+  background: var(--chapter-accent, #78eec5);
+  /* Against the accent fill, not the panel -- so this one is intentionally dark. */
+  color: #0b1020;
+}
+
+.chat-provider__pill:focus-visible {
+  outline: 2px solid var(--chapter-accent, #78eec5);
+  outline-offset: 2px;
+}
+
+/* One provider is not a choice, so it renders as a label rather than a control. */
+.chat-provider--single {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+/* --- Model controls, inline in the header bar ----------------------------- */
+
+/*
+ * These used to be a bar of their own below the header, with its own padding, its own
+ * hairline border and its own collapse control. That is a whole strip of vertical
+ * space -- in a floating panel where the transcript is the point -- spent on three
+ * icons and a meter. They are now rendered straight into `.chat-panel__actions`, so
+ * there is no wrapper element and no `.chat-model` rule left: spacing comes from the
+ * action group's `gap`, and alignment from its `align-items`.
+ */
+
+/*
+ * The status icon's tone.
+ *
+ * EVERY SELECTOR HERE IS DOUBLED WITH `.chat-icon-button`, and that is the fix rather
+ * than a flourish. The button carries both classes, `.chat-icon-button` sets
+ * `color: var(--muted)`, and a single-class tone rule ties it on specificity (0,1,0) and
+ * loses on source order -- `.chat-icon-button` is defined further down this file. So
+ * none of these colours were reaching the screen: green for a live session, red for a
+ * failure and grey for unsupported all rendered as the same muted grey. Verified with
+ * `getComputedStyle`, not read off the source. `--busy i` was the one that appeared to
+ * work, because it targets the child `<i>` and only sets `animation`.
+ *
+ * `--idle` also had no rule at all until now. `model-state.js` gives DOWNLOADABLE and
+ * ON_DISK `tone: "idle"` -- the two states the panel is in before anybody has done
+ * anything -- so the most common states read as disabled, which is the opposite of true:
+ * they are the two where the button is the thing to press. Brighter than muted, not
+ * accent-coloured: the accent means "live" on this row, and a model on disk is not live.
+ */
+.chat-icon-button.chat-model__state--idle {
+  color: var(--fg, #e7ecf5);
+}
+
+.chat-icon-button.chat-model__state--ok {
+  color: var(--chapter-accent, #78eec5);
+}
+
+.chat-icon-button.chat-model__state--warn,
+.chat-icon-button.chat-model__state--error {
+  color: var(--nf-feedback-error, #fc6986);
+}
+
+.chat-icon-button.chat-model__state--off {
+  color: var(--muted, #97a1b8);
+  opacity: 0.6;
+}
+
+.chat-icon-button.chat-model__state--busy {
+  color: var(--chapter-accent, #78eec5);
+}
+
+.chat-model__state--busy i {
+  animation: chat-spin 1.1s linear infinite;
+}
+
+@keyframes chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-model__state--busy i {
+    animation: none;
+  }
+}
+
+.chat-model__progress {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--chapter-accent, #78eec5);
+}
+
+/*
+ * Context usage, as an underline on the whole header bar.
+ *
+ * It was a 120px gauge competing for width in the old row. As an underline it reads
+ * the same information -- a bar filling left to right -- while costing no horizontal
+ * space at all, and it sits ON the hairline the header already draws so it adds no
+ * height either. `bottom: -1px` puts it over that 1px border rather than above it.
+ *
+ * `pointer-events: none` because the bar is the drag handle: an element lying across
+ * its full width would otherwise swallow the start of every drag.
+ */
+.chat-model__meter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: transparent;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.chat-model__meter-fill {
+  display: block;
+  height: 100%;
+  background: var(--chapter-accent-base, #00e5a4);
+  transition: width 300ms ease;
+}
+
+.chat-model__meter--warn .chat-model__meter-fill {
+  background: var(--nf-purple-base, #b18cff);
+}
+
+.chat-model__meter--critical .chat-model__meter-fill {
+  background: var(--nf-feedback-error, #fc6986);
+}
+
+/* --- Info modal ---------------------------------------------------------- */
+
+/*
+ * Anchored inside the panel rather than a page overlay: the panel is already a
+ * floating window, and a full-screen scrim over a live deck mid-talk would be a
+ * bigger interruption than the information is worth.
+ */
+.chat-modal {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  background: rgba(2, 10, 20, 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+}
+
+.chat-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-modal__rows {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.chat-modal__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chat-modal__rows dt {
+  color: var(--muted, #97a1b8);
+}
+
+.chat-modal__rows dd {
+  margin: 0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.chat-modal__note {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  color: var(--muted, #97a1b8);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.chat-modal__note code,
+.chat-unavailable code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.95em;
+  color: #fff;
+}
+
+.chat-text-button {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--chapter-accent, #78eec5);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --- Unavailable body ---------------------------------------------------- */
+
+.chat-unavailable {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 12px;
+  color: var(--muted, #97a1b8);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.chat-unavailable__lead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: 15px;
+}
+
+.chat-unavailable__lead i {
+  color: var(--nf-feedback-error, #fc6986);
+}
+
+.chat-unavailable ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.chat-unavailable li + li {
+  margin-top: 6px;
+}
+
+.chat-unavailable__error {
+  margin: 10px 0 0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--nf-feedback-error, #fc6986);
+  overflow-wrap: anywhere;
+}
+
+/* --- Bubbles ------------------------------------------------------------- */
+
+.chat-bubble {
+  max-width: 88%;
+  padding: 8px 11px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.chat-bubble--user {
+  align-self: flex-end;
+  border-bottom-right-radius: 3px;
+  background: color-mix(
+    in srgb,
+    var(--chapter-accent-base, #00e5a4) 18%,
+    transparent
+  );
+  color: #fff;
+}
+
+.chat-bubble--assistant {
+  align-self: flex-start;
+  border-bottom-left-radius: 3px;
+  background: var(--surface-1, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+}
+
+.chat-bubble--stopped {
+  opacity: 0.65;
+}
+
+.chat-bubble__text > :first-child {
+  margin-top: 0;
+}
+
+.chat-bubble__text > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-bubble__text p {
+  margin: 0 0 8px;
+}
+
+.chat-bubble__text ul {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.chat-bubble__text code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.9em;
+}
+
+.chat-bubble__flag {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+/*
+ * "What did the model actually get?", in the answer's bottom-right corner.
+ *
+ * Absolutely positioned, with the bubble reserving the room for it: the padding
+ * below is what stops a long last line from running underneath the icon, and
+ * `:has()` applies it only to the bubbles that actually carry one, so an answer
+ * without a captured context is not padded for a button it does not have. Doing
+ * it the other way -- the button in the flow -- costs a whole line under every
+ * answer, which on a one-word reply is more chrome than message.
+ *
+ * Visible at rest, not on hover. This is meant to be pointed at from the front of
+ * a room, and a control that appears under the pointer cannot be pointed at.
+ */
+.chat-bubble:has(.chat-bubble__context) {
+  position: relative;
+  padding-right: 30px;
+}
+
+/*
+ * 9 and 6, not 11 and 8, and the difference is the point rather than a fudge.
+ *
+ * The bubble's padding is `8px 11px`, which is where the TEXT starts -- but this
+ * button carries 2px of its own padding around the glyph so it has something to
+ * highlight on hover. Setting it flush to 11/8 would inset the visible mark by
+ * 13/10 and it would read as further from the corner than the text is. Two px
+ * back on each axis puts the ink on the text's margins, which is what the eye
+ * is actually lining up.
+ */
+.chat-bubble__context {
+  position: absolute;
+  right: 9px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted, #97a1b8);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+  transition:
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+.chat-bubble__context:hover,
+.chat-bubble__context:focus-visible {
+  color: var(--chapter-accent, #78eec5);
+  opacity: 1;
+}
+
+/* --- Typing dots --------------------------------------------------------- */
+
+.chat-typing {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 12px 11px;
+}
+
+.chat-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted, #97a1b8);
+  animation: chat-typing 1.2s infinite ease-in-out both;
+}
+
+.chat-typing span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.chat-typing span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes chat-typing {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* The deck honours prefers-reduced-motion throughout; the chat has to as well. */
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* --- Empty state and errors ---------------------------------------------- */
+
+.chat-empty {
+  margin: auto 0;
+  color: var(--muted, #97a1b8);
+  font-size: 14px;
+}
+
+.chat-empty p {
+  margin: 0 0 8px;
+}
+
+/* Suggestions are BUTTONS, not list markers: one tap sends, because the person
+ * reading this may be holding a clicker in front of a room. `list-style: none`
+ * and no padding, so the chips align with the paragraph above them. */
+.chat-empty__suggestions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.chat-empty__suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.chat-empty__suggestion:hover,
+.chat-empty__suggestion:focus-visible {
+  border-color: var(--chapter-accent, #78eec5);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* The return glyph carries "this sends" on its own, so the label does not have
+ * to say it. Accented from rest, because it is the only affordance here. */
+.chat-empty__suggestion i {
+  color: var(--chapter-accent, #78eec5);
+  font-size: 13px;
+}
+
+.chat-error {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--nf-feedback-error, #fc6986);
+  color: var(--nf-feedback-error, #fc6986);
+  font-size: 13px;
+}
+
+/* --- Composer ------------------------------------------------------------ */
+
+.chat-composer {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+}
+
+/*
+ * The bordered box, holding the textarea AND the button.
+ *
+ * Same structure joyce uses: the wrapper owns the border, radius, background and
+ * padding, and the textarea inside is stripped of all three. A separately bordered
+ * input sitting next to a separately styled button reads as a form; one box with a
+ * button inside it reads as a composer.
+ *
+ * `align-items: flex-end` keeps the button pinned to the bottom-right as the
+ * textarea grows, rather than letting it drift to the vertical centre.
+ */
+.chat-composer__box {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 4px 4px 4px 9px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  transition: border-color 150ms ease;
+}
+
+/* `focus-within`, not `:focus` -- the focus ring has to belong to the box now that
+ * the textarea inside it has no border of its own. */
+.chat-composer__box:focus-within {
+  border-color: var(--chapter-accent, #78eec5);
+}
+
+.chat-composer__input {
+  flex: 1;
+  min-width: 0;
+  /* `autoGrow` sets `height` from `scrollHeight`, which INCLUDES padding. There is
+   * no universal box-sizing reset on this page, so without this the textarea would
+   * end up one padding-box taller than its content every time it regrew. */
+  box-sizing: border-box;
+  padding: 5px 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-family: var(--sans, "Inter", system-ui, sans-serif);
+  font-size: 14px;
+  line-height: 1.45;
+  resize: none;
+  overflow-y: hidden;
+}
+
+/* The box shows focus; a second ring inside it would just be noise. */
+.chat-composer__input:focus,
+.chat-composer__input:focus-visible {
+  outline: none;
+}
+
+.chat-composer__input::placeholder {
+  color: var(--muted, #97a1b8);
+}
+
+.chat-composer__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--chapter-accent, #78eec5);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.chat-composer__button:hover:not(:disabled),
+.chat-composer__button:focus-visible {
+  background: color-mix(
+    in srgb,
+    var(--chapter-accent-base, #00e5a4) 22%,
+    transparent
+  );
+}
+
+.chat-composer__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-composer__button--stop {
+  color: var(--nf-feedback-error, #fc6986);
+}
+
+/* --- Resize grip --------------------------------------------------------- */
+
+.chat-panel__grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+  /* Two hairlines suggesting a corner, rather than an icon to align. */
+  background: linear-gradient(
+    -45deg,
+    transparent 0 3px,
+    var(--hairline, rgba(255, 255, 255, 0.1)) 3px 4px,
+    transparent 4px 6px,
+    var(--hairline, rgba(255, 255, 255, 0.1)) 6px 7px,
+    transparent 7px
+  );
+}
+
+.chat-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted, #97a1b8);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.chat-icon-button:hover,
+.chat-icon-button:focus-visible {
+  color: #fff;
+  background: var(--surface-1, rgba(255, 255, 255, 0.06));
+}
+
+/* --- Sheets: the shared scrim, card and bar ------------------------------- */
+
+/*
+ * Two things use this -- the tool inspector and the context viewer -- and both
+ * are full-screen scrims, unlike the info modal a few sections up. The
+ * difference is deliberate rather than inconsistent. That one is a footnote
+ * about the model that has to not interrupt; these ARE the demo, and while one
+ * is open the deck behind it is the backdrop, not the subject. They are also the
+ * only surfaces here a room reads from twenty feet away, which wants the width a
+ * scrim gives and an anchored popover does not.
+ *
+ * Everything below is what the two have in common and nothing more. What differs
+ * -- a three-pane workbench, a scrolling column of messages -- stays in the
+ * `.chat-tools*` and `.chat-context*` sections that follow.
+ *
+ * z-index clears `.chat-panel`'s 10000: opening a sheet from a slide with the
+ * assistant already up must not put the panel through the scrim.
+ */
+.chat-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(2, 10, 20, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.chat-sheet:focus-visible {
+  /* Focused on mount so Escape has somewhere to land; the ring would only draw
+   * a box around the whole screen. */
+  outline: none;
+}
+
+.chat-sheet__card {
+  /* Dark form controls without restyling `select` and `number` by hand: this is
+   * what tells the UA to render its own widgets, spinners and dropdown list
+   * included, for a dark surface. */
+  color-scheme: dark;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1100px;
+  /* A FIXED height, not a maximum. Sized to its content the card was a different
+   * shape for every tool -- 300px for `get_current_slide`, twice that for
+   * `find_node` -- so choosing from the select resized the window under the
+   * pointer. It also kept the result pane small exactly when the tool had little
+   * to say and large when it had lots, which is backwards. */
+  height: 82vh;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  background: rgba(2, 10, 20, 0.98);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  /* Same face and colour as `.chat-panel`. Without this the descriptions inherit
+   * the deck's body serif, which is right for a slide and wrong for a control. */
+  color: #fff;
+  font-family: var(--sans, "Inter", system-ui, sans-serif);
+  font-size: 15px;
+}
+
+/*
+ * One column of prose does not want 1100px of it -- that is a measure nobody can
+ * track a line across. The context viewer takes the narrower card, and takes its
+ * height from its content.
+ *
+ * The fixed height above exists because the tool inspector changes what it shows
+ * while it is open, and a card that resized under the select was worse than a
+ * card with slack in it. Nothing changes inside this one: it opens on a single
+ * captured turn and shows exactly that, so hugging the content is free.
+ */
+.chat-sheet__card--narrow {
+  max-width: 780px;
+  height: auto;
+  max-height: 82vh;
+}
+
+.chat-sheet__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+}
+
+.chat-sheet__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.chat-sheet__title i {
+  color: var(--chapter-accent, #78eec5);
+  font-size: 18px;
+}
+
+/*
+ * The picker. Sized to the longest tool name rather than to its content, so
+ * choosing a tool does not resize the header around the pointer.
+ */
+.chat-tools__select {
+  min-width: 20ch;
+  padding: 4px 8px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+}
+
+.chat-tools__select:focus {
+  outline: none;
+  border-color: var(--chapter-accent, #78eec5);
+}
+
+.chat-sheet__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-sheet__badge {
+  padding: 1px 6px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+}
+
+.chat-sheet__badge--on {
+  border-color: var(--chapter-accent, #78eec5);
+  color: var(--chapter-accent, #78eec5);
+}
+
+.chat-tools__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/*
+ * Docs and form on the left, the result on the right, and each scrolls alone.
+ *
+ * Two independent scrollers rather than one for the card: a long schema must
+ * never be able to push the result off the bottom, because pressing Execute and
+ * seeing nothing move is indistinguishable from pressing Execute and nothing
+ * happening. `min-width: 0` on both is what lets them actually shrink -- a flex
+ * item's automatic minimum is its content, and a `<pre>` full of JSON has a very
+ * wide one.
+ */
+.chat-tools__pane {
+  flex: 1 1 42%;
+  min-width: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+}
+
+.chat-tools__doc {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+}
+
+.chat-tools__name {
+  margin: 0 0 6px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 16px;
+  font-weight: 400;
+  color: #fff;
+}
+
+.chat-tools__desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-tools__schema {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.chat-tools__schema th {
+  padding: 0 8px 4px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+  text-align: left;
+}
+
+.chat-tools__schema td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--surface-2, rgba(255, 255, 255, 0.02));
+  color: var(--muted, #97a1b8);
+  vertical-align: top;
+}
+
+.chat-tools__schema code {
+  font-family: var(--mono, ui-monospace, monospace);
+  color: #fff;
+}
+
+.chat-tools__required {
+  margin-left: 2px;
+  color: var(--nf-feedback-error, #fc6986);
+}
+
+.chat-tools__none {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted, #97a1b8);
+}
+
+/* No bottom rule: the form is the last thing in this column, and a divider under
+ * the last thing divides it from nothing. */
+.chat-tools__form {
+  padding: 14px 16px;
+}
+
+.chat-tools__fields {
+  display: grid;
+  gap: 10px;
+}
+
+.chat-tools__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.chat-tools__field--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-tools__label {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-tools__input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+}
+
+.chat-tools__input:focus {
+  outline: none;
+  border-color: var(--chapter-accent, #78eec5);
+}
+
+.chat-tools__run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.chat-tools__execute {
+  padding: 6px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--chapter-accent, #78eec5);
+  color: #04121b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-tools__execute:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-tools__hint {
+  font-size: 12px;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-tools__output {
+  display: flex;
+  /* The larger share of the width. JSON is the widest thing in this modal and
+   * the only thing here that a room reads at distance. */
+  flex: 1 1 58%;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-tools__output-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 6px 16px;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-tools__error-chip {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--nf-feedback-error, #fc6986);
+  border-radius: 4px;
+  color: var(--nf-feedback-error, #fc6986);
+}
+
+.chat-tools__result {
+  flex: 1;
+  margin: 0;
+  padding: 12px 16px;
+  overflow: auto;
+  background: var(--surface-2, rgba(255, 255, 255, 0.02));
+  color: var(--muted, #97a1b8);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-tools__result--error {
+  color: var(--nf-feedback-error, #fc6986);
+}
+
+/*
+ * Two columns need width. Below it they stack -- docs and form first, result
+ * under them -- and the result keeps a floor so it cannot be squeezed to a strip.
+ *
+ * The short-viewport half of the query is not a duplicate of the narrow one: a
+ * projector is 16:9 and a laptop in fullscreen is wider than it is tall, so the
+ * card runs out of height first, and stacking is the wrong answer there. Only the
+ * measures that buy vertical room apply below.
+ */
+@media (max-width: 900px), (max-height: 560px) {
+  .chat-sheet {
+    padding: 12px;
+  }
+
+  .chat-sheet__card {
+    height: 92vh;
+  }
+
+  .chat-sheet__badges {
+    display: none;
+  }
+
+  /* Descriptions here run to four lines, which on a 480px-tall window is most of
+   * the docs pane and puts Execute below its fold. Clamped rather than hidden:
+   * the opening sentence is the part that says what the tool is for, and the
+   * schema table underneath still carries the whole parameter list. */
+  .chat-tools__desc {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+}
+
+/* Stacking is for NARROW only -- see above. */
+@media (max-width: 900px) {
+  .chat-tools__body {
+    flex-direction: column;
+  }
+
+  .chat-tools__pane {
+    flex: 0 1 auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  }
+
+  .chat-tools__output {
+    flex: 1 1 0;
+    min-height: 160px;
+  }
+}
+
+/* --- Context viewer ------------------------------------------------------- */
+
+/*
+ * One scrolling column of messages, in the order the model received them.
+ *
+ * Laid out as a transcript rather than as the JSON it literally is, because the
+ * point being made is "here is a conversation you did not know you were having" --
+ * the system preface the user never wrote, and the handful of earlier turns the
+ * provider chose to keep. `{"role":"user"}` says that less well than a heading
+ * does, and the copy button hands over something diffable either way.
+ */
+.chat-context__body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-context__message {
+  border-left: 2px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  padding-left: 12px;
+}
+
+/* The preface and the live question are the two a reader is looking for; the
+ * turns between them are context in both senses. */
+.chat-context__message--system,
+.chat-context__message--user:last-child {
+  border-left-color: var(--chapter-accent, #78eec5);
+}
+
+/* Deck blocks are neither preface nor turn -- they were sent once and kept, and
+ * nobody typed them. Dashed so that reads at a glance without competing with the
+ * two solid accents above. */
+.chat-context__message--deck {
+  border-left-style: dashed;
+  border-left-color: var(--chapter-accent, #78eec5);
+}
+
+.chat-context__role {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-context__note {
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--chapter-accent, #78eec5);
+}
+
+.chat-context__body {
+  margin: 0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  line-height: 1.55;
+  /* `pre-wrap`, not `pre`: the system preface is newline-separated sentences and
+   * the questions are prose, so hard-wrapping would put a horizontal scrollbar
+   * under every message to no purpose. */
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #fff;
+}
+
+.chat-context__foot {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted, #97a1b8);
+}
+
+/* --- Paged output -------------------------------------------------------- */
+
+/*
+ * `mountChat()` already bails in paged mode, so these are belt-and-braces for
+ * the print path -- printing the live deck straight from the browser never runs
+ * that check.
+ */
+.paged-mode .chat-toggle,
+.print-mode .chat-toggle {
+  display: none;
+}
+
+@media print {
+  #chat-root,
+  .chat-toggle {
+    display: none !important;
+  }
+}
