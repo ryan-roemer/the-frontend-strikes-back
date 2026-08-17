@@ -1,4 +1,4 @@
-import { Fragment, createElement } from "react";
+import { Fragment, Suspense, createElement, lazy } from "react";
 import htm from "htm";
 import {
   Appear,
@@ -22,8 +22,6 @@ import {
   TableRow,
   TableCell,
 } from "spectacle";
-import { LiveEditor, LivePreview, LiveError, LiveProvider } from "react-live";
-import { themes } from "prism-react-renderer";
 import { colors, photoBackground } from "./theme.js";
 import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
@@ -545,42 +543,19 @@ export const TopicSlide = ({ chapter, fontSize = "88px", ...rest }) => {
   `;
 };
 
-// Code editor component
+// Code editor component. The implementation, and the `react-live` and
+// `prism-react-renderer` imports it needs, live in `./code-editor.js` so that they load
+// only if a slide actually renders one -- see the header of that file.
 //
-// Set `noInline` for imperative snippets (e.g. registering a WebMCP tool).
-// Without it, react-live requires the last expression to be renderable.
-export const CodeEditor = ({
-  code,
-  noInline = false,
-  editorHeight = "400px",
-  previewHeight = "50px",
-}) => html`
-  <${LiveProvider}
-    code=${code}
-    language="javascript"
-    theme=${themes.vsDark}
-    noInline=${noInline}
-  >
-    <div className="code-editor-container">
-      <${LiveEditor}
-        className="react-live-editor"
-        style=${{
-          minHeight: editorHeight,
-          maxHeight: editorHeight,
-        }}
-      />
-      <${LiveError}
-        className="react-live-error"
-      />
-      <${LivePreview}
-        className="react-live-preview"
-        style=${{
-          minHeight: previewHeight,
-          maxHeight: previewHeight,
-        }}
-      />
-    </div>
-  </${LiveProvider}>
+// Props are forwarded untouched, so this stays a drop-in for the eager version:
+// `code`, `noInline`, `editorHeight`, `previewHeight`.
+//
+// `fallback` is `null` rather than a spinner, matching `chat/tools/gate.js`: a scrim that
+// appears empty and then fills in looks broken.
+const LazyCodeEditor = lazy(() => import("./code-editor.js"));
+
+export const CodeEditor = (props) => html`
+  <${Suspense} fallback=${null}><${LazyCodeEditor} ...${props} /><//>
 `;
 
 // Card layout props. The surface itself (fill, border, shadow) lives on the
