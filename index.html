@@ -822,15 +822,22 @@
       //
       // Dynamic and caught so that mounting can fail without touching the talk:
       // the chat reads `localStorage` and creates DOM, and none of that is worth
-      // a blank deck. It also defers evaluating the chat modules until after the
-      // deck has rendered -- which `chat/harvest/` needs rather than merely
-      // prefers, since it walks the fiber tree this render produces.
+      // a blank deck.
       //
-      // Removing the assistant is three edits, and they have to go TOGETHER:
-      // this call, the stylesheet link in <head>, and the `DeckBridge` /
-      // `ChatToggle` / `ToolsToggle` imports and elements in `Template`. Those
-      // last three are static imports -- deleting `chat/` while `components.js`
-      // still refers to it is the one combination that does break the deck.
+      // It also defers MOST of the chat until after the deck has rendered, which
+      // `chat/harvest/` needs rather than merely prefers, since it walks the fiber
+      // tree this render produces. Only most: `components.js` imports `DeckBridge`,
+      // `ChatToggle` and `ToolsToggle` STATICALLY, so those three and what they
+      // pull in -- `bus.js`, `state.js`, `tools/state.js`, `store.js`, `url.js` --
+      // have already evaluated by the time this line runs. That is fine, because
+      // none of them touch the fiber tree at import; `harvest/` is reached only
+      // from here.
+      //
+      // Removing the assistant is three edits, and they have to go TOGETHER: this
+      // call, the stylesheet link in <head>, and those three imports and elements
+      // in `Template`. It is the static ones that make the order matter -- deleting
+      // `chat/` while `components.js` still refers to it is the one combination
+      // that does break the deck.
       import("./chat/index.js")
         .then(({ mountChat }) => mountChat())
         .catch((err) => console.warn("[chat] not mounted:", err.message));

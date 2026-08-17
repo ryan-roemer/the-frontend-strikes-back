@@ -21,10 +21,11 @@
  * Every tool reads deck state INSIDE `execute`. Registration happens before
  * React commits, so anything captured at install time is an empty deck.
  */
-import { harvestDeck, harvestSlide } from "../harvest/index.js";
+import { harvestSlide } from "../harvest/index.js";
 import { locate } from "../harvest/locate.js";
 import { provenanceOf } from "../harvest/provenance.js";
 import {
+  nodeIndex,
   outline,
   outlineText,
   position,
@@ -47,6 +48,7 @@ import { summary, withEdits } from "../edit/patches.js";
 import { start as startWatchdog } from "../edit/watchdog.js";
 import { nav } from "../nav.js";
 import { echo, resolveTarget } from "./target.js";
+import { line, nodeData } from "./shape.js";
 
 /**
  * EVERY RESULT CARRIES BOTH A SENTENCE AND ITS DATA.
@@ -93,17 +95,6 @@ const fail = (message, structured) => {
   return result;
 };
 
-/** One node as data. Explicit fields, so the non-enumerable fiber cannot leak. */
-export const nodeData = (node) => ({
-  id: node.id,
-  slide: node.slide,
-  ordinal: node.ordinal,
-  role: node.role,
-  roleOrdinal: node.roleOrdinal,
-  depth: node.depth,
-  text: node.text,
-});
-
 /** The shape of a node, for every `outputSchema` that returns one. */
 const NODE_SCHEMA = {
   type: "object",
@@ -134,6 +125,23 @@ const NODE_SCHEMA = {
 };
 
 const NODES_SCHEMA = { type: "array", items: NODE_SCHEMA };
+
+/**
+ * What a refusal puts in `structuredContent`, declared for every tool that can refuse.
+ *
+ * `target.js`'s `refuse()` returns `{ candidates }` on an ambiguous or missed phrase, and
+ * that rides on the same `structuredContent` channel as a success. Undeclared, it is
+ * exactly the drift `mcp/index.js` warns about: a value the code emits and the schema does
+ * not list is a value a strict host is entitled to reject.
+ *
+ * The `required` list on each schema still describes a SUCCESS -- a refusal is an
+ * `isError: true` result, which is not the success shape and is not validated as one.
+ */
+const CANDIDATES_SCHEMA = {
+  ...NODES_SCHEMA,
+  description:
+    "Present only on a refusal: the nodes a description matched, to pick one id from.",
+};
 
 const NO_DECK =
   "The deck is not reachable right now — it may be in overview or presenter mode. Try again, or press Escape.";
@@ -180,9 +188,6 @@ const readSlide = (asked) => {
   }
   return { ok: true, number: n };
 };
-
-/** One node, as a line a caller can read and act on. */
-const line = (node) => `${node.id} — ${node.role}: ${node.text}`;
 
 /** `slide`, as every read tool declares it. */
 const SLIDE_PARAM = {
@@ -296,6 +301,14 @@ export const READ_TOOLS = [
           description:
             "How it resolved. 'text' is strongest — the phrase is in the node's wording. 'ambiguous' means several matched equally; pick one by id.",
         },
+        // Emitted on `matched: "none"` only, and it is the useful half of that answer:
+        // the roster turns "no" into a menu. Same rule as `matched`'s enum two lines up --
+        // the code was already returning this and the schema did not admit it.
+        slideNodes: {
+          ...NODES_SCHEMA,
+          description:
+            "Present only when nothing matched: everything addressable on the slide, to pick from.",
+        },
       },
       required: ["matches", "slide", "matched"],
     },
@@ -406,6 +419,7 @@ export const READ_TOOLS = [
           },
           required: ["match", "kind"],
         },
+        candidates: CANDIDATES_SCHEMA,
       },
       required: ["node", "provenance"],
     },
@@ -459,9 +473,9 @@ export const READ_TOOLS = [
         .toLowerCase();
       if (needle.length < 2) return fail("Give me at least two characters.");
 
-      const hits = harvestDeck()
-        .slides.flatMap((slide) => slide.nodes)
-        .filter((node) => node.text.toLowerCase().includes(needle));
+      const hits = nodeIndex().filter((node) =>
+        node.text.toLowerCase().includes(needle),
+      );
 
       if (!hits.length) {
         return ok(`Nothing in the deck matches "${query}".`, {
@@ -495,7 +509,11 @@ export const READ_TOOLS = [
   {
     name: "get_speaker_notes",
     description:
-      "Read the presenter's private notes for a slide — what they planned to say, plus timings and any TODOs. These are not shown to the audience. Defaults to the slide on screen. 27 of the 35 slides have notes; the chapter dividers do not.",
+      // NO COUNTS IN THIS STRING. It said "27 of the 35 slides have notes", which is a
+      // measurement of slide content sitting in text a model reads out loud -- wrong the
+      // first time anybody adds a slide, and wrong in the most quotable possible place.
+      // What is durable is the RULE: most slides have notes, dividers do not.
+      "Read the presenter's private notes for a slide — what they planned to say, plus timings and any TODOs. These are not shown to the audience. Defaults to the slide on screen. Most slides have notes; the chapter dividers do not, and get an empty result.",
     inputSchema: {
       type: "object",
       properties: {
@@ -560,7 +578,9 @@ export const NAV_TOOLS = [
   {
     name: "go_to_slide",
     description:
-      "Jump to a specific slide by its number, or to the first slide of a chapter. Slide numbers are 1-based and the deck has 35. Out-of-range numbers are clamped rather than refused. To move relative to where the deck is now — next, previous, last — use move_deck instead.",
+      // Likewise no slide count here. `get_current_slide` and `get_deck_outline` both
+      // report the real one, live, which is where an agent should be reading it from.
+      "Jump to a specific slide by its number, or to the first slide of a chapter. Slide numbers are 1-based; call get_current_slide or get_deck_outline for how many there are. Out-of-range numbers are clamped rather than refused. To move relative to where the deck is now — next, previous, last — use move_deck instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -626,7 +646,11 @@ export const NAV_TOOLS = [
     },
     outputSchema: POSITION_SCHEMA,
     execute: async ({ where }) => {
-      const move = MOVES[where];
+      // `hasOwn`, not a truthiness check on the lookup. `MOVES["constructor"]`
+      // finds Object.prototype's and passes `if (!move)`, then throws on
+      // `move.fn` -- reported as a transport failure rather than as the
+      // perfectly good "Can't move that" answer one line down.
+      const move = Object.hasOwn(MOVES, where) ? MOVES[where] : null;
       if (!move) return fail(`Can't move "${where}".`);
 
       const result = await move.fn();
@@ -697,13 +721,13 @@ const EDIT_SCHEMA = {
   properties: {
     applied: { type: "boolean" },
     node: NODE_SCHEMA,
+    candidates: CANDIDATES_SCHEMA,
     edits: {
       type: "object",
       description: "The edit log after this change.",
       properties: {
         count: { type: "integer" },
         canUndo: { type: "boolean" },
-        canRedo: { type: "boolean" },
         labels: { type: "array", items: { type: "string" } },
         stale: { type: "array", items: { type: "string" } },
       },
@@ -718,14 +742,19 @@ const EDIT_SCHEMA = {
  * A function rather than a constant because the edit layer should not even be
  * constructed on a normal load: having nothing to register is a stronger
  * guarantee than registering nothing.
+ *
+ * RETURNS THE WATCHDOG'S `stop` ALONGSIDE THE TOOLS. It used to return the tools
+ * alone and drop `stop` on the floor, which left a `MutationObserver` on the
+ * slide portal and a bus subscription running after `installTools()`'s teardown
+ * had claimed everything was undone.
  */
 export const installEditTools = () => {
   // Only once anything can actually edit: an observer on the slide portal costs
   // nothing on a read-only load, and starting it there would be a moving part
   // with no job.
-  startWatchdog();
+  const stop = startWatchdog();
 
-  return EDIT_TOOLS;
+  return { tools: EDIT_TOOLS, stop };
 };
 
 const EDIT_TOOLS = [

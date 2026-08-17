@@ -1,10 +1,13 @@
-/* global document:false */
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import htm from "htm";
 import { ChatApp } from "./ui/app.js";
 import { isEnabled } from "./state.js";
-import { setSystemPrompt, warmUp } from "./agent/model-state.js";
+import {
+  DEFAULT_SYSTEM_PROMPT,
+  refresh,
+  setSystemPrompt,
+} from "./agent/model-state.js";
 import { systemPrompt } from "./agent/prompt.js";
 import { installDump } from "./harvest/dump.js";
 import { installTools } from "./mcp/index.js";
@@ -29,14 +32,17 @@ const ROOT_ID = "chat-root";
  *      stray `mod+shift+P`.
  *
  * Returns a teardown function -- unused by the deck, but it makes the module
- * testable from the console and documents that mounting is reversible.
+ * testable from the console and documents that mounting is reversible. It really
+ * is: see the bottom of this function, where every one of the three installs
+ * hands back the thing that undoes it.
  */
 export const mountChat = () => {
   const root = document.documentElement;
 
   // Paged output has no viewport, no hover, and no business carrying a chat
-  // window. `theme.js` sets `paged-mode` for both `?exportMode` and
-  // `?printMode`, so this one check covers the PDF and the handout. A
+  // window. TWO CLASSES, because `theme.js` sets them from two different
+  // conditions -- `paged-mode` for the PDF export and `print-mode` for the
+  // ink-saving handout -- and only one of them implies the other. A
   // `position: fixed` overlay already cost this deck a phantom page once.
   if (
     root.classList.contains("paged-mode") ||
@@ -61,19 +67,18 @@ export const mountChat = () => {
   // together, exactly as the comment at that call site promises. It reads the
   // deck's React internals and shares nothing with the panel, so it is deliberate
   // that it goes up even when the model never does.
-  installDump();
+  const stopDump = installDump();
 
   // The deck as a WebMCP server: `document.modelContext` tools for reading and
   // navigating the deck, plus editing behind `?mcp`. Installed beside the
   // harvest because it is the same seam -- it consumes `harvest/` and shares
   // nothing with the panel -- and for the same "three edits" reason.
-  installTools();
+  const stopTools = installTools();
 
-  // Handed over as a function rather than a string. Right now it returns a fixed
-  // line, but the seam is the point: when the deck becomes context again, the
-  // prompt will be built from the live DOM and cannot exist at import time.
-  //
-  // `harvest/` is the other half of that seam, already sitting in this directory.
+  // A FUNCTION, NOT A STRING, and that is now load-bearing rather than merely a
+  // seam left open: `systemPrompt()` reads a live harvest of the fiber tree for the
+  // deck outline, so it cannot be evaluated until the deck has rendered. See the
+  // header of `agent/prompt.js`.
   setSystemPrompt(systemPrompt);
 
   // Only when the panel is open on load, which now means only under `?chat` -- the
@@ -81,15 +86,28 @@ export const mountChat = () => {
   // deck load the model is not touched at all: no GPU probe, no Cache API lookup,
   // nothing. The panel runs its own check the first time it is opened.
   //
-  // `warmUp()` stops at ON_DISK and never builds the engine, so even here this is a
-  // probe rather than a load -- see the comment on `warmUp()` for why claiming ~2 GB
-  // of GPU memory during page load is a bad trade.
+  // `refresh()` ASKS AND STOPS. It never builds the engine, which is a deliberate
+  // reversal of what the Prompt API version did: there, warming up meant promoting
+  // ON_DISK to READY so the first question streamed immediately. The same promotion
+  // under LiteRT claims ~2 GB of GPU memory during page load, racing Spectacle's
+  // 35-slide portal mount and react-spring's animations -- and Safari enforces
+  // per-tab memory limits by KILLING THE TAB rather than throwing, so the worst case
+  // is not a slow deck but no deck at all, before slide 1. The engine loads in ~1.2s
+  // from a warm cache, so the first question pays almost nothing for this.
   //
-  // Not awaited: the deck is already interactive and must not wait on this.
-  if (isEnabled()) warmUp();
+  // Not awaited: the deck is already interactive and must not wait on this. Caught,
+  // because nothing else is here to.
+  if (isEnabled()) refresh().catch(() => {});
 
+  // EVERYTHING THIS FUNCTION STARTED, IT STOPS. The three installs above each own
+  // something outside React -- a console handle, a `window` global, a mutation
+  // observer -- and a teardown that unmounted the root while leaving those in place
+  // was claiming a reversibility it did not have.
   return () => {
     reactRoot.unmount();
     host.remove();
+    stopTools();
+    stopDump();
+    setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
   };
 };

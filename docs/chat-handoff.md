@@ -100,8 +100,8 @@ The state set fits both, with three seams worth knowing (also commented in
 
 Prefers the last **explicit** choice (`localStorage["chat:provider"]`), then Chrome, then
 Gemma. Preferring Chrome looks reckless given [§2](#2-the-chrome-prompt-api-as-measured), and
-would be if selecting a provider loaded it — it does not. `warmUp()` stops at `ON_DISK`, so the
-choice costs one `availability()` call on page load. The key is written only on an explicit
+would be if selecting a provider loaded it — it does not. The mount-time `refresh()` stops at
+`ON_DISK`, so the choice costs one `availability()` call on page load. The key is written only on an explicit
 switch, never on the fallback path, and a stale id falls back rather than throwing.
 
 ---
@@ -192,12 +192,19 @@ check:
 - **A `QuotaExceededError` fallback after it.** Safari reports an aspirational quota and then
   throws anyway; Firefox reports a group limit and has been seen throwing a bare `TypeError`.
   Matched on name _and_ message, because vendors disagree.
-- **An exact byte-count check on write and on read.** A truncated entry is the nastiest failure
-  available: `cache.match` returns it happily and the engine fails on partial bytes with a
-  message about wasm sections. A short entry is deleted rather than reported.
-- **`navigator.storage.persist()` only from the download click.** Chrome grants it silently;
-  Firefox raises a permission doorhanger, and browser chrome appearing mid-talk is worse than
-  the eviction it prevents.
+- **An exact byte-count check on write and on read, against the response's own
+  `content-length`.** A truncated entry is the nastiest failure available: `cache.match` returns
+  it happily and the engine fails on partial bytes with a message about wasm sections. A short
+  entry is deleted rather than reported. The number comes from the server — live on download,
+  and off the cached entry's stored headers thereafter — never from the pinned constant, which
+  is a version marker and only warns. See [dependencies.md](dependencies.md).
+- **`navigator.storage.persist()` from any deliberate load, not only a fresh download.** Chrome
+  grants it silently; Firefox raises a permission doorhanger, and browser chrome appearing
+  mid-talk is worse than the eviction it prevents — so it is never called from the mount-time
+  probe, which goes through `isCached` and never reaches `getModelSource`. Asking only on a
+  cache MISS left an already-downloaded model unprotected forever, which is the state most
+  machines are in by the time anyone presents. Note Chrome declines it outright on
+  `http://localhost` — measured — so verify this on the real origin, not in dev.
 
 ---
 
@@ -217,7 +224,9 @@ wrong and unactionable.
   keystroke is valid user activation, but silently starting a 2 GB fetch from typing is the
   rudest thing this layer could do.
 
-`warmUp()` never builds an engine. The same promotion would claim ~2 GB of GPU memory during
+**The mount-time probe never builds an engine.** `chat/index.js` calls `refresh()` and stops
+there — it was a `warmUp()` wrapper that did nothing else, so the call and the reasoning now sit
+in the same place. The same promotion would claim ~2 GB of GPU memory during
 page load, racing Spectacle's 35-slide portal mount. **Safari enforces per-tab memory limits by
 killing the tab**, so the worst case is not a slow deck but no deck, before slide 1. The engine
 loads in ~1.2s warm, so the first question pays almost nothing for the change.
@@ -498,10 +507,14 @@ would expect.
 
 ```
 index.html  ──┬── root  →  Deck  →  Template  →  <DeckBridge/>  ──┐
-              │                              └─ <ChatToggle/>     │ publish
+              │                              ├─ <ChatToggle/>     │ publish
+              │                              └─ <ToolsToggle/>    │ (bus.js)
               └── chat-root  →  Panel (own createRoot on body) ←───┘ subscribe
+                             ├─ ContextGate  → context/modal.js   lazy
+                             └─ ToolsGate    → tools/modal.js     lazy
 
 Panel → useConversation(streamAnswer)
+          streamAnswer → deck-context.nextContext()   {pin, note, commit}
           streamAnswer → model-state.getSession() → provider chat handle
           model-state  → providers/index.js → { litert, chrome }
 ```
@@ -521,8 +534,13 @@ Panel → useConversation(streamAnswer)
   step here) evaluates the provider first, leaving `STATES` in its temporal dead zone.
 - **Three integration touchpoints**, and they must be removed together: the stylesheet link in
   `<head>`, the caught dynamic `mountChat()` after `root.render(...)`, and the `DeckBridge` /
-  `ChatToggle` elements in `Template`. Deleting `chat/` while `components.js` still statically
-  imports it is the one combination that breaks the deck; the other two fail soft.
+  `ChatToggle` / `ToolsToggle` elements in `Template`. Deleting `chat/` while `components.js` still
+  statically imports it is the one combination that breaks the deck; the other two fail soft.
+- **Five small shared modules, because five things needed each of them.** `chat/store.js` is the
+  observable every state holder is built on (`state.js`, `tools/state.js`, `context/state.js`,
+  `bus.js`, `model-state.js`); `chat/url.js` is the one reader of `?chat` / `?tools` / `?mcp` /
+  `?tool=`; `ui/use-model-state.js`, `ui/use-copy.js` and `ui/use-dismiss-keys.js` are the three
+  hooks the panel and both sheets share. Each replaced three to five verbatim copies.
 
 ---
 
@@ -546,9 +564,11 @@ Panel → useConversation(streamAnswer)
 - **Slide text carries the deck's own TODOs.** Slide 21's matrix notes read "TODO: Full HF,
   crashy." and the model will happily quote them, because they are on the slide and the audience
   can already see them. Presenter notes are excluded; draft slide copy is not, and cannot be.
-- **LiteRT logs six `INFO`/`WARNING` lines to `console.error`** per engine create, plus
+- **LiteRT logs to `console.error` in two formats**, and a filter for one misses the other: six
+  `INFO:`/`WARNING:` lines per engine create, plus glog-style `W0817 … mel_filterbank.cc` and
   `GetProfileSummary not implemented for backend: GpuArtisan` per turn. Benign, not silenceable.
-  Filter `/^(INFO|WARNING|ERROR):\s*\[/` before concluding a console check has failed.
+  Filter both `/^(INFO|WARNING|ERROR):\s*\[/` and `/^[IWEF]\d{4} /` before concluding a console
+  check has failed. Full detail in [dependencies.md](dependencies.md).
 - **Exported PDFs have never had page numbers.** Spectacle passes `slideNumber = 1` for every
   slide in paged mode. Pre-existing and unrelated to the assistant.
 

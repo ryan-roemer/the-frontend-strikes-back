@@ -1,5 +1,3 @@
-/* global document:false,window:false,URLSearchParams:false */
-
 // --- Render modes -----------------------------------------------------------
 //
 // Spectacle renders every slide stacked for both `?printMode=true` and

@@ -1,7 +1,8 @@
-/* global document:false, getSelection:false, navigator:false, setTimeout:false */
-import { createElement, useCallback, useEffect, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useRef } from "react";
 import htm from "htm";
 import { hideContext } from "./state.js";
+import { useCopy } from "../ui/use-copy.js";
+import { useDismissKeys } from "../ui/use-dismiss-keys.js";
 
 const html = htm.bind(createElement);
 
@@ -42,8 +43,15 @@ const ROLES = {
   deck: "Deck",
 };
 
-/** Tolerates a capture from before the pinned region existed, and Chrome, which
- *  has no separate region to report. */
+/**
+ * Tolerates a capture from before the pinned region existed, and Chrome, which has no
+ * separate region to report.
+ *
+ * ONLY `pinned` IS OPTIONAL. `system`, `history` and `message` are dereferenced without
+ * a guard everywhere below, and deliberately: a capture missing any of those is not an
+ * older shape, it is a bug in whichever provider built it, and rendering an empty sheet
+ * over it would hide exactly the thing this viewer exists to show.
+ */
 const pinnedOf = (context) => context.pinned ?? [];
 
 /** Characters, not tokens. A token count would have to come from the runtime, and
@@ -72,47 +80,27 @@ const Message = ({ role, content, note }) => html`
 const ContextModal = ({ context }) => {
   const sheet = useRef(null);
   const body = useRef(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => sheet.current?.focus(), []);
 
-  /** Escape closes, and arrows are kept off the deck -- as `chat/ui/panel.js`. */
-  const onKeyDown = useCallback((event) => {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      hideContext();
-      return;
-    }
-    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-      event.stopPropagation();
-    }
-  }, []);
+  /** Escape closes, and arrows are kept off the deck -- see `use-dismiss-keys.js`. */
+  const onKeyDown = useDismissKeys(hideContext);
 
-  /** Copy, or failing that select -- see the same note in `chat/tools/modal.js`. */
-  const copy = useCallback(async () => {
-    const text = [
-      `[${ROLES.system}]\n${context.system}`,
-      ...pinnedOf(context).map((m) => `[${ROLES.deck}]\n${m.content}`),
-      ...context.history.map(
-        (m) => `[${ROLES[m.role] ?? m.role}]\n${m.content}`,
-      ),
-      `[${ROLES.user}]\n${context.message}`,
-    ].join("\n\n");
+  /** The whole context as one pasteable transcript. */
+  const asText = useCallback(
+    () =>
+      [
+        `[${ROLES.system}]\n${context.system}`,
+        ...pinnedOf(context).map((m) => `[${ROLES.deck}]\n${m.content}`),
+        ...context.history.map(
+          (m) => `[${ROLES[m.role] ?? m.role}]\n${m.content}`,
+        ),
+        `[${ROLES.user}]\n${context.message}`,
+      ].join("\n\n"),
+    [context],
+  );
 
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      const node = body.current;
-      if (!node) return;
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      const selection = getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-  }, [context]);
+  const { copied, copy } = useCopy(asText, body);
 
   // History arrives as a flat message list; a person counts it in question-and-
   // answer pairs, and so does the provider's own limit.

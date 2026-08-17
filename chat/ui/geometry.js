@@ -1,4 +1,3 @@
-/* global window:false, localStorage:false */
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**

@@ -1,4 +1,3 @@
-/* global localStorage:false */
 import { provider as litert } from "./litert.js";
 import { provider as chrome } from "./chrome.js";
 

@@ -1,5 +1,3 @@
-/* global console:false, document:false, navigator:false, URLSearchParams:false, window:false */
-
 /**
  * The deck, as a WebMCP server.
  *
@@ -17,8 +15,8 @@
  * exercised by something that already works, so when the 2B model arrives the
  * only new variable is the model.
  */
-import { getSnapshot } from "../bus.js";
 import { installEditTools, READ_TOOLS, NAV_TOOLS } from "./tools.js";
+import { flag } from "../url.js";
 
 /**
  * `document` first, `navigator` second.
@@ -39,19 +37,10 @@ export const getModelContext = () =>
  * damage anything. Writing is opt-in, because the alternative is a stray tool
  * call rewriting a slide in front of an audience.
  *
- * Bare `?mcp` as well as `?mcp=true`, following `chat/state.js`: a flag you have
- * to remember the value of is a flag you will get wrong at the podium.
+ * Bare `?mcp` as well as `?mcp=true`, like every other flag the deck reads -- see
+ * `chat/url.js`, which is the one place that acceptance list now lives.
  */
-export const editingEnabled = () => {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has("mcp")) return false;
-    const value = params.get("mcp");
-    return value === null || value === "" || value === "true" || value === "1";
-  } catch {
-    return false;
-  }
-};
+export const editingEnabled = () => flag("mcp");
 
 /**
  * Run one tool, turning anything it throws into an MCP error rather than a
@@ -99,24 +88,32 @@ export const getTools = () => registry;
  * Register the deck's tools, and leave a console harness behind either way.
  *
  * Returns a teardown, matching `mountChat()`. There is no unregister in the API
- * the deck teaches, so teardown only drops the harness -- honest rather than
- * pretending the tools went away.
+ * the deck teaches, so the registrations themselves outlive it -- but everything
+ * this module DID start, it stops: the harness, the registry, the watchdog's
+ * observer, and the `installed` latch. A teardown that leaves the latch set makes
+ * the next install a silent no-op, which is a worse failure than not tearing down
+ * at all because it looks like success.
  */
 export const installTools = () => {
   if (installed) return () => {};
   installed = true;
 
-  // `installEditTools()` also starts the watchdog, so it is called once, here,
-  // and the result is reused for both the registry and the registration below.
+  // `installEditTools()` also starts the watchdog, and hands back the `stop` that
+  // the teardown below owes it.
+  let stopWatchdog = () => {};
   const groups = [
     { group: "read", tools: READ_TOOLS },
     { group: "navigate", tools: NAV_TOOLS },
   ];
-  if (editingEnabled())
-    groups.push({ group: "edit", tools: installEditTools() });
+  if (editingEnabled()) {
+    const edit = installEditTools();
+    stopWatchdog = edit.stop;
+    groups.push({ group: "edit", tools: edit.tools });
+  }
 
-  const tools = groups.flatMap((group) => group.tools);
-
+  // ONE PASS, ONE `guard()` PER TOOL. `call` is the guarded function, and `tools`
+  // is the registry rather than a parallel list built from the same groups -- the
+  // two used to be built separately and wrapped the same tool twice.
   registry = groups.flatMap(({ group, tools: list }) =>
     list.map((tool) => ({
       name: tool.name,
@@ -127,6 +124,14 @@ export const installTools = () => {
       call: guard(tool),
     })),
   );
+  const tools = registry;
+
+  const teardown = () => {
+    stopWatchdog();
+    registry = [];
+    installed = false;
+    delete window.deckMcp;
+  };
 
   // THE HARNESS GOES UP EVEN WITH NO HOST. "Are the tools right" and "is the
   // extension connected" fail in ways that look identical from the console, and
@@ -134,7 +139,10 @@ export const installTools = () => {
   window.deckMcp = {
     list: () =>
       tools.map(({ name, description, inputSchema }) => {
-        const params = Object.keys(inputSchema?.properties).join(", ");
+        // `?? {}` as well as `?.`: a tool with an `inputSchema` but no `properties`
+        // would otherwise throw out of `deckMcp.list()` -- the one call anybody
+        // makes first, and the worst place to fail.
+        const params = Object.keys(inputSchema?.properties ?? {}).join(", ");
         const caller = params ? `({ ${params} })` : `()`;
         return {
           short: `${name}${caller}`,
@@ -146,7 +154,7 @@ export const installTools = () => {
     call: (name, args) => {
       const tool = tools.find((t) => t.name === name);
       if (!tool) throw new Error(`no such tool: ${name}`);
-      return guard(tool)(args);
+      return tool.call(args);
     },
     // The declared shape of a tool's `structuredContent`. Exposed so the
     // contract can be CHECKED against what the tool actually returns -- a value
@@ -164,7 +172,7 @@ export const installTools = () => {
     console.info(
       `[mcp] no modelContext; ${tools.length} tools available on window.deckMcp only`,
     );
-    return () => delete window.deckMcp;
+    return teardown;
   }
 
   for (const tool of tools) {
@@ -172,7 +180,10 @@ export const installTools = () => {
       name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema,
-      execute: guard(tool),
+      // The SAME guarded function the harness calls, not a second wrapping of the
+      // same tool. Two wrappers behave identically, but only one of them can be
+      // the thing a console session is exercising.
+      execute: tool.call,
     });
   }
 
@@ -180,14 +191,10 @@ export const installTools = () => {
     `[mcp] registered ${tools.length} tools${editingEnabled() ? " (editing enabled)" : ""}`,
   );
 
-  return () => delete window.deckMcp;
+  return teardown;
 };
 
-/**
- * Whether the deck is reachable yet.
- *
- * Exported for tools rather than used here: `installTools` runs before React
- * commits, so anything reading `getSnapshot()` at install time sees an empty
- * deck. Every tool reads it inside `execute` instead.
- */
-export const deckReady = () => getSnapshot().ready;
+// There was a `deckReady()` here, documented as "exported for tools". No tool ever
+// imported it -- they read `position()` from `harvest/views.js` inside `execute`,
+// which answers the same question and carries the slide with it. It also collided by
+// name with `harvest/index.js`'s `deckReady`, which IS used.

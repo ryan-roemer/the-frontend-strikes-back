@@ -1,4 +1,3 @@
-/* global AbortController:false */
 import { useCallback, useRef, useState } from "react";
 
 /**

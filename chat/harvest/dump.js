@@ -1,12 +1,28 @@
-/* global console:false, document:false, navigator:false, requestAnimationFrame:false, window:false, URLSearchParams:false */
-
 /**
- * The two ways to look at the harvest.
+ * The console handle on the harvest, and the `?dump` overlay.
  *
- *   window.deckDump.markdown()   the document, as a string
- *   window.deckDump.slides()     the structured harvest
- *   window.deckDump.log()        both, to the console
- *   ?dump                        the document, on screen
+ * Grouped the way you reach for them -- the whole document, then addressing, then the
+ * sized views. The list below is the contract; the object at the bottom of this file is
+ * the only place it is defined.
+ *
+ *   THE DOCUMENT
+ *     deckDump.markdown()          the document, as a string
+ *     deckDump.slides()            the structured harvest
+ *     deckDump.deck()              ...with its metadata
+ *     deckDump.log()               document and harvest, to the console
+ *     ?dump                        the document, on screen
+ *
+ *   ADDRESSING
+ *     deckDump.nodes()             every addressable node
+ *     deckDump.node(id)            one, with its live element
+ *     deckDump.locate(phrase)      say what you mean -> node, or honest candidates
+ *     deckDump.describe(id)        read an id back as a sentence
+ *     deckDump.where(id)           where it came from. JSON-safe, for pasting
+ *     deckDump.provenance()        the same, for every node, with tier counts
+ *
+ *   SIZED VIEWS
+ *     deckDump.context(question)   the view a turn would pick, and what it costs
+ *     deckDump.views              { position, outline, slide, index }
  *
  * Installed by `mountChat()`, which is why there is no `import()` for it in
  * `index.html`: the assistant is meant to come out in three edits that go
@@ -176,7 +192,7 @@ export const installDump = () => {
     // The handles the deck's own use cases need, in the order you would reach
     // for them: what is addressable, what one address names, and where that
     // thing came from.
-    nodes: () => nodeIndex(),
+    nodes: nodeIndex,
 
     // `node` hands back the LIVE thing -- fiber and element -- for poking at in
     // the console. `where` hands back a POINTER, and is JSON-safe on purpose:
@@ -224,7 +240,15 @@ export const installDump = () => {
     },
   };
 
-  if (!new URLSearchParams(window.location.search).has(PARAM)) return;
+  // Matching `installTools()` and `mountChat()`: whatever this put on `window`,
+  // it takes back off. The console handle used to survive an unmount and go on
+  // answering from a deck that had been torn down.
+  const teardown = () => {
+    delete window.deckDump;
+    document.getElementById(OVERLAY_ID)?.remove();
+  };
+
+  if (!new URLSearchParams(window.location.search).has(PARAM)) return teardown;
 
   whenReady((ready) => {
     if (!ready) {
@@ -236,4 +260,6 @@ export const installDump = () => {
       overlay(deckMarkdown(deck), deck.slides.length, deck.meta.source),
     );
   });
+
+  return teardown;
 };

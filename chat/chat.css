@@ -7,8 +7,16 @@
  * Surfaces, hairlines and the mono face are read from the deck's own custom
  * properties (`--surface-1`, `--hairline`, `--mono`, `--chapter-accent`), so the
  * panel tracks the deck's theme -- including the per-chapter accent -- without
- * duplicating a single hex value. The `:root` fallbacks in `var()` are there for
- * the case where this file is loaded without the deck's stylesheet.
+ * duplicating a single hex value. The `var()` fallbacks cover this file being
+ * loaded without the deck's stylesheet.
+ *
+ * WITH FOUR EXCEPTIONS, WHERE THE FALLBACK IS THE VALUE. `--fg`,
+ * `--nf-midnight-30`, `--nf-feedback-error` and `--nf-purple-base` are not defined
+ * anywhere in this repo, by the deck or by anyone, so the literal after the comma
+ * is what always renders. Two of them disagree with the hex `deck/styles.css` uses
+ * for the same idea -- error is `#fc6986` here and `#ff6b6b` there, purple is
+ * `#b18cff` here and `#8950ff` there. Harmless today because the two never sit
+ * side by side, and worth knowing before treating any of these four as themeable.
  */
 
 #chat-root {
@@ -239,21 +247,43 @@
  * action group's `gap`, and alignment from its `align-items`.
  */
 
-.chat-model__state--ok {
+/*
+ * The status icon's tone.
+ *
+ * EVERY SELECTOR HERE IS DOUBLED WITH `.chat-icon-button`, and that is the fix rather
+ * than a flourish. The button carries both classes, `.chat-icon-button` sets
+ * `color: var(--muted)`, and a single-class tone rule ties it on specificity (0,1,0) and
+ * loses on source order -- `.chat-icon-button` is defined further down this file. So
+ * none of these colours were reaching the screen: green for a live session, red for a
+ * failure and grey for unsupported all rendered as the same muted grey. Verified with
+ * `getComputedStyle`, not read off the source. `--busy i` was the one that appeared to
+ * work, because it targets the child `<i>` and only sets `animation`.
+ *
+ * `--idle` also had no rule at all until now. `model-state.js` gives DOWNLOADABLE and
+ * ON_DISK `tone: "idle"` -- the two states the panel is in before anybody has done
+ * anything -- so the most common states read as disabled, which is the opposite of true:
+ * they are the two where the button is the thing to press. Brighter than muted, not
+ * accent-coloured: the accent means "live" on this row, and a model on disk is not live.
+ */
+.chat-icon-button.chat-model__state--idle {
+  color: var(--fg, #e7ecf5);
+}
+
+.chat-icon-button.chat-model__state--ok {
   color: var(--chapter-accent, #78eec5);
 }
 
-.chat-model__state--warn,
-.chat-model__state--error {
+.chat-icon-button.chat-model__state--warn,
+.chat-icon-button.chat-model__state--error {
   color: var(--nf-feedback-error, #fc6986);
 }
 
-.chat-model__state--off {
+.chat-icon-button.chat-model__state--off {
   color: var(--muted, #97a1b8);
   opacity: 0.6;
 }
 
-.chat-model__state--busy {
+.chat-icon-button.chat-model__state--busy {
   color: var(--chapter-accent, #78eec5);
 }
 
@@ -827,13 +857,6 @@
 .chat-icon-button:focus-visible {
   color: #fff;
   background: var(--surface-1, rgba(255, 255, 255, 0.06));
-}
-
-.chat-placeholder {
-  margin: 0;
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 13px;
-  color: var(--muted, #97a1b8);
 }
 
 /* --- Sheets: the shared scrim, card and bar ------------------------------- */

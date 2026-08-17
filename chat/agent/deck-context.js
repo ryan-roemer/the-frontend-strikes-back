@@ -77,7 +77,7 @@ const syncEpoch = () => {
   lastAsked = null;
 };
 
-const NOTHING = { pin: "", note: "" };
+const NOTHING = { pin: "", note: "", commit: () => {} };
 
 /**
  * What this turn owes the model: `{ pin, note }`. Usually both "".
@@ -137,6 +137,7 @@ export const nextContext = () => {
             count: at.count,
             title: pinned.get(n).title,
           }),
+          commit: () => {},
         }
       : NOTHING;
   }
@@ -147,8 +148,9 @@ export const nextContext = () => {
   const body = slideText(slide, { ids: false });
   if (!body) return NOTHING;
 
-  pinned.set(n, { title: slide?.title ?? null, chars: body.length });
-
+  // NOT PINNED HERE. Recording the slide as sent is the caller's to do, once the
+  // model has actually started answering -- see `commit` below.
+  //
   // The position line rides along on a first sighting too: the `<slide n="12">`
   // tag carries the number but not the count, and "how far through are we" is
   // one of the likelier questions to be asked of a deck.
@@ -156,21 +158,29 @@ export const nextContext = () => {
   // `showStep: false` -- the block holds every node on the slide including the
   // ones still waiting to animate in, so a step index would describe a visibility
   // state that nothing else here reflects. See `positionText`.
-  return { pin: body, note: positionText(at, { showStep: false }) };
+  return {
+    pin: body,
+    note: positionText(at, { showStep: false }),
+    /**
+     * Record that this slide reached the model. Called by `session.js` on the first
+     * chunk of the answer.
+     *
+     * THE SPLIT IS THE WHOLE POINT OF THIS MODULE. Marking the slide as sent while
+     * merely READING the position meant a stream that threw before the provider's
+     * `prepare()` ran -- an aborted turn, a lock, an engine error -- left the map
+     * claiming the model held text it was never given. The next question on that
+     * slide would then take the branch above and send a bare pointer at content
+     * that does not exist in the context: precisely the dangling reference the
+     * header of this file says the map exists to prevent. Not committing costs a
+     * re-send; committing too early costs a wrong answer.
+     */
+    commit: () => {
+      pinned.set(n, { title: slide?.title ?? null, chars: body.length });
+    },
+  };
 };
 
-/**
- * What has been pinned so far. For the context viewer and `deckDump`.
- *
- * The viewer is the only instrument that can show a presenter what the model is
- * actually holding, so this being accurate is the difference between the panel's
- * `{}` button being a demo and being a lie.
- */
-export const pinnedSlides = () => {
-  syncEpoch();
-  return [...pinned.entries()].map(([slide, { title, chars }]) => ({
-    slide,
-    title,
-    chars,
-  }));
-};
+// There was a `pinnedSlides()` export here, documented as feeding the context viewer.
+// It never did: `chat/context/modal.js` reads `context.pinned` off the capture that
+// `onPrompt` handed it, which is the stronger source -- what the provider actually
+// sent for that turn, rather than what this map believes about the session now.

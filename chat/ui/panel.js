@@ -1,16 +1,13 @@
-import { createElement, useCallback, useEffect, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useRef } from "react";
 import htm from "htm";
 import { setEnabled } from "../state.js";
 import { useConversation } from "../use-conversation.js";
 import { useDeck } from "../use-deck.js";
-import {
-  STATES,
-  getState,
-  refresh,
-  restart,
-  subscribe,
-} from "../agent/model-state.js";
+import { refresh, restart } from "../agent/model-state.js";
+import { STATES } from "../agent/states.js";
 import { streamAnswer } from "../agent/session.js";
+import { useDismissKeys } from "./use-dismiss-keys.js";
+import { useModelState } from "./use-model-state.js";
 import { usePanelGeometry } from "./geometry.js";
 import { Transcript } from "./transcript.js";
 import { Composer } from "./composer.js";
@@ -82,12 +79,6 @@ const EmptyState = ({ onSend }) => {
   `;
 };
 
-const useModelState = () => {
-  const [state, setState] = useState(getState);
-  useEffect(() => subscribe(setState), []);
-  return state;
-};
-
 /**
  * The floating window.
  *
@@ -115,25 +106,9 @@ export const Panel = ({ enabled }) => {
     if (enabled) refresh();
   }, [enabled]);
 
-  /**
-   * Keep deck navigation out of the panel.
-   *
-   * Spectacle binds left/right on `document` through mousetrap, whose
-   * `stopCallback` already spares events targeted at a TEXTAREA -- so typing is
-   * safe for free. A focused BUTTON in this panel is not: arrow keys there would
-   * both do nothing visible and silently change slides. Escape closes, which is
-   * why it is handled here rather than globally.
-   */
-  const onKeyDown = useCallback((event) => {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      setEnabled(false);
-      return;
-    }
-    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-      event.stopPropagation();
-    }
-  }, []);
+  /** Escape closes, arrows stay off the deck -- see `use-dismiss-keys.js`. */
+  const close = useCallback(() => setEnabled(false), []);
+  const onKeyDown = useDismissKeys(close);
 
   /**
    * THE TRANSCRIPT FOLLOWS THE MODEL'S MEMORY.
@@ -147,9 +122,11 @@ export const Panel = ({ enabled }) => {
    *
    * Guarded on a non-zero epoch so a fresh mount does not count as a drop.
    */
-  // Keyed on the epoch ALONE, deliberately. `clear` is a fresh closure on most renders, so
-  // including it would wipe the transcript on any identity change rather than only when the
-  // model actually forgets.
+  // Keyed on the epoch ALONE, deliberately. `clear` is stable (`useCallback(…, [])` in
+  // `use-conversation.js`), so listing it would change nothing today -- but the rule this
+  // effect encodes is "the model forgot", and the epoch is the only expression of that.
+  // Adding a dependency that could ever change for another reason would wipe the transcript
+  // for that other reason.
   useEffect(() => {
     if (model.epoch) clear();
   }, [model.epoch]);

@@ -1,6 +1,6 @@
-/* global console:false, setTimeout:false, clearTimeout:false, AbortController:false */
 import { STATES } from "./states.js";
 import { byId, offered, pick, remember } from "./providers/index.js";
+import { createStore } from "../store.js";
 
 /**
  * Where the on-device model is, as one small state machine -- for either provider.
@@ -25,8 +25,6 @@ import { byId, offered, pick, remember } from "./providers/index.js";
  * A module singleton rather than React state, because the session must outlive the panel
  * being closed.
  */
-
-export { STATES };
 
 /**
  * What every state means before a provider has its say.
@@ -92,7 +90,8 @@ const BASE_STATE_META = {
   },
 };
 
-/** The active provider. Never null once `init()` has run, unless nothing is offered. */
+/** The active provider. Chosen at import from the stored preference; null only when the
+ *  browser offers nothing that can run, which is why every read of it is `active?.`. */
 let active = pick();
 
 export const activeProvider = () => active;
@@ -154,18 +153,17 @@ let state = {
  */
 let chat = null;
 
-const listeners = new Set();
+const store = createStore(state);
 
+/** Merge a patch and publish. Always a new object, so `getState` is a snapshot React
+ *  can compare -- see `chat/store.js`. */
 const set = (patch) => {
   state = { ...state, ...patch };
-  for (const fn of listeners) fn(state);
+  store.set(state);
 };
 
-export const getState = () => state;
-export const subscribe = (fn) => {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-};
+export const getState = store.get;
+export const subscribe = store.subscribe;
 
 export const getSession = () => chat;
 export const isReady = () => state.status === STATES.READY && !!chat;
@@ -183,8 +181,10 @@ export const modelSize = () => {
  * A function rather than a string so it can be built at session-creation time rather than at
  * import time. Set by `chat/index.js` at mount.
  */
-let systemPromptFn = () =>
+export const DEFAULT_SYSTEM_PROMPT = () =>
   "You are a helpful assistant running on the user's own machine.";
+
+let systemPromptFn = DEFAULT_SYSTEM_PROMPT;
 
 export const setSystemPrompt = (fn) => {
   systemPromptFn = fn;
@@ -262,6 +262,14 @@ export const refresh = async () => {
   return state;
 };
 
+/** Point the active provider's promotion callback at this machine. See the call at the
+ *  bottom of the file, and the matching call in `switchProvider`. */
+const watchPromotion = () => {
+  active?.onPromoted?.(() => {
+    if (!chat) refresh();
+  });
+};
+
 const idleTimer = (ms, onIdle) => {
   let timer = null;
   return {
@@ -292,10 +300,21 @@ const doLoad = async () => {
   const { ownsBytes } = provider.capabilities;
   const { stallMs, createCeilingMs } = provider.timings;
 
-  const before = await provider.status();
-  if (before === STATES.UNSUPPORTED || before === STATES.UNAVAILABLE) {
-    const gpu = await provider.probe();
-    set({ status: before, error: gpu.reason });
+  // OUTSIDE THE MAIN TRY, so it needs its own. `load()` is called bare from a click
+  // handler in `model-status.js`; a `status()` or `probe()` that throws here used to
+  // reject all the way out as an unhandled rejection, with nothing written to state
+  // and the panel showing whatever it showed before.
+  let before;
+  try {
+    before = await provider.status();
+    if (before === STATES.UNSUPPORTED || before === STATES.UNAVAILABLE) {
+      const gpu = await provider.probe();
+      set({ status: before, error: gpu.reason });
+      return null;
+    }
+  } catch (err) {
+    if (superseded()) return null;
+    set({ status: STATES.ERROR, error: err.message, progress: null });
     return null;
   }
 
@@ -392,27 +411,25 @@ const doLoad = async () => {
     });
     return chat;
   } catch (err) {
+    // A DELIBERATE CANCEL NEVER LANDS HERE. `cancelDownload()` bumps the generation before
+    // it aborts, so the only way out of this block is superseded, and it owns the repaint
+    // itself. Everything reaching the lines below is a real failure.
     if (superseded()) return null;
-
-    // A stall is a failure; a cancel is not. Reporting a red icon for a download the
-    // presenter stopped on purpose would be a worse lie than saying nothing.
-    const cancelled = !stalled && err.name === "AbortError";
 
     // A timeout says nothing about the model, only that we stopped waiting -- so ask the
     // provider where things stand instead of guessing. On Chrome this is usually a download
     // that started underneath us, and "downloading" is the honest answer.
     const timedOut = /timed out/i.test(err.message);
-    const settled =
-      cancelled || timedOut
-        ? await provider.status().catch(() => STATES.ERROR)
-        : STATES.ERROR;
+    const settled = timedOut
+      ? await provider.status().catch(() => STATES.ERROR)
+      : STATES.ERROR;
 
     set({
       status: settled,
       progress: null,
       progressText: null,
       error:
-        cancelled || settled !== STATES.ERROR
+        settled !== STATES.ERROR
           ? null
           : stalled
             ? "The download stopped making progress. Check the network and try again."
@@ -457,11 +474,19 @@ export const load = async () => {
   }
 };
 
-/** Stop a download in progress. Only meaningful when the provider owns the bytes; on
- *  Chrome the same slot is a re-check, so this is never wired to a button there. */
-export const cancelDownload = () => {
+/**
+ * Stop a download in progress. Only meaningful when the provider owns the bytes; on
+ * Chrome the same slot is a re-check, so this is never wired to a button there.
+ *
+ * IT MUST REPAINT ITSELF. Bumping the generation is what stops the abandoned `doLoad()`
+ * from writing state after the fact -- which also means `doLoad()`'s catch returns early
+ * and never repaints. Without the `refresh()` the panel sits on DOWNLOADING with a frozen
+ * progress bar until something else happens to ask.
+ */
+export const cancelDownload = async () => {
   loadGeneration += 1;
   downloadAbort?.abort();
+  return refresh();
 };
 
 /**
@@ -500,8 +525,10 @@ export const unload = () => {
     revision: state.revision + 1,
     epoch: state.epoch + 1,
   });
-  // The provider is the authority on what the status actually is now.
-  refresh();
+  // The provider is the authority on what the status actually is now. Caught rather
+  // than left floating: this function is synchronous by design, so nothing is around
+  // to handle a rejection, and `refresh()` already writes its own failure into state.
+  refresh().catch(() => {});
 };
 
 /**
@@ -517,7 +544,7 @@ export const unload = () => {
 export const restart = async () => {
   if (!chat) return load();
 
-  const cheap = active.capabilities.cheapRestart;
+  const cheap = active?.capabilities.cheapRestart;
   if (!cheap) set({ status: STATES.CREATING, error: null });
 
   try {
@@ -544,17 +571,31 @@ export const restart = async () => {
   }
 };
 
-/** Delete the downloaded model. Only offered when the provider owns the bytes. */
+/**
+ * Delete the downloaded model. Only offered when the provider owns the bytes.
+ *
+ * The affordance that matters most when something has gone wrong, which is exactly why
+ * it has to survive things going wrong: a download in flight is aborted first, so its
+ * `cache.put` cannot re-create the entry `remove()` just deleted, and the status is
+ * asked for rather than asserted, so a delete that failed does not report DOWNLOADABLE
+ * over a model that is still on disk.
+ */
 export const deleteDownload = async () => {
   if (!active?.capabilities.canDelete) return false;
   loadGeneration += 1;
+  downloadAbort?.abort();
   if (chat) {
-    chat.destroy();
+    try {
+      chat.destroy();
+    } catch (err) {
+      // Matching `unload()` and `switchProvider()`. A handle that will not tear down
+      // must not stop the bytes from going.
+      console.warn("[chat] destroying the session failed:", err.message);
+    }
     chat = null;
   }
   const removed = await active.remove();
   set({
-    status: STATES.DOWNLOADABLE,
     elapsed: null,
     error: null,
     progress: null,
@@ -563,6 +604,7 @@ export const deleteDownload = async () => {
     revision: state.revision + 1,
     epoch: state.epoch + 1,
   });
+  await refresh();
   return removed;
 };
 
@@ -602,6 +644,7 @@ export const switchProvider = async (id) => {
 
   active = next;
   remember(next.id);
+  watchPromotion();
 
   set({
     providerId: next.id,
@@ -629,7 +672,12 @@ export const switchProvider = async (id) => {
  */
 export const touch = () => {
   set({ revision: state.revision + 1 });
-  chat?.sampleContext().then(() => set({ revision: state.revision + 1 }));
+  // Caught, not floating. A sample that fails is a stale meter, which is a far smaller
+  // problem than an unhandled rejection in the console of a deck being presented.
+  chat
+    ?.sampleContext()
+    .then(() => set({ revision: state.revision + 1 }))
+    .catch(() => {});
 };
 
 /**
@@ -694,29 +742,17 @@ export const unavailableCopy = (status) =>
     bullets: [],
   };
 
-/**
- * Drive the machine as far as it goes without a click.
- *
- * Called at mount when the panel is open, and it STOPS at ON_DISK -- it does not create
- * anything.
- *
- * This is a deliberate reversal of what the Prompt API version did. There, warming up meant
- * promoting ON_DISK to READY so the first question streamed immediately. The same promotion
- * under LiteRT means claiming ~2 GB of GPU memory during page load, racing Spectacle's
- * 35-slide portal mount and react-spring's animations. Safari enforces per-tab memory
- * limits by KILLING THE TAB rather than throwing, so the worst case is not a slow deck, it
- * is no deck at all, before slide 1.
- *
- * The engine loads in ~1.2s from a warm cache, so the first question pays almost nothing
- * for this. A very cheap price for not gambling the talk.
- */
-export const warmUp = async () => {
-  await refresh();
-  return state;
-};
+// There was a `warmUp()` here. It was `await refresh(); return state;` -- and `refresh()`
+// already returns `state` -- behind fifteen lines explaining a promotion it stopped doing
+// several refactors ago. Its one caller ignored the return value. The reasoning it carried
+// is worth keeping and now lives at that call site, in `chat/index.js`, where the decision
+// is actually taken.
 
 // A background download finishing is the one thing that changes status without us asking.
 // Chrome fires no event for it, so its provider polls and calls this.
-active?.onPromoted?.(() => {
-  if (!chat) refresh();
-});
+//
+// RE-REGISTERED ON EVERY PROVIDER SWITCH. `onPromoted` is a single slot on the provider
+// module, not a subscription list, so registering once at import only ever wired up
+// whichever provider happened to be stored. Start on Gemma, switch to Chrome, and Chrome's
+// poller would run, notice the promotion, and call nothing.
+watchPromotion();

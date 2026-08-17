@@ -57,7 +57,16 @@ export const Transcript = ({ entries, streaming, busy, error, empty }) => {
   const endRef = useRef(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+    // `smooth` ONLY IF THE VIEWER WANTS MOTION. The deck honours
+    // `prefers-reduced-motion` throughout -- transitions off, the typing dots
+    // static -- and a panel that smooth-scrolls on every token is the one place
+    // that policy was still being broken, at the highest frequency of anything
+    // in the deck.
+    const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    endRef.current?.scrollIntoView({
+      block: "end",
+      behavior: smooth ? "smooth" : "auto",
+    });
   }, [entries.length, streaming]);
 
   const showEmpty = !entries.length && !streaming && !busy;

@@ -1,4 +1,3 @@
-/* global navigator:false, setTimeout:false, clearTimeout:false, DOMException:false, URL:false */
 import { Backend, Engine, loadLiteRtLm } from "@litert-lm/core";
 import {
   cacheAvailable,
@@ -48,16 +47,31 @@ export const MODEL = {
   quantization: "mixed 2/4/8-bit",
 };
 
-export const MODEL_URL = `https://huggingface.co/${MODEL.repo}/resolve/main/${MODEL.file}`;
+const MODEL_URL = `https://huggingface.co/${MODEL.repo}/resolve/main/${MODEL.file}`;
 
 /**
- * The exact size, in bytes, from the `content-length` HuggingFace serves.
+ * The size this deck was built and rehearsed against, in bytes.
  *
- * One constant, used for three things: the storage pre-check, the download progress total,
- * and -- the reason it has to be exact rather than approximate -- the integrity check that
- * stops a truncated cache entry from being handed to the engine. See `litert-cache.js`.
+ * A PIN AND A FALLBACK, NOT THE INTEGRITY CHECK. That distinction is the whole comment.
+ * The model is version-pinned by repo and filename only, and HuggingFace serves no other
+ * version marker this page can cheaply act on, so the byte count is the one signal that
+ * upstream has republished the file. It is used for:
+ *
+ *   the storage pre-check   before any bytes arrive there is nothing else to ask
+ *   the progress total      only when a response carries no `content-length`
+ *   a drift WARNING         if upstream disagrees, said out loud and then ignored
+ *
+ * What it is deliberately NOT is the truncation check. That compares the bytes on disk
+ * against the `content-length` of the response they came from -- live during a download,
+ * and read back off the stored entry's own headers afterwards. See `litert-cache.js`.
+ *
+ * The difference is not academic. Every size check used to compare against this constant,
+ * so the day HuggingFace reuploads `gemma-4-E2B-it-web.litertlm` at any other size, the
+ * download would complete, be judged "incomplete", delete itself, and fail identically on
+ * every retry -- telling the presenter to try again, forever. Verified 2026-08-17: upstream
+ * `content-length` is still 2008432640.
  */
-export const MODEL_BYTES = 2008432640;
+const EXPECTED_BYTES = 2008432640;
 
 /**
  * The context window we ask for, in tokens.
@@ -110,7 +124,7 @@ export const MODEL_BYTES = 2008432640;
  * space, and nothing else. So do not raise this hoping to fix a session that has gone
  * soft, and do not lower it hoping to prevent one.
  */
-export const MAX_NUM_TOKENS = 8192;
+const MAX_NUM_TOKENS = 8192;
 
 /** Bound on tearing down an abandoned stream, so a wedged teardown cannot block the queue. */
 const TEARDOWN_MS = 3000;
@@ -199,7 +213,7 @@ const explain = (err) => {
  */
 let wasmUrlCache = null;
 
-export const wasmUrl = () => {
+const wasmUrl = () => {
   if (wasmUrlCache) return wasmUrlCache;
   let resolved;
   try {
@@ -366,18 +380,26 @@ let engine = null;
 let enginePromise = null;
 
 /**
- * Set when an unload races a load in flight.
+ * Which engine build the module currently wants.
  *
  * `Engine.create()` is a single call that hands back no handle until it resolves, so an
- * unload during a load has nothing to tear down -- and without this flag a ~2 GB engine
- * lands resident with nothing referencing it. Reachable in normal use: the panel's restart
- * button is clickable at any state, and an ERROR retry can overlap a late create.
+ * unload during a load has nothing to tear down -- and without this a ~2 GB engine lands
+ * resident with nothing referencing it. Reachable in normal use: the panel's restart button
+ * is clickable at any state, and an ERROR retry can overlap a late create.
+ *
+ * A COUNTER, NOT A BOOLEAN, and the difference is two real bugs. As a flag reset at the top
+ * of `ensureEngine`, an evict-then-recreate cleared it before the FIRST create resolved, so
+ * that create saw "not evicted", assigned itself over the second, and left two engines
+ * resident. The mirror case was worse: the first create's rejection handler unconditionally
+ * nulled `enginePromise`, clobbering the second create's promise and letting a third start
+ * while the second was still loading. Comparing against a generation makes both impossible,
+ * and is the same mechanism `model-state.js` already uses one layer up.
  */
-let evicted = false;
+let generation = 0;
 
-export const engineResident = () => Boolean(engine);
+const engineResident = () => Boolean(engine);
 
-export const isModelCached = () => isCached(MODEL_URL, MODEL_BYTES);
+const isModelCached = () => isCached(MODEL_URL, EXPECTED_BYTES);
 
 /**
  * Download the bytes if needed, then build the engine.
@@ -388,18 +410,17 @@ export const isModelCached = () => isCached(MODEL_URL, MODEL_BYTES);
  * exactly as much of a lie as one that reads 0% through a download, and the state machine
  * above has a state for each.
  */
-export const ensureEngine = async ({
-  onProgress = null,
-  signal = null,
-} = {}) => {
+const ensureEngine = async ({ onProgress = null, signal = null } = {}) => {
   if (engine) return engine;
   if (enginePromise) return enginePromise;
 
-  evicted = false;
-  enginePromise = (async () => {
+  const mine = generation;
+  const superseded = () => mine !== generation;
+
+  const attempt = (async () => {
     try {
       const source = await getModelSource(MODEL_URL, {
-        expectedBytes: MODEL_BYTES,
+        expectedBytes: EXPECTED_BYTES,
         signal,
         onProgress: (p) => onProgress?.({ phase: "download", ...p }),
       });
@@ -429,7 +450,7 @@ export const ensureEngine = async ({
         mainExecutorSettings: { maxNumTokens: MAX_NUM_TOKENS },
       });
 
-      if (evicted) {
+      if (superseded()) {
         await created.delete().catch(() => {});
         throw abortError();
       }
@@ -438,14 +459,20 @@ export const ensureEngine = async ({
       enginePromise = null;
       return engine;
     } catch (err) {
-      // Cleared so a failed load can be retried rather than replaying its own rejection.
-      enginePromise = null;
-      engine = null;
+      // Cleared so a failed load can be retried rather than replaying its own rejection --
+      // but ONLY if this attempt is still the current one. A superseded attempt that clears
+      // these is clearing its successor's, which is how a third engine used to get started
+      // while the second was still loading.
+      if (!superseded()) {
+        enginePromise = null;
+        engine = null;
+      }
       throw explain(err);
     }
   })();
 
-  return enginePromise;
+  enginePromise = attempt;
+  return attempt;
 };
 
 /**
@@ -455,8 +482,10 @@ export const ensureEngine = async ({
  * the engine hot, because the alternative is a tens-of-seconds GPU reload from a button
  * whose whole purpose is to be pressed mid-talk. This is for deleting the model.
  */
-export const unloadEngine = async () => {
-  evicted = true; // tells an in-flight create that its rejection is an eviction, not a crash
+const unloadEngine = async () => {
+  // Tells an in-flight create that it has been superseded: it deletes what it built rather
+  // than installing it, and leaves the module's handles alone on the way out.
+  generation += 1;
   const current = engine;
   engine = null;
   enginePromise = null;
@@ -468,7 +497,7 @@ export const unloadEngine = async () => {
 };
 
 /** Unload, then drop the bytes. The affordance the Prompt API could not offer at all. */
-export const deleteModel = async () => {
+const deleteModel = async () => {
   await unloadEngine();
   return deleteCached(MODEL_URL);
 };
@@ -485,12 +514,17 @@ export const deleteModel = async () => {
  * generation. That single measured fact is what makes the self-healing below affordable,
  * and it is why nothing here bothers to cache or clone conversations.
  */
-const newConversation = (
-  system,
-  pinned,
-  history,
-  { temperature, maxOutputTokens },
-) =>
+/**
+ * Sampling temperature for every conversation this provider builds.
+ *
+ * A CONSTANT, not a parameter. `createChat` took `{ temperature = 0.7 }` and the single
+ * call site never passed one, so the value was threaded through two functions to arrive
+ * at its own default. Note that the measured table above was taken at `temperature: 0`;
+ * these are not the same setting and the numbers there are the deterministic case.
+ */
+const TEMPERATURE = 0.7;
+
+const newConversation = (system, pinned, history, { temperature }) =>
   engine.createConversation({
     // Gemma has no true system role, so the runtime folds the preface into its prompt
     // template. That works, but it does mean an instruction here binds a little less
@@ -507,17 +541,17 @@ const newConversation = (
     },
     sessionConfig: {
       samplerParams: { temperature },
-      ...(maxOutputTokens ? { maxOutputTokens } : {}),
     },
   });
 
 /**
  * The one place that reads a `Conversation`'s stream.
  *
- * Shared by the durable chat and by one-shot `generate()` calls so that the lock, the
- * teardown and the Safari reader loop exist exactly once. `prepare` runs AFTER the lock is
- * taken and returns the conversation to use -- which is what lets the chat heal itself, and
- * `generate()` build a throwaway conversation, without either racing a live generation.
+ * `prepare` runs AFTER the lock is taken and returns the conversation to use, which is what
+ * lets the chat rebuild its own conversation without racing a live generation. It was also
+ * shared with one-shot `generate()` calls, which is why the seam is shaped this way --
+ * `generate()` is gone (see the note further down on what its removal cost), leaving `stream`
+ * as the only caller. The indirection stays because the rebuild still needs it.
  *
  * IT MUST STAY AN ASYNC GENERATOR, and it must read with an explicit reader.
  *
@@ -531,7 +565,7 @@ const newConversation = (
  * Yields DELTAS. `chat/agent/session.js` accumulates them and hands the accumulated string
  * onward, so a dropped or reordered chunk cannot desync the display.
  */
-async function* streamFrom({ text, signal = null, prepare, onCancel = null }) {
+async function* streamFrom({ text, signal = null, prepare }) {
   const release = await acquire();
   let conversation = null;
   let reader = null;
@@ -542,7 +576,6 @@ async function* streamFrom({ text, signal = null, prepare, onCancel = null }) {
     // API, so an abort that does not reach this call does nothing at all: generation
     // continues, burning the GPU, until it finishes on its own.
     if (!conversation) return;
-    onCancel?.();
     try {
       conversation.cancel();
     } catch {
@@ -638,14 +671,14 @@ async function* streamFrom({ text, signal = null, prepare, onCancel = null }) {
  * than an engine concern.
  *
  * The transcript is BOUNDED. Prefill is re-paid each turn, so an unbounded one would make
- * every turn slower than the last; `MAX_TURNS` keeps that flat while leaving enough room for
- * "tell me more" to mean something.
+ * every turn slower than the last; `MAX_HISTORY_MESSAGES` keeps that flat while leaving
+ * enough room for "tell me more" to mean something.
  */
 
 /** Exchanges kept for continuity. 6 messages = 3 question/answer pairs. */
 const MAX_HISTORY_MESSAGES = 6;
 
-export const createChat = async ({ system, temperature = 0.7 }) => {
+const createChat = async ({ system }) => {
   await ensureEngine();
 
   /** The transcript WE keep. The `Conversation` is disposable; this is not. */
@@ -664,7 +697,9 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
    */
   let pinned = [];
 
-  let conversation = await newConversation(system, [], [], { temperature });
+  let conversation = await newConversation(system, [], [], {
+    temperature: TEMPERATURE,
+  });
 
   /** Last sampled token count, and the one-at-a-time guard for sampling it. */
   let tokens = 0;
@@ -673,7 +708,7 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
   const rebuild = async () => {
     const dead = conversation;
     conversation = await newConversation(system, pinned, transcript, {
-      temperature,
+      temperature: TEMPERATURE,
     });
     try {
       dead.cancel();
@@ -684,11 +719,6 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
   };
 
   const session = {
-    /** For diagnostics and tests. Nothing above this module should reach through it. */
-    get raw() {
-      return conversation;
-    },
-
     /**
      * Stream one turn.
      *
@@ -712,6 +742,11 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
       { pin = "", note = "", signal = null, onPrompt = null } = {},
     ) {
       let answer = "";
+      // Whether this turn actually reached the model. Everything in `prepare` can throw --
+      // a rebuild, a lock teardown, an engine error -- and a turn that died there was never
+      // sent, so recording it below would put a question and an empty answer into the
+      // model's own history and prefix the next preface with them.
+      let sent = false;
       try {
         for await (const delta of streamFrom({
           // What is SENT. `text` alone is what gets remembered, below.
@@ -722,8 +757,18 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
             // Pinned BEFORE the rebuild, so this turn's conversation is built with
             // the slide already in its preface -- the question that triggered the
             // pin is the first question that gets to use it.
+            //
+            // Rolled back if the rebuild fails: a pin recorded against a conversation
+            // that was never built is the same dangling reference `deck-context.js`
+            // guards against, one layer down.
+            const pinnedBefore = pinned.length;
             if (pin) pinned.push({ role: "user", content: pin });
-            await rebuild();
+            try {
+              await rebuild();
+            } catch (err) {
+              pinned.length = pinnedBefore;
+              throw err;
+            }
             // Reported from here, after the rebuild that consumed it, because THIS
             // is the preface the conversation was actually built from -- not what
             // the UI transcript happens to hold. The two diverge by design: this
@@ -742,6 +787,7 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
               message: note ? `${note}\n\n${text}` : text,
               historyLimit: MAX_HISTORY_MESSAGES,
             });
+            sent = true;
             return conversation;
           },
         })) {
@@ -749,19 +795,22 @@ export const createChat = async ({ system, temperature = 0.7 }) => {
           yield delta;
         }
       } finally {
-        // Recorded even on abort: the presenter saw a partial answer and the transcript
-        // should match what is on screen. Trimmed from the front, in pairs.
+        // Recorded even on abort -- the presenter saw a partial answer and the transcript
+        // should match what is on screen -- but NOT when the turn never reached the model.
+        // Trimmed from the front, in pairs.
         //
         // BARE `text`, not the sent string: `note` is deliberately dropped here. That
         // is the whole of the restored `remember` behaviour -- a position line is true
         // for one turn, and a transcript accumulating five contradictory ones is the
         // accumulation failure in miniature.
-        transcript.push(
-          { role: "user", content: text },
-          { role: "assistant", content: answer },
-        );
-        if (transcript.length > MAX_HISTORY_MESSAGES) {
-          transcript = transcript.slice(-MAX_HISTORY_MESSAGES);
+        if (sent) {
+          transcript.push(
+            { role: "user", content: text },
+            { role: "assistant", content: answer },
+          );
+          if (transcript.length > MAX_HISTORY_MESSAGES) {
+            transcript = transcript.slice(-MAX_HISTORY_MESSAGES);
+          }
         }
       }
     },
@@ -877,7 +926,7 @@ export const provider = {
     // We fetched the bytes, so progress is real and cancel is a real abort.
     ownsBytes: true,
     canDelete: true,
-    downloadBytes: MODEL_BYTES,
+    downloadBytes: EXPECTED_BYTES,
     // Our state is a FACT: we own the download and the engine, so nothing changes behind
     // our back. `session.js` reads this before deciding whether to trust a DOWNLOADING
     // reading enough to refuse a question on it.
@@ -903,7 +952,7 @@ export const provider = {
       // The size is in the label because this click starts a multi-gigabyte fetch. A
       // presenter who triggers that unknowingly on venue wifi has a genuine problem, and
       // "click to download" alone does not warn anybody.
-      title: `Model not downloaded — click to fetch it (${gb(MODEL_BYTES)} GB)`,
+      title: `Model not downloaded — click to fetch it (${gb(EXPECTED_BYTES)} GB)`,
     },
     // Clickable, and it does something real -- this download is ours to stop.
     [STATES.DOWNLOADING]: {
@@ -951,7 +1000,7 @@ export const provider = {
     const gpu = await probe();
     const adapter = gpu.adapter;
     const cached = await isModelCached().catch(() => false);
-    const storage = await storageRoom(MODEL_BYTES).catch(() => null);
+    const storage = await storageRoom(EXPECTED_BYTES).catch(() => null);
 
     let wasm;
     try {
@@ -962,7 +1011,7 @@ export const provider = {
 
     return [
       ["Model", `${MODEL.label} · ${MODEL.quantization}`],
-      ["File", `${MODEL.file} (${gb(MODEL_BYTES)} GB)`],
+      ["File", `${MODEL.file} (${gb(EXPECTED_BYTES)} GB)`],
       ["Backend", "GPU_ARTISAN · WebGPU"],
       [
         "GPU",

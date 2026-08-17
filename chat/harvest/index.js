@@ -1,5 +1,3 @@
-/* global document:false */
-
 /**
  * The whole deck, as data and as one Markdown document.
  *
@@ -21,14 +19,15 @@ import { DeckContext, Slide } from "spectacle";
 import { chapters } from "../../deck/chapters.js";
 import { AUDIENCES, PARTS, VERDICTS, takeaways } from "../../deck/takeaways.js";
 import { findAll, rootFiber } from "./fiber.js";
-import { serializeSlide } from "./markdown.js";
-import { elementOf } from "./nodes.js";
+import { serializeSlide } from "./serialize.js";
+import { elementOf, normalize } from "./nodes.js";
 
 /** Slide body headings sit under `## Slide NN`, so they start at `###`. */
 const HEADING_BASE = 3;
 
 const chapterOf = (className) => {
-  const match = /\bch-(\d)\b/.exec(className ?? "");
+  // `\d+`, not `\d`: a single digit silently dropped the chapter from `ch-10` onwards.
+  const match = /\bch-(\d+)\b/.exec(className ?? "");
   return match ? Number(match[1]) : null;
 };
 
@@ -38,9 +37,12 @@ const titleOf = (body) => {
   return match ? match[1].trim() : null;
 };
 
-const text = (selector) =>
-  document.querySelector(selector)?.textContent?.replace(/\s+/g, " ").trim() ??
-  null;
+/** Scoped, and the `root` argument is load-bearing rather than a convenience -- see
+ *  `domSlides`, which asks the same question once per slide. */
+const text = (selector, root = document) => {
+  const found = root.querySelector(selector)?.textContent;
+  return found == null ? null : normalize(found);
+};
 
 /**
  * Read the deck's own title rather than restating it.
@@ -57,12 +59,6 @@ const deckMeta = (slideCount, source) => ({
   harvested: new Date().toISOString(),
 });
 
-/**
- * Every slide, from the fiber tree.
- *
- * Returns null -- not an empty array -- when the tree is unreachable, so the
- * caller can tell "React moved on us" from "this deck has no slides".
- */
 /**
  * The deck view a slide belongs to.
  *
@@ -121,7 +117,7 @@ const sameFiber = (a, b) =>
  * `harvestSlide(9)` returned slide 11's content -- under its own name, with a
  * plausible title, reporting success. Nothing threw.
  */
-const slideFibers = () => {
+const findSlideFibers = () => {
   const root = rootFiber();
   if (!root) return [];
 
@@ -130,6 +126,32 @@ const slideFibers = () => {
 
   const view = deckViewOf(all[0]);
   return view ? all.filter((fiber) => sameFiber(deckViewOf(fiber), view)) : all;
+};
+
+/**
+ * `findSlideFibers()`, at most once per task.
+ *
+ * THE COST IS REAL AND IT IS PAID SEVERAL TIMES PER EDIT. One `edit_node` resolves the
+ * target, harvests its slide, then describes the result -- which resolves and harvests
+ * again -- and then `rebuild()` resolves once more per patch, plus once per CSS patch
+ * for `stampRefs`. Every one of those runs a `findAll` over the ENTIRE fiber tree of a
+ * 35-slide deck.
+ *
+ * A MICROTASK, NOT A TIMER, and that is the whole safety argument. The cache is dropped
+ * at the end of the current task, so it can never span a React commit: anything
+ * synchronous sees one consistent set of fibers, and the next turn re-reads. That also
+ * closes the gap `describeNode` used to sit in, where two harvests of the same slide
+ * could disagree because the deck moved between them.
+ */
+let cache = null;
+
+const slideFibers = () => {
+  if (cache) return cache;
+  cache = findSlideFibers();
+  queueMicrotask(() => {
+    cache = null;
+  });
+  return cache;
 };
 
 /**
@@ -186,38 +208,15 @@ const addressNodes = (nodes, number) => {
   });
 };
 
-const fiberSlides = () => {
-  const fibers = slideFibers();
-  if (!fibers.length) return null;
-
-  return fibers.map((fiber, i) => {
-    const slide = serializeSlide(fiber, { headingBase: HEADING_BASE });
-    return {
-      number: i + 1,
-      chapter: chapterOf(slide.className),
-      kind: slide.kind,
-      title: titleOf(slide.body),
-      body: slide.body,
-      source: slide.source,
-      code: slide.code,
-      notes: slide.notes,
-      nodes: addressNodes(slide.nodes, i + 1),
-    };
-  });
-};
-
 /**
- * One slide, by 1-based number.
+ * One slide fiber, as the nine-field record everything downstream reads.
  *
- * The cheap path, and the one the active-slide view runs on every navigation:
- * serializing 35 slides to read the 4.3 nodes of the one on screen is most of a
- * harvest's cost for none of its value.
+ * Written once. `fiberSlides` and `harvestSlide` built this object literal
+ * line-for-line identically, which is the shape most likely to drift: adding a
+ * field to the whole-deck harvest and not to the single-slide one produces a
+ * record that is correct on `?dump` and missing a key on every tool call.
  */
-export const harvestSlide = (number) => {
-  const fibers = slideFibers();
-  const fiber = fibers[number - 1];
-  if (!fiber) return null;
-
+const slideRecord = (fiber, number) => {
   const slide = serializeSlide(fiber, { headingBase: HEADING_BASE });
   return {
     number,
@@ -233,6 +232,30 @@ export const harvestSlide = (number) => {
 };
 
 /**
+ * Every slide, from the fiber tree.
+ *
+ * Returns null -- not an empty array -- when the tree is unreachable, so the
+ * caller can tell "React moved on us" from "this deck has no slides".
+ */
+const fiberSlides = () => {
+  const fibers = slideFibers();
+  if (!fibers.length) return null;
+  return fibers.map((fiber, i) => slideRecord(fiber, i + 1));
+};
+
+/**
+ * One slide, by 1-based number.
+ *
+ * The cheap path, and the one the active-slide view runs on every navigation:
+ * serializing 35 slides to read the 4.3 nodes of the one on screen is most of a
+ * harvest's cost for none of its value.
+ */
+export const harvestSlide = (number) => {
+  const fiber = slideFibers()[number - 1];
+  return fiber ? slideRecord(fiber, number) : null;
+};
+
+/**
  * An id -> the node it names, including the live element.
  *
  * RE-WALKS RATHER THAN CACHING, on two counts. React double-buffers fibers
@@ -243,7 +266,8 @@ export const harvestSlide = (number) => {
  * address would work right up until the slide re-rendered.
  *
  * EVERY SLIDE'S ELEMENTS EXIST, not just the visible one's. Measured across all
- * 35 slides: 159 of 159 nodes resolve to a connected element carrying the right
+ * 35 slides: every addressable node (162 of 162 at the last count) resolves to a
+ * connected element carrying the right
  * text. Off-screen slides are laid out at 0x0 rather than unmounted -- Spectacle
  * keeps them in the portal and hides them with transform and overflow -- so a
  * `getBoundingClientRect` of zero means "not on screen", never "not there".
@@ -300,8 +324,12 @@ const domSlides = () => {
     )) {
       el.remove();
     }
-    const body = (clone.textContent ?? "").replace(/\s+/g, " ").trim();
-    const title = text(".slide-title, .title-display, .divider__title");
+    const body = normalize(clone.textContent ?? "");
+    // SCOPED TO THIS SLIDE. Unscoped, this queried `document` and so handed slide 1's
+    // heading to all 35 of them -- on the fallback path, which is the path that runs when
+    // the fiber walk has already failed and a plausible-looking wrong answer is the last
+    // thing anyone needs. `node` rather than `clone`: the clone has had its panes stripped.
+    const title = text(".slide-title, .title-display, .divider__title", node);
 
     return {
       number: i + 1,

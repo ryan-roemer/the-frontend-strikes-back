@@ -1,4 +1,3 @@
-/* global document:false, getSelection:false, navigator:false, setTimeout:false */
 import {
   createElement,
   Fragment,
@@ -11,6 +10,8 @@ import {
 import htm from "htm";
 import { editingEnabled, getModelContext, getTools } from "../mcp/index.js";
 import { setOpen, initialTool } from "./state.js";
+import { useCopy } from "../ui/use-copy.js";
+import { useDismissKeys } from "../ui/use-dismiss-keys.js";
 import {
   Fields,
   fieldsOf,
@@ -60,7 +61,6 @@ const ToolDetail = ({ tool }) => {
   const [args, setArgs] = useState(() => initialArgs(fields));
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
-  const [copied, setCopied] = useState(false);
   const output = useRef(null);
 
   const change = useCallback(
@@ -77,42 +77,29 @@ const ToolDetail = ({ tool }) => {
 
       setBusy(true);
       setResult(null);
-      // No try/catch: `guard()` in `chat/mcp/index.js` already turns a throwing
-      // tool into an `isError` result, and catching here would quietly cover for
-      // a tool that broke that contract. If this ever rejects, it is a bug worth
-      // seeing in the console.
-      const value = await tool.call(toArgs(fields, args));
-      setResult(value);
-      setBusy(false);
+      // NO CATCH, BUT A `finally`. `guard()` in `chat/mcp/index.js` already turns a
+      // throwing tool into an `isError` result, and catching here would quietly cover
+      // for a tool that broke that contract -- so a rejection still reaches the console,
+      // which is the point. What must not also happen is Execute staying disabled
+      // forever: without this, one tool that broke the contract left the sheet with no
+      // way back except closing it.
+      try {
+        const value = await tool.call(toArgs(fields, args));
+        setResult(value);
+      } finally {
+        setBusy(false);
+      }
     },
     [args, busy, fields, incomplete, tool],
   );
 
-  /**
-   * Copy, or failing that, select.
-   *
-   * `writeText` rejects outright when the document is not focused -- which is
-   * the state a deck is often in, driven from a remote, a second screen or a
-   * devtools window. Unhandled, that is a rejected promise and a button that
-   * does nothing. Selecting the result instead leaves the room one Cmd-C from
-   * the same outcome, and is visible enough to explain itself.
-   */
-  const copy = useCallback(async () => {
-    if (result == null) return;
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      const node = output.current;
-      if (!node) return;
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      const selection = getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-  }, [result]);
+  /** The result, as the JSON somebody would paste into an issue. */
+  const asText = useCallback(
+    () => (result == null ? null : JSON.stringify(result, null, 2)),
+    [result],
+  );
+
+  const { copied, copy } = useCopy(asText, output);
 
   const failed = !!result?.isError;
 
@@ -242,25 +229,8 @@ const ToolInspector = () => {
   // left focused, which is usually nothing.
   useEffect(() => overlay.current?.focus(), []);
 
-  /**
-   * Keep deck navigation out of the modal -- the same rule, and the same
-   * reasoning, as `chat/ui/panel.js`.
-   *
-   * Spectacle binds left/right on `document` through mousetrap, whose
-   * `stopCallback` spares INPUT, SELECT and TEXTAREA, so the form is safe for
-   * free. A focused BUTTON is not: arrow keys on the sidebar would silently
-   * change slides behind the scrim.
-   */
-  const onKeyDown = useCallback((event) => {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      close();
-      return;
-    }
-    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-      event.stopPropagation();
-    }
-  }, []);
+  /** Escape closes, arrows stay off the deck -- see `use-dismiss-keys.js`. */
+  const onKeyDown = useDismissKeys(close);
 
   return html`
     <div

@@ -1,6 +1,13 @@
 /**
  * One slide's fiber subtree, as Markdown.
  *
+ * `serialize.js`, NOT `markdown.js`, which is what this was called. There is a
+ * `chat/agent/markdown.js` too and the two run in opposite directions: that one
+ * renders a model's Markdown-ish answer into escaped HTML for a chat bubble; this
+ * one serializes React fibers into a Markdown document. They share no code and
+ * nothing but the old filename, and "compare the two markdown.js files" is a
+ * question this repo kept provoking.
+ *
  * The successor to the `chat/deck-adapter.js` that `docs/chat-handoff.md` still
  * describes -- but NOT, unlike that file, the only deck-aware one. Deck
  * knowledge is split across two files, and anyone pointing this at a different

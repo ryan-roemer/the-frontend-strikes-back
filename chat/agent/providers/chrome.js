@@ -1,4 +1,3 @@
-/* global LanguageModel:false, setInterval:false, clearInterval:false, console:false */
 import { STATES } from "../states.js";
 
 /**
@@ -168,6 +167,11 @@ const wrap = (raw, system) => {
           }
         }
       } finally {
+        // CANCEL, THEN RELEASE. Breaking out of the `for await` in `session.js` abandons
+        // this generator without the outer signal necessarily firing, and releasing the
+        // lock alone leaves the underlying stream open and producing. LiteRT's half of
+        // this already cancels; Chrome's was the asymmetric one.
+        await reader.cancel().catch(() => {});
         reader.releaseLock?.();
         // Recorded even on abort, matching LiteRT: Chrome keeps a cancelled turn in
         // its own history, so a mirror that dropped it would drift from the session.
@@ -295,8 +299,6 @@ export const provider = {
       title: "Chrome is downloading its model… (click to re-check)",
       action: "recheck",
     },
-    [STATES.CREATING]: { title: "Starting a session…" },
-    [STATES.READY]: { title: "Session live — click to free it" },
   },
 
   /** Only when the global exists. A pill for an API this browser has never heard of is
@@ -328,9 +330,10 @@ export const provider = {
   /**
    * Create the durable session.
    *
-   * `signal` is accepted and ignored: `create()` takes no AbortSignal, so there is nothing
-   * to pass it to. The escape hatch is the ceiling in `model-state.js` plus a provider
-   * switch, not cancellation.
+   * NO `signal`, unlike LiteRT's `acquire`. `LanguageModel.create()` takes no AbortSignal,
+   * so there would be nothing to pass one to -- it is not destructured here rather than
+   * accepted and quietly dropped, so the absence is visible in the signature. The escape
+   * hatch is the ceiling in `model-state.js` plus a provider switch, not cancellation.
    */
   async acquire({ system, onPhase }) {
     // Whether a download is even possible decides how to read the monitor below. Asking
@@ -366,7 +369,15 @@ export const provider = {
     return wrap(created, system);
   },
 
-  /** Same as evict: there is only the session, and Chrome keeps nothing else for us. */
+  /**
+   * Stop watching, keep the session.
+   *
+   * NOT the same as `evict`, which also destroys it. The distinction is thinner here than
+   * on LiteRT -- there, `release` deliberately keeps ~2 GB of GPU engine hot for the broom
+   * -- but it is still a distinction: `model-state.js`'s `unload()` calls this after it has
+   * already destroyed the conversation itself, and destroying `session` a second time from
+   * here would be a double teardown of a handle the machine has disowned.
+   */
   release: () => {
     stopPoll();
   },

@@ -1,5 +1,3 @@
-/* global fetch:false */
-
 /**
  * Where a node's text came from, and how much to trust the answer.
  *
@@ -96,17 +94,23 @@ let source = null;
  * (handoff §8), and a redirect that drops the path is a 404 you find out about
  * at the wrong moment.
  *
- * Null on failure rather than throwing. Provenance is a convenience on top of a
- * working harvest; a file:// load or an offline tab should lose the search tier,
- * not the addresses.
+ * The EMPTY STRING on failure rather than throwing. Provenance is a convenience on
+ * top of a working harvest; a file:// load or an offline tab should lose the search
+ * tier, not the addresses. Callers test `if (!html)`.
+ *
+ * A FAILURE IS NOT CACHED. Only a successful read memoizes: one dropped request --
+ * a sleeping laptop, a dev server restarting, a venue network coming up -- used to
+ * pin `source` to `""` for the rest of the session, and every `provenanceOf` after
+ * it degraded to `match: "unknown"` with no way back short of a reload.
  */
 const deckSource = async () => {
   if (source !== null) return source;
   try {
     const response = await fetch("/", { cache: "no-store" });
-    source = response.ok ? await response.text() : "";
+    if (!response.ok) return "";
+    source = await response.text();
   } catch {
-    source = "";
+    return "";
   }
   return source;
 };
@@ -167,6 +171,12 @@ const kindOf = (node, slide, pointer) => {
  *              and role are all there is, and that is the honest answer
  *   too-short  under 10 characters. Not searched, because the result would be
  *              noise rather than a location
+ *   file       the source names a file rather than a literal -- a code pane's
+ *              contents, which live in `examples/` rather than in `index.html`
+ *   unknown    the source could not be read at all. Not a claim about the node:
+ *              a `file://` load or an offline tab loses this tier entirely
+ *
+ * All eight tiers, and `mcp/tools.js`'s `where_is_node` enum must list exactly these.
  */
 export const provenanceOf = async (node, slide) => {
   pointers ??= dataPointers();

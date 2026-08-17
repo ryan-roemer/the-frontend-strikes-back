@@ -13,7 +13,7 @@
  *
  * AMBIGUITY IS A REFUSAL, NEVER A PICK. `locate()` returns candidates rather
  * than choosing, and this preserves that all the way out to the tool result:
- * slide 31 says "TODO" three times, so the case is real, and picking the first
+ * slide 31 says "TODO" several times over, so the case is real, and picking the first
  * is the one outcome nothing downstream can recover from. The refusal carries
  * the candidates with their echo-back descriptions, so the agent's next call
  * costs one round trip and cannot miss.
@@ -21,6 +21,7 @@
 import { resolveNode } from "../harvest/index.js";
 import { locate } from "../harvest/locate.js";
 import { describeNode, position } from "../harvest/views.js";
+import { line, nodeData } from "./shape.js";
 
 /** `9.3` -- a slide number, a dot, an ordinal. Anything else is a phrase. */
 const ID = /^\d{1,2}\.\d{1,3}$/;
@@ -33,32 +34,12 @@ const ID = /^\d{1,2}\.\d{1,3}$/;
  * `"6.9 — takeaway: ..."` out of prose is back to a brittle regex at exactly the
  * moment precision matters. The prose stays for whatever reads content blocks.
  */
-const refuse = (text, nodes = []) => ({
+const refuse = (message, nodes = []) => ({
   ok: false,
   result: {
     isError: true,
-    content: [
-      {
-        type: "text",
-        text: [
-          text,
-          ...nodes.map((n) => `${n.id} — ${n.role}: ${n.text}`),
-        ].join("\n"),
-      },
-    ],
-    structuredContent: {
-      candidates: nodes.map(
-        ({ id, slide, ordinal, role, roleOrdinal, depth, text: value }) => ({
-          id,
-          slide,
-          ordinal,
-          role,
-          roleOrdinal,
-          depth,
-          text: value,
-        }),
-      ),
-    },
+    content: [{ type: "text", text: [message, ...nodes.map(line)].join("\n") }],
+    structuredContent: { candidates: nodes.map(nodeData) },
   },
 });
 
@@ -113,7 +94,7 @@ export const resolveTarget = (target, { slide } = {}) => {
     );
   }
 
-  return { ok: true, node: found.nodes[0], via: found.match };
+  return { ok: true, node: found.nodes[0] };
 };
 
 /**

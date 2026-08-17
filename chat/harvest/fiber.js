@@ -1,5 +1,3 @@
-/* global document:false */
-
 /**
  * REACT'S INTERNALS, IN ONE FILE.
  *

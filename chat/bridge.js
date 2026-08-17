@@ -1,4 +1,3 @@
-/* global console:false */
 import { createElement, useContext, useEffect, useRef } from "react";
 import htm from "htm";
 import { DeckContext } from "spectacle";
@@ -51,15 +50,20 @@ export const DeckBridge = () => {
   const lastSignature = useRef("");
 
   useEffect(() => {
-    if (owner && owner !== marker.current && owner.isConnected) return;
-    owner = marker.current;
-
     if (!deck) {
       // Only reachable if someone moves the bridge out of the Deck subtree.
       // Warn rather than throw: a broken chat must not break the talk.
+      //
+      // BEFORE THE CLAIM, not after. A bridge that cannot publish must not become the
+      // owner: it would hold the slot for as long as its node stayed in the document, and
+      // the `isConnected` check below would then lock out every bridge that COULD publish.
+      // One misplaced element would silently stop the chat from ever seeing the deck.
       console.warn("[chat] DeckBridge rendered outside DeckContext");
       return;
     }
+
+    if (owner && owner !== marker.current && owner.isConnected) return;
+    owner = marker.current;
 
     const { activeView, slideCount, inOverviewMode, inPrintMode } = deck;
 

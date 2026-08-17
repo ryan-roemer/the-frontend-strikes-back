@@ -66,8 +66,8 @@ bullet"**. Anything matching `^\d+\.\d+$` is an id; everything else goes through
 
 That is what makes "change the second bullet to X" one call when the phrase is unambiguous, while
 leaving a precise second call available when it is not. **Ambiguity is a refusal carrying the
-candidates, never a pick** — slide 7 says "TODO: session + when" three times and slide 31 says
-"TODO" three times, so the case is real, and choosing the first is the one outcome nothing
+candidates, never a pick** — slide 7 says "TODO: session + when" repeatedly and slide 31 says
+"TODO" repeatedly, so the case is real, and choosing the first is the one outcome nothing
 downstream can recover from.
 
 ### Testing without a host
@@ -417,16 +417,18 @@ surprise:
 
 The state a UI would want to show is already published and already free of React:
 
-| want                         | read from                                                                                                         |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| where the deck is, live      | `chat/bus.js` `getSnapshot()` / `subscribe()`, or `useDeck()` in React                                            |
-| what is on the current slide | `views.js` `position()` and `slideView(n)` — or `deckMcp.call("get_current_slide")` for the same thing with ids   |
-| whether editing is unlocked  | `deckMcp.editing`, or the `?mcp` check in `chat/mcp/index.js`                                                     |
-| what has been changed so far | `chat/edit/patches.js` `summary()` — `{ count, canUndo, canRedo, labels, stale }` — and `subscribe()` for changes |
+| want                         | read from                                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| where the deck is, live      | `chat/bus.js` `getSnapshot()` / `subscribe()`, or `useDeck()` in React                                          |
+| what is on the current slide | `views.js` `position()` and `slideView(n)` — or `deckMcp.call("get_current_slide")` for the same thing with ids |
+| whether editing is unlocked  | `deckMcp.editing`, or the `?mcp` check in `chat/mcp/index.js`                                                   |
+| what has been changed so far | `chat/edit/patches.js` `summary()` — `{ count, canUndo, labels, stale }`                                        |
 
-`patches.js` already has a `subscribe()` that fires on every apply, undo and reset, and nothing
-consumes it. That is the seam an edit-history panel or an "N changes · undo · reset" affordance
-hangs off, and it exists precisely so a UI does not have to poll.
+`patches.js` used to carry a `subscribe()` that fired on every apply, undo and reset, described here
+as the seam an edit-history panel would hang off. Nothing ever consumed it, and it called `notify()`
+on every rebuild for an empty listener set, so it has been removed along with the unreachable
+`redo()` / `canRedo` it published. Re-adding it is six lines on top of `chat/store.js`, which is
+where the other five observables in this repo now live.
 
 Two constraints a UI must respect, both learned the hard way and written up in
 [chat-handoff.md](chat-handoff.md):
@@ -441,9 +443,12 @@ Two constraints a UI must respect, both learned the hard way and written up in
 
 ### Still open
 
-**`chat/agent/prompt.js` is now partly wrong.** It tells the in-page model "You have no access to the
-slides, the web, or any tools". Still true of that model — it is not wired to any of this — but no
-longer true of the _page_. One sentence, so the two do not silently disagree.
+**~~`chat/agent/prompt.js` is now partly wrong.~~** Fixed. It used to tell the in-page model "You
+have no access to the slides, the web, or any tools", which stopped being true of the model as soon
+as `deck-context.js` landed. It now states three specifics rather than a posture — the outline of
+every slide, the full text of the ones it has been shown, nothing else — and still says plainly that
+it cannot reach the web or any tools, because that remains true of the model even though the _page_
+registers fourteen of them.
 
 **The demo option not taken:** the code panes on slides 10–12 show an invented `search_documents`
 tool. They could show the deck's _actual_ registered tools, making the code on screen the code

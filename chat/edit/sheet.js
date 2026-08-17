@@ -1,5 +1,3 @@
-/* global document:false */
-
 /**
  * The deck's own stylesheet: the one edit channel React cannot touch.
  *
@@ -68,8 +66,3 @@ export const render = (patches) => {
   node().textContent = css;
   return css;
 };
-
-/** Whether anything is currently being overridden. For verification. */
-export const isEmpty = () => !document.getElementById(SHEET_ID)?.textContent;
-
-export const teardown = () => document.getElementById(SHEET_ID)?.remove();

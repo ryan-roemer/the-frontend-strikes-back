@@ -33,7 +33,8 @@
  * nothing and cannot hallucinate its way into the wrong scope, which a
  * model-driven selector can and eventually would.
  *
- * WHO CONSUMES WHAT. Two callers now, and they take opposite halves:
+ * WHO CONSUMES WHAT. Three callers, taking opposite halves -- `chat/agent/prompt.js`
+ * takes `outline` and `outlineText` for the system prompt, and the two below:
  *
  *   WebMCP / `deckDump.context()`  `selectView` + `contextFor` -- the per-request
  *                                  cascade above, with node ids, for an agent
@@ -81,8 +82,15 @@ export const outline = () =>
     code: code.map(({ file, language }) => file ?? language),
   }));
 
-/** One slide's addressable nodes. The view content commands run on. */
-export const slideView = (number) => harvestSlide(number);
+/**
+ * One slide's addressable nodes. The view content commands run on.
+ *
+ * AN ALIAS, not a wrapper. It was `(number) => harvestSlide(number)`, which reads as
+ * though it might one day do something. It does not and should not: what this module adds
+ * is a vocabulary -- `position`, `outline`, `slideView`, `nodeIndex` are the four sized
+ * views, and `dump.js` exposes exactly those as `deckDump.views` -- not behaviour.
+ */
+export const slideView = harvestSlide;
 
 /**
  * Every addressable node in the deck.
@@ -315,7 +323,15 @@ export const describeNode = (id) => {
   const node = resolveNode(id);
   if (!node) return null;
 
+  // NULL RATHER THAN A THROW when the second harvest comes back empty. This runs on
+  // the receipt path of every edit, inside `chat/edit/apply.js`, whose header promises
+  // "Never throws. A bad op is a message, not a crash." The two harvests are separate
+  // reads of a live deck: the first can succeed and the deck can move or unmount
+  // before the second, and `slide.nodes` on a null slide took the whole edit down as a
+  // transport failure. Callers already fall back to the bare id.
   const slide = harvestSlide(node.slide);
+  if (!slide) return null;
+
   const label = labelOf(node, nameCounts(slide.nodes));
   return `slide ${node.slide}, ${label} — "${node.text}"`;
 };
@@ -427,12 +443,7 @@ export const contextFor = (text) => {
   };
 };
 
-export {
-  indexText,
-  labelOf,
-  nameCounts,
-  outlineText,
-  positionText,
-  roleName,
-  slideText,
-};
+// `indexText`, `labelOf`, `nameCounts` and `roleName` were exported here too and had
+// no consumer outside this file. They are still used inside it -- `describeNode` and
+// the roster builders -- just no longer part of the module's surface.
+export { outlineText, positionText, slideText };

@@ -1,4 +1,3 @@
-/* global AbortController:false, DOMException:false, setTimeout:false, clearTimeout:false */
 import { nextContext } from "./deck-context.js";
 import {
   activeProvider,
@@ -9,9 +8,9 @@ import {
   modelSize,
   refresh,
   stateMeta,
-  STATES,
   touch,
 } from "./model-state.js";
+import { STATES } from "./states.js";
 
 /**
  * Talking to the durable session.
@@ -31,6 +30,9 @@ import {
  *  wedged session doesn't look like a wedged deck. */
 const TIMEOUT_MS = 45000;
 
+/** Said in one place, because it is both the abort reason and what the user reads. */
+const IDLE_MESSAGE = "The model stopped responding.";
+
 /**
  * Reject if the model produces nothing for this long.
  *
@@ -40,18 +42,31 @@ const TIMEOUT_MS = 45000;
  */
 const withIdleTimeout = (signal) => {
   let timer = null;
+  // WHY A FLAG AND NOT THE ABORT REASON. Both providers abort through the same
+  // controller, and only one of them preserves the reason: LiteRT converts any
+  // aborted-signal exit into its own `DOMException(…, "AbortError")`, so by the time
+  // the catch below sees it, a timeout is indistinguishable from the user pressing
+  // stop -- and the user's abort is deliberately silent. The result was a wedged
+  // LiteRT session reporting nothing at all, while the identical timeout on Chrome
+  // said "The model stopped responding". This flag is on our side of that boundary.
+  let firedIdle = false;
   const controller = new AbortController();
   const arm = () => {
     clearTimeout(timer);
-    timer = setTimeout(
-      () => controller.abort(new Error("The model stopped responding")),
-      TIMEOUT_MS,
-    );
+    timer = setTimeout(() => {
+      firedIdle = true;
+      controller.abort(new Error(IDLE_MESSAGE));
+    }, TIMEOUT_MS);
   };
   const stop = () => clearTimeout(timer);
   signal?.addEventListener("abort", () => controller.abort(signal.reason));
   arm();
-  return { signal: controller.signal, arm, stop };
+  return {
+    signal: controller.signal,
+    arm,
+    stop,
+    timedOut: () => firedIdle,
+  };
 };
 
 const aborted = () => new DOMException("Aborted", "AbortError");
@@ -150,7 +165,7 @@ export const streamAnswer = async ({ text, onChunk, signal, onPrompt }) => {
   const guard = withIdleTimeout(signal);
   let accumulated = "";
 
-  const { pin, note } = nextContext();
+  const { pin, note, commit } = nextContext();
 
   try {
     // The question goes verbatim; deck context rides alongside it, never
@@ -184,11 +199,20 @@ export const streamAnswer = async ({ text, onChunk, signal, onPrompt }) => {
     for await (const chunk of stream) {
       if (signal?.aborted) throw aborted();
       guard.arm();
+      // The first token is the proof that the prompt -- pin included -- was
+      // accepted, which is the earliest point at which `deck-context.js` may
+      // record the slide as one the model holds. A turn that dies before this
+      // line simply re-sends the slide next time.
+      if (!accumulated) commit();
       accumulated += chunk;
       onChunk?.(accumulated);
     }
     return accumulated;
   } catch (err) {
+    // CHECKED BEFORE THE ABORT CASE, because it looks exactly like one from here.
+    // A session that stopped producing tokens is the failure a presenter most needs
+    // told about, and it must not be swallowed as though they had pressed stop.
+    if (guard.timedOut()) throw new Error(IDLE_MESSAGE);
     // A user abort mid-stream is not an error to report; the caller keeps the
     // partial text.
     if (signal?.aborted || err.name === "AbortError") throw aborted();

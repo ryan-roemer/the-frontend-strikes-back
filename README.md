@@ -40,6 +40,12 @@ the remaps and scopes work, which upgrades are deliberately blocked, and how to 
 | `?printMode=true`     | All slides stacked, light ink-saving theme for paper handouts |
 | `?chat`               | Open the deck assistant on load (see below)                   |
 | `?dump`               | Show the whole deck as one Markdown document (see below)      |
+| `?tools`              | Open the WebMCP tool inspector (see below)                    |
+| `?tool=NAME`          | ...opened on one tool, so any tool is a link                  |
+| `?mcp`                | Also register the WebMCP tools that **change** slides         |
+
+All five flags accept a bare `?chat` as well as `?chat=true` — a flag you have to remember the
+value of is a flag you will get wrong at the podium.
 
 Transitions are also disabled automatically under `prefers-reduced-motion`.
 
@@ -103,23 +109,24 @@ because a wrong pointer costs more than an absent one.
 You can also just say what you mean, and read it back before changing anything:
 
 ```js
-deckDump.locate("the second bullet"); // -> node 9.3
-deckDump.locate("the WebMCP one"); // matched on content, not position
+deckDump.locate("document.modelContext"); // -> 9.3, matched on content
+deckDump.locate("the second bullet"); // -> 9.3, matched on position
 deckDump.describe("9.3"); // 'slide 9, bullet 2 — "One API: document.modelContext"'
 ```
 
-`locate()` tries content before position, because "the WebMCP one" either matches exactly one node or
-none, while "the second bullet" is never _absent_ — only possibly the wrong one. When several nodes
-match it returns all of them rather than guessing; slide 31 says "TODO" three times, so that case is
-real. Sub-bullets are counted within their own list, so "the fourth bullet" on slide 9 is the fourth
-bullet a presenter sees and not the first nested one.
+`locate()` tries content before position, because a quoted phrase either matches exactly one node or
+none, while "the second bullet" is never _absent_ — only possibly the wrong one. Content matching is
+a substring test in both directions, so it wants words that are actually on the slide rather than a
+description of them. When several nodes match it returns all of them rather than guessing; slide 31
+says "TODO" four times, so that case is real. Sub-bullets are counted within their own list, so "the
+fourth bullet" on slide 9 is the fourth bullet a presenter sees and not the first nested one.
 
 There are also **sized views**, because context is the scarce resource on a 2B model with an 8k
 window. `deckDump.context(question)` runs the same rule a turn would and shows you the cost:
 
 ```
    46 ch  [position]         "go to the last slide"
-  257 ch  [position+slide]   "summarize this slide"
+  527 ch  [position+slide]   "summarize this slide"
  1079 ch  [position+outline] "which slide covers WebMCP?"
  7258 ch  [position+index]   "find every TODO in the whole deck"
 ```
@@ -127,9 +134,11 @@ window. `deckDump.context(question)` runs the same rule a turn would and shows y
 Navigation needs no slide content at all, which is why the default is ~80 tokens rather than the
 ~750 a whole-deck summary would cost. The view is chosen in JavaScript, never by the model.
 
-Nothing here is wired into the assistant's prompt yet — `chat/agent/prompt.js` is still the seam,
-and this is the other half of it. The design, the measurements and the next steps are in
-[docs/deck-context-handoff.md](docs/deck-context-handoff.md).
+The assistant reads both halves of this. `chat/agent/prompt.js` puts the outline and the talk's
+argument in the system prompt once, and `chat/agent/deck-context.js` pins the full text of a slide
+the first time a question is asked from it — once per slide, never re-sent, so context grows with
+slides asked about rather than with turns. The design, the measurements and what is still deferred
+are in [docs/deck-context-handoff.md](docs/deck-context-handoff.md).
 
 ### The deck is a WebMCP server
 
@@ -161,6 +170,17 @@ await deckMcp.call("edit_node", { target: matches[1].id, text: "…" });
 Edits are live-only — they change the running deck, not the source — and `reset_edits` puts
 everything back. `window.deckMcp` works with no extension connected, which is the easiest way to
 try any of it.
+
+### The tool inspector
+
+A devtools console is not a demo. The plug button next to the sparkle — or `?tools` — opens a
+sheet listing every registered tool with its schema, a generated form, and the raw MCP result:
+`content` blocks and `structuredContent` side by side, which is exactly what arrives at the other
+end of the protocol.
+
+It calls the **registered** functions, not a parallel implementation that agrees with them today,
+so pressing Execute does what happens when an agent calls the tool. `?tool=find_node` opens it on
+one tool, which makes any single tool a link worth bookmarking before a talk.
 
 Details, and the six things this turned up along the way, are in
 [docs/webmcp-handoff.md](docs/webmcp-handoff.md).

@@ -1,5 +1,3 @@
-/* global MutationObserver:false, requestAnimationFrame:false */
-
 /**
  * Re-apply edits after the deck rebuilds itself underneath them.
  *
@@ -31,6 +29,10 @@ const schedule = () => {
   // would otherwise trigger a full restore-and-replay.
   requestAnimationFrame(() => {
     queued = false;
+    // A frame can pass between scheduling and running, and `stop()` can land in
+    // it. Rebuilding the deck after the watchdog has been torn down is the exact
+    // thing teardown exists to prevent.
+    if (!unsubscribe) return;
     applying = true;
     try {
       rebuild();
@@ -66,4 +68,8 @@ export const stop = () => {
   observer = null;
   unsubscribe?.();
   unsubscribe = null;
+  // Reset the coalescing flags too. `applying` left true would make a restarted
+  // watchdog ignore every mutation forever.
+  queued = false;
+  applying = false;
 };

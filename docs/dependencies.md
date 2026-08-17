@@ -134,11 +134,21 @@ later still, on an explicit click. A deck presented without ever opening the ass
 nothing for it.
 
 **The model is not a dependency in this table's sense.** `gemma-4-E2B-it-web.litertlm` is
-2,008,432,640 bytes, fetched from HuggingFace on first use and cached in the Cache API. It is
-version-pinned by repo and filename in `chat/agent/providers/litert.js`, verified by exact byte
-count on both write and read, and deletable from the panel's info modal. **Downloading it is a
-pre-flight step for a talk, not a detail** — do it on a connection you trust, then confirm the
-status row says "on disk" before you go anywhere near a stage.
+2,008,432,640 bytes, fetched from HuggingFace on first use and cached in the Cache API, pinned by
+repo and filename in `chat/agent/providers/litert.js`, and deletable from the panel's info modal.
+
+**Its size is checked twice, against two different numbers, and the distinction matters.** The bytes
+on disk are verified against the `content-length` of the response they came from — live during the
+download, and read back off the cached entry's own stored headers on every later run. That is the
+truncation check, and only the server's own count can answer it. Separately, `EXPECTED_BYTES` is a
+version pin: HuggingFace exposes no other cheap version marker, so a disagreement means upstream has
+republished the file. It **warns and continues** rather than refusing. Checking truncation against
+the pinned constant instead — which is what this used to do — made an upstream reupload
+unrecoverable: the download would complete, be judged incomplete, delete itself, and fail the same
+way on every retry.
+
+**Downloading it is a pre-flight step for a talk, not a detail** — do it on a connection you trust,
+then confirm the status row says "on disk" before you go anywhere near a stage.
 
 `spectacle@10.2.1` **cannot** run on React 19: it sets `defaultProps` on function components
 in 19 places, which React 19 removed support for. `10.2.3` has zero (`curl …/+esm | grep -c
@@ -382,12 +392,22 @@ the bundle resolves against `cdn.jsdelivr.net` and works fine. Worth knowing pre
 this deck is a talk about the browser and somebody in the audience will have devtools open:
 it is a wasted preload, not a broken dependency.
 
-**LiteRT's C++ runtime logs to `console.error`.** Creating the engine emits six lines that look
-alarming and are not — `INFO: [environment.cc:36] Creating LiteRT environment…`, a `WARNING`
-about the NPU accelerator not registering, and accelerator registrations. They are the
-runtime's own log levels written to the error channel, they appear only when the engine is
-built, and there is no option to silence them. Filter them out (`/^(INFO|WARNING|ERROR):\s*\[/`)
-before concluding a "zero console errors" check has failed.
+**LiteRT's C++ runtime logs to the error channel, in _two_ formats.** They are the runtime's own
+log levels written to `console.error`, there is no option to silence them, and none of them
+indicates a problem. Both formats have to be filtered, which is easy to get half-right:
+
+| when                | looks like                                                               | filter                            |
+| ------------------- | ------------------------------------------------------------------------ | --------------------------------- |
+| engine create, once | `INFO: [environment.cc:36] Creating LiteRT environment…`                 | `/^(INFO\|WARNING\|ERROR):\s*\[/` |
+| every turn          | `W0817 04:33:52.743000 2241216 mel_filterbank.cc:137] Missing 10 bands…` | `/^[IWEF]\d{4} /`                 |
+
+The first is six lines at engine-create — the NPU accelerator failing to register, and the GPU and
+XNNPACK accelerators registering. The second is glog's own format and is the one a filter written
+against the first will miss: `mel_filterbank` complaining about mel bands (this build carries audio
+support the deck never uses) and `GetProfileSummary not implemented for backend: GpuArtisan` twice
+per turn, from the `benchmarkEnabled: true` that gives the info modal its real token counts.
+
+Filter both before concluding a "zero console errors" check has failed.
 
 **Production builds strip React's warnings.** jsDelivr serves `NODE_ENV=production`, so
 developer warnings simply do not appear. The `class`/`style` bug above was silently wrong under

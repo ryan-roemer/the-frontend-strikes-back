@@ -15,7 +15,7 @@
  *
  * IT NEVER PICKS AMONG EQUALS. Two nodes matching means `match: "ambiguous"` and
  * both candidates, for the CALLER to decide about. Slide 7 carries "TODO:
- * session + when" three times and slide 31 carries "TODO" three times, so this
+ * session + when" repeatedly and slide 31 carries "TODO" repeatedly, so this
  * is not a hypothetical -- something has to happen there, and choosing the first
  * is the one option that cannot be recovered from.
  *
@@ -118,10 +118,9 @@ const result = (match, nodes, phrase, note = null) => ({
  * WebMCP one"), or it may be the whole node text pasted back with a word
  * changed. Neither direction alone covers both, and both are cheap.
  *
- * Shortest match wins among nested hits. "One API" matching a node whose whole
- * text is "One API: document.modelContext" is a better answer than the same
- * phrase matching a paragraph that happens to quote it, and the shorter node is
- * the more specific one.
+ * AN EXACT MATCH OUTRANKS A CONTAINING ONE, and nothing else does. Several hits
+ * that are all partial are reported as several. See the measured note inside --
+ * this rule used to be "shortest wins", which discarded real candidates silently.
  */
 const byText = (nodes, phrase) => {
   const needle = clean(phrase);
@@ -162,12 +161,32 @@ const byText = (nodes, phrase) => {
 /**
  * The role a phrase names, if any, as the set of roles that satisfy it.
  *
- * Longest alias first, so "sub-bullet" is not consumed by "bullet".
+ * MATCHED ON WHOLE WORDS, not as a substring of the phrase. `words.includes(key)`
+ * on the raw string meant "the outline", "headline" and "deadline" all contained
+ * the alias `line` and so resolved to roles `["text", "bullet"]`, and "encode"
+ * contained `code`. `byOrdinal` was already tokenizing for its ordinals two
+ * functions down; only the role lookup was reading the phrase as one string.
+ *
+ * Hyphens survive the split so "sub-bullet" stays one token, and a trailing "s"
+ * is tried as well, because "the bullets" is a thing people say. Longest alias
+ * first, which now only matters for keys that are prefixes of each other.
  */
+const tokensOf = (words) =>
+  new Set(
+    String(words ?? "")
+      .toLowerCase()
+      .split(/[^a-z0-9-]+/)
+      .filter(Boolean)
+      .flatMap((token) =>
+        token.endsWith("s") ? [token, token.slice(0, -1)] : [token],
+      ),
+  );
+
 const rolesIn = (words) => {
+  const tokens = tokensOf(words);
   const keys = [...ALIASES.keys()].sort((a, b) => b.length - a.length);
   for (const key of keys) {
-    if (words.includes(key)) return { key, roles: ALIASES.get(key) };
+    if (tokens.has(key)) return { key, roles: ALIASES.get(key) };
   }
   return null;
 };

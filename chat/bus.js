@@ -17,6 +17,8 @@
  * changed, so the allocation happens roughly once per navigation.
  */
 
+import { createStore } from "./store.js";
+
 const INITIAL = {
   /** False until `DeckBridge` mounts, and again after it unmounts. */
   ready: false,
@@ -35,11 +37,10 @@ const INITIAL = {
   nav: null,
 };
 
-let snapshot = INITIAL;
+const store = createStore(INITIAL);
 
-const listeners = new Set();
-
-export const getSnapshot = () => snapshot;
+export const getSnapshot = store.get;
+export const subscribe = store.subscribe;
 
 /**
  * Merge a partial update and notify.
@@ -49,13 +50,9 @@ export const getSnapshot = () => snapshot;
  * `{ ready: false }` on unmount leaves the last known nodes readable. The
  * watchdog still needs a portal node to observe while the deck is remounting,
  * which is exactly when `ready` is false.
+ *
+ * The merge always produces a NEW object, which is what lets `useDeck()` read this
+ * through `useSyncExternalStore` -- the snapshot changes identity exactly when the
+ * deck does.
  */
-export const publish = (patch) => {
-  snapshot = { ...snapshot, ...patch };
-  for (const fn of listeners) fn(snapshot);
-};
-
-export const subscribe = (fn) => {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-};
+export const publish = (patch) => store.set({ ...store.get(), ...patch });

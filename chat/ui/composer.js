@@ -1,4 +1,3 @@
-/* global getComputedStyle:false */
 import { createElement, useCallback, useRef } from "react";
 import htm from "htm";
 

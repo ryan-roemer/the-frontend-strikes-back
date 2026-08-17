@@ -3,22 +3,22 @@ import {
   createElement,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import htm from "htm";
 import {
-  STATES,
   cancelDownload,
   contextInfo,
   deleteDownload,
-  getState,
   load,
   modelInfo,
   refresh,
   stateMeta,
-  subscribe,
   unload,
 } from "../agent/model-state.js";
+import { STATES } from "../agent/states.js";
+import { useModelState } from "./use-model-state.js";
 
 const html = htm.bind(createElement);
 
@@ -26,27 +26,30 @@ const html = htm.bind(createElement);
 const formatElapsed = (ms) =>
   ms == null ? null : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 
-const useModelState = () => {
-  const [state, setState] = useState(getState);
-  useEffect(() => subscribe(setState), []);
-  return state;
-};
-
 const InfoModal = ({ onClose }) => {
   const [info, setInfo] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  // One liveness flag for BOTH the mount read and the post-delete re-read. The delete path
+  // is the one that needs it: the modal is a click away from being dismissed, and
+  // `modelInfo()` waits on a storage estimate.
+  const live = useRef(true);
+  useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+    };
+  }, []);
+
   const reload = useCallback(() => {
-    modelInfo().then(setInfo);
+    modelInfo()
+      .then((value) => live.current && setInfo(value))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    let live = true;
-    modelInfo().then((value) => live && setInfo(value));
-    return () => {
-      live = false;
-    };
-  }, []);
+    reload();
+  }, [reload]);
 
   /**
    * Delete the downloaded model.
@@ -156,11 +159,16 @@ export const ModelControls = () => {
   // means. `recheck` exists only for Chrome, whose download is not ours to cancel -- looking
   // again is the one genuinely useful thing available there, because Chrome reports no
   // completion event for a download it started itself.
+  //
+  // Every one of these is async and none is awaited, so each needs its own catch: a click
+  // handler that lets a promise reject produces an unhandled rejection in the console of a
+  // deck being presented, and all four already report failure through the state machine.
   const onPrimary = useCallback(() => {
-    if (meta.action === "load") load();
+    const swallow = () => {};
+    if (meta.action === "load") load().catch(swallow);
     else if (meta.action === "unload") unload();
-    else if (meta.action === "cancel") cancelDownload();
-    else if (meta.action === "recheck") refresh();
+    else if (meta.action === "cancel") cancelDownload().catch(swallow);
+    else if (meta.action === "recheck") refresh().catch(swallow);
   }, [meta.action]);
 
   // Just `unload()`. It bumps the model-state epoch, and the panel wipes the transcript
@@ -266,10 +274,17 @@ export const ModelControls = () => {
  * is a context to report. That is honest rather than an empty gauge.
  */
 export const ContextUnderline = () => {
-  // Subscribed for the side effect: `contextInfo()` is a plain read, and the revision
-  // bump on `touch()` is what makes it re-run after a turn.
-  useModelState();
-  const context = contextInfo();
+  const { revision } = useModelState();
+
+  // READ IN AN EFFECT, not in the body. `contextInfo()` reaches past the published state
+  // into the live chat handle, so calling it during render mixes a value from the store
+  // with one from outside it and the two can disagree. `touch()` bumps `revision` twice per
+  // turn -- once synchronously, once after the resample -- so keying on it picks up both.
+  const [context, setContext] = useState(null);
+  useEffect(() => {
+    setContext(contextInfo());
+  }, [revision]);
+
   if (!context) return null;
 
   return html`<span

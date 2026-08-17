@@ -11,7 +11,9 @@
  * reason the harvest walks fibers instead of the DOM, and it pays off twice:
  * once for serialization, once for addressing.
  *
- * Measured on this deck: 152 addressable fibers across 35 slides, mean 4.3.
+ * Measured on this deck: 162 addressable fibers across 35 slides, mean 4.6. That number
+ * tracks slide CONTENT and so drifts with every authoring pass -- `deckDump.nodes().length`
+ * is the live answer, and the only reason to state one here is the order of magnitude.
  *
  * TWO KINDS OF POINTER, and the deck's own use cases separate them cleanly:
  *
@@ -40,7 +42,14 @@ import { hasClass, propsOf, textOf } from "./fiber.js";
 /** `nodeType` for an `Element`, so this file needs no DOM globals. */
 const ELEMENT_NODE = 1;
 
-/** Depth cap for the host-node search, matching `fiber.js`'s posture. */
+/**
+ * Depth cap for the host-node search.
+ *
+ * 40, not `fiber.js`'s 400, and the difference is the search, not a disagreement. That
+ * one bounds a walk of the whole tree; this one climbs from a text node to its nearest
+ * element, which is a handful of levels in anything real. Both are runaway guards set
+ * far past the real number, sized to what they are guarding.
+ */
 const MAX_DEPTH = 40;
 
 /**
@@ -183,7 +192,7 @@ export const flattenNode = (fiber, depth = 0) => {
  * fourth top-level one. Depth-scoped ordinals are what make the count match what
  * a presenter sees.
  */
-export const depthOf = (fiber) => {
+const depthOf = (fiber) => {
   let depth = 0;
   for (let node = fiber?.return; node; node = node.return) {
     if (node.type === Slide) break;

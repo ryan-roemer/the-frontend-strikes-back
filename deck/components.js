@@ -1,4 +1,3 @@
-/* global URLSearchParams:false,window:false,matchMedia:false */
 import { Fragment, createElement } from "react";
 import htm from "htm";
 import {

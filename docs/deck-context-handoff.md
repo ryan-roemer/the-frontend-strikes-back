@@ -37,7 +37,7 @@ and §6 and §10 there are load-bearing constraints on anything built here.
 |                              |                                                                                           |
 | ---------------------------- | ----------------------------------------------------------------------------------------- |
 | `chat/harvest/fiber.js`      | React internals, isolated. `rootFiber`, `walk`, `findAll`, `propsOf`, `textOf`, `classOf` |
-| `chat/harvest/markdown.js`   | fiber subtree → Markdown, and the node-emission points. Deck-aware (class vocabulary)     |
+| `chat/harvest/serialize.js`  | fiber subtree → Markdown, and the node-emission points. Deck-aware (class vocabulary)     |
 | `chat/harvest/nodes.js`      | roles, `flattenNode`, `emitNode`, `elementOf`. What makes a text run an addressable thing |
 | `chat/harvest/index.js`      | `harvestDeck()`, `harvestSlide()`, `resolveNode()`, `deckMarkdown()`, DOM fallback        |
 | `chat/harvest/views.js`      | the four sized views, `selectView()` / `contextFor()`, and `describeNode()`               |
@@ -296,7 +296,7 @@ can hand back all three and be finished. Collapsing those two into one policy he
 [webmcp-handoff.md](webmcp-handoff.md).
 
 **Never picking among equals is the load-bearing rule**, and it is not hypothetical: slide 7 carries
-"TODO: session + when" three times and slide 31 carries "TODO" three times. Something has to happen
+"TODO: session + when" repeatedly and slide 31 carries "TODO" repeatedly. Something has to happen
 there, and choosing the first is the one option nothing downstream can recover from.
 
 A minimal alias table makes the ordinal and role tiers work at all. `heading` is the load-bearing
@@ -598,12 +598,12 @@ What to check:
 
 Plus, for resolution:
 
-| check                                                         | expected                                                                                                                                         |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| the **depth test** — `locate("the fourth bullet")` on slide 9 | `9.8`, and `locate("the first sub-bullet")` → `9.5`. If these fail the numbering is wrong                                                        |
-| the `locate` fixture table                                    | 21 of 21 — literal, ordinal, depth, bare role, relative, deliberate miss, deliberate ambiguity                                                   |
-| no two nodes on a slide share text                            | only genuine repeats: slide 7's three "TODO: session + when", slide 31's three "TODO". Anything else means a loose list emitted `li` **and** `p` |
-| `deckDump.describe("9.5")`                                    | `slide 9, sub-bullet 1 — "Claude Desktop, over a local relay"`                                                                                   |
+| check                                                         | expected                                                                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| the **depth test** — `locate("the fourth bullet")` on slide 9 | `9.8`, and `locate("the first sub-bullet")` → `9.5`. If these fail the numbering is wrong                                            |
+| the `locate` fixture table                                    | 21 of 21 — literal, ordinal, depth, bare role, relative, deliberate miss, deliberate ambiguity                                       |
+| no two nodes on a slide share text                            | only genuine repeats: slide 7's "TODO: session + when", slide 31's "TODO". Anything else means a loose list emitted `li` **and** `p` |
+| `deckDump.describe("9.5")`                                    | `slide 9, sub-bullet 1 — "Claude Desktop, over a local relay"`                                                                       |
 
 Three of these exist because assuming them would have been wrong: the signature hash is what proves
 ordinals are portable across render modes, the coverage check is what caught slide 21, and the
@@ -619,9 +619,10 @@ and `pretty` will fail on it rather than on your change.
 
 ## 9. If you only do one thing
 
-§5 is settled, the extraction is built, and it is now **consumed** — by WebMCP tools rather than by
-the model ([webmcp-handoff.md](webmcp-handoff.md)). The one thing still not done is the model half,
-below.
+§5 is settled, the extraction is built, and it is now consumed by **both** halves: by WebMCP tools
+([webmcp-handoff.md](webmcp-handoff.md)) and by the on-device model
+([chat-handoff.md §6a](chat-handoff.md#6a-what-the-model-knows-about-the-deck)). Nothing structural
+is outstanding. What is left is the deferred list below, none of which blocks anything.
 
 **Deferred deliberately, and none of it is blocking:**
 
@@ -632,12 +633,18 @@ below.
 | 6   | `roleOrdinal` does not know about list BOUNDARIES     | only on a slide with two or more separate lists at the same depth. None exist today                                                                                                                                        |
 | 7   | ids are stable across render modes, not across EDITS  | only if patches get persisted. This pass demonstrated it: `9.5` used to mean "Most of this lands on apps…" and now means "Claude Desktop, over a local relay"                                                              |
 
-**Wire the views to the model.** The seam is `chat/agent/prompt.js` for the stable half and the
-`remember` argument on `stream()` for the volatile half. The one thing not to do is concatenate
-context into the question: [chat-handoff.md §6](chat-handoff.md) measured that going from 5-of-5
-usable answers to 2-of-5, and `remember` exists precisely to send context without it accumulating in
-the transcript. `chat/agent/providers/litert.js` has the note where it was removed;
-`chat/agent/providers/chrome.js` has no equivalent and will need one.
+**~~Wire the views to the model.~~ Done**, and it did not land where this section expected. The
+stable half is `chat/agent/prompt.js`, as predicted — the outline and the argument, once, in the
+system prompt. The volatile half is not the `remember` argument: it is `chat/agent/deck-context.js`
+plus a `pin` / `note` pair on `stream()`, which splits what `remember` conflated. A slide's text is
+**pinned** — sent once and kept, outside the trimmed history — while the position line is **noted**,
+prepended to the sent message and deliberately dropped from the transcript, because it is false as
+soon as the deck moves.
+
+The warning that drove this was right and still is: do not concatenate context into the question.
+[chat-handoff.md §6](chat-handoff.md) measured that going from 5-of-5 usable answers to 2-of-5.
+Note that `pin` is the _opposite_ bargain from `remember` — that option existed to keep per-turn
+excerpts out of the model's memory, and this one exists to put each slide in it exactly once.
 
 ### Navigation and mutation: both built, via WebMCP rather than the model
 

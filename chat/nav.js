@@ -1,5 +1,3 @@
-/* global clearTimeout:false, setTimeout:false */
-
 /**
  * Moving the deck.
  *

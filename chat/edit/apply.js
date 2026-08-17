@@ -1,5 +1,3 @@
-/* global CSS:false, getComputedStyle:false */
-
 /**
  * Ops in, deck changes out. The ONLY module that writes to the deck.
  *
@@ -108,7 +106,13 @@ const RELATIVE_SIZES = {
 };
 
 const resolveSize = (prop, value, el) => {
-  const factor = RELATIVE_SIZES[String(value).toLowerCase()];
+  // `hasOwn` rather than a bare lookup: `RELATIVE_SIZES["constructor"]` returns a
+  // function, which multiplies to `NaNpx`. That currently degrades safely into the
+  // `CSS.supports` refusal below, but only by accident.
+  const key = String(value).toLowerCase();
+  const factor = Object.hasOwn(RELATIVE_SIZES, key)
+    ? RELATIVE_SIZES[key]
+    : null;
   if (prop !== "font-size" || !factor || !el) return value;
 
   const current = parseFloat(getComputedStyle(el).fontSize);

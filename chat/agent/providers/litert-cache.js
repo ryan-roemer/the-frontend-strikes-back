@@ -1,5 +1,3 @@
-/* global caches:false, fetch:false, navigator:false, console:false, Response:false, TransformStream:false */
-
 /**
  * The model bytes: download, cache, verify, delete.
  *
@@ -87,7 +85,7 @@ export const storageRoom = async (expectedBytes) => {
  * never run from a mount-time probe. Safari does not implement it at all. A denial costs a
  * re-download later, which the size check will catch cleanly, so the result is ignored.
  */
-export const requestPersistence = async () => {
+const requestPersistence = async () => {
   if (!navigator.storage?.persist) return false;
   try {
     if (await navigator.storage.persisted?.()) return true;
@@ -108,6 +106,24 @@ const openCache = async () => {
 };
 
 /**
+ * What a cached entry says its own full size is.
+ *
+ * THE ENTRY IS THE AUTHORITY ON ITSELF, not a constant compiled into the page. `cache.put`
+ * stores the upstream `Response`'s headers alongside the body, so the `content-length`
+ * HuggingFace served with those exact bytes is still there to read. Comparing the blob
+ * against that answers the only question the integrity check is actually asking -- did all
+ * of the bytes we were promised arrive -- and it keeps answering it correctly if upstream
+ * ever republishes the file at a different size.
+ *
+ * `expected` is the fallback for an entry written before this, or a response that somehow
+ * carried no `content-length`. It is a floor on correctness, not the rule.
+ */
+const declaredSize = (response, expected) => {
+  const header = Number(response.headers.get("content-length"));
+  return Number.isFinite(header) && header > 0 ? header : expected;
+};
+
+/**
  * Is the model on disk, complete and usable?
  *
  * The size check is what makes this answer mean something. A truncated entry reports
@@ -120,10 +136,11 @@ export const isCached = async (url, expectedBytes) => {
   try {
     const hit = await cache.match(url);
     if (!hit) return false;
+    const want = declaredSize(hit, expectedBytes);
     const size = (await hit.blob()).size;
-    if (size === expectedBytes) return true;
+    if (size === want) return true;
     console.warn(
-      `[chat] discarding an incomplete cached model (${mb(size)} of ${mb(expectedBytes)} MB)`,
+      `[chat] discarding an incomplete cached model (${mb(size)} of ${mb(want)} MB)`,
     );
     await cache.delete(url);
     return false;
@@ -208,17 +225,34 @@ export const getModelSource = async (
 ) => {
   let cache = await openCache();
 
+  // ASKED HERE, AND ONLY HERE. Reaching this function at all means a deliberate load --
+  // `refresh()`'s mount-time probe goes through `isCached`, which never comes this way --
+  // so this is the "download click" `requestPersistence` documents itself as needing, and
+  // Firefox's permission doorhanger cannot appear over slide 1.
+  //
+  // BEFORE THE CACHE-HIT BRANCH, not after it, which is the part that took a second pass
+  // to get right. Asking only on a miss protects the model from the run after the one that
+  // fetched it and never protects a model that was already there -- measured:
+  // `navigator.storage.persisted()` was still false with 2 GB sitting in the cache.
+  //
+  // DELIBERATELY NOT AWAITED. Firefox does not resolve `persist()` until the user answers
+  // that doorhanger, and a load that will not start until somebody notices a permission
+  // prompt is worse than an unprotected cache entry. It never rejects, so there is nothing
+  // to catch. A denial costs a re-download later, which the size check catches cleanly.
+  if (cache) requestPersistence();
+
   if (cache) {
     const hit = await cache.match(url);
     if (hit) {
+      const want = declaredSize(hit, expectedBytes);
       const blob = await hit.blob();
-      if (blob.size === expectedBytes) return blob;
+      if (blob.size === want) return blob;
       // Checked again here rather than trusting `isCached`: the entry can be evicted or
       // rewritten between the two calls, and handing truncated bytes to the engine costs
       // a minute of GPU load before failing with a message about wasm sections.
       await cache.delete(url);
       throw new Error(
-        `The cached model was incomplete (${mb(blob.size)} of ${mb(expectedBytes)} MB) and has ` +
+        `The cached model was incomplete (${mb(blob.size)} of ${mb(want)} MB) and has ` +
           "been discarded. Download it again.",
       );
     }
@@ -239,9 +273,27 @@ export const getModelSource = async (
     );
   }
 
+  // THE SERVER'S NUMBER WINS, and `expectedBytes` is only the fallback for a response that
+  // carried no `content-length`. Everything downstream -- the progress total, the
+  // post-write verification, and the `content-length` that goes into the cache entry for
+  // future runs to check against -- keys off this rather than off the constant.
   const header = response.headers.get("content-length");
   const totalBytes = header ? Number(header) : expectedBytes;
   const stream = withProgress(response.body, totalBytes, onProgress);
+
+  // A DISAGREEMENT IS NEWS, NOT A FAILURE. `expectedBytes` doubles as a version pin: this
+  // model is pinned by repo and filename only, so if HuggingFace republishes the file the
+  // size is the first place it shows. Worth saying out loud before a talk -- the weights
+  // are not the ones this deck was rehearsed against -- but refusing to run would be
+  // strictly worse, and used to be exactly what happened: every size check compared against
+  // the constant, so an upstream change made the download fail, delete itself, and fail
+  // again on retry, reporting "incomplete" about a file that was complete.
+  if (header && totalBytes !== expectedBytes) {
+    console.warn(
+      `[chat] the model upstream is ${mb(totalBytes)} MB, not the pinned ${mb(expectedBytes)} MB. ` +
+        "Downloading it anyway; the weights may differ from the ones this deck was tested with.",
+    );
+  }
 
   // Nothing to cache into: hand the engine the live network stream.
   if (!cache) return stream;
@@ -275,14 +327,18 @@ export const getModelSource = async (
 
   const stored = await cache.match(url);
   const blob = stored ? await stored.blob() : null;
-  if (!blob || blob.size !== expectedBytes) {
+  // Against `totalBytes`, the size THIS response promised, not the pinned constant. The
+  // question here is "did all the bytes arrive", and only the server's own count can
+  // answer it -- checking the constant instead conflated a truncated download with an
+  // upstream file that had legitimately changed, and made the second unrecoverable.
+  if (!blob || blob.size !== totalBytes) {
     // A short entry here means the download itself was truncated -- a dropped connection
     // that still resolved, or an eviction racing the write. Delete it, so the next attempt
     // starts from a clean miss rather than a poisoned hit.
     await cache.delete(url).catch(() => {});
     throw new Error(
       `The download finished but was incomplete (${blob ? mb(blob.size) : 0} of ` +
-        `${mb(expectedBytes)} MB). Try again.`,
+        `${mb(totalBytes)} MB). Try again.`,
     );
   }
   return blob;

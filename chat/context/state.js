@@ -11,21 +11,12 @@
  * `#chat-root`. `.chat-panel` is `overflow: hidden`, so a scrim rendered within it
  * would be clipped to the panel it is supposed to cover.
  */
+import { createStore } from "../store.js";
 
-const listeners = new Set();
+const store = createStore(null);
 
-let shown = null;
+export const getShown = store.get;
+export const subscribe = store.subscribe;
 
-export const getShown = () => shown;
-
-export const showContext = (context) => {
-  shown = context ?? null;
-  for (const fn of listeners) fn(shown);
-};
-
-export const hideContext = () => showContext(null);
-
-export const subscribe = (fn) => {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-};
+export const showContext = (context) => store.set(context ?? null);
+export const hideContext = () => store.set(null);

@@ -1,5 +1,3 @@
-/* global document:false */
-
 /**
  * The patch log. The source of truth for every edit; the DOM is its projection.
  *
@@ -41,18 +39,7 @@ import { render } from "./sheet.js";
 const LIMIT = 50;
 
 const patches = [];
-const redoStack = [];
 const baselines = new Map();
-const listeners = new Set();
-
-export const subscribe = (fn) => {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-};
-
-const notify = () => {
-  for (const fn of listeners) fn(summary());
-};
 
 /**
  * The text nodes of an element, in document order.
@@ -212,7 +199,7 @@ const stampRefs = () => {
  * overlay that closes that gap: the log knows what it wrote, so anything
  * rendering slide content asks here first.
  */
-export const patchedText = (id) => {
+const patchedText = (id) => {
   for (let i = patches.length - 1; i >= 0; i -= 1) {
     const patch = patches[i];
     if (patch.kind === "text" && patch.id === id) return patch.text;
@@ -254,7 +241,6 @@ export const rebuild = () => {
   render(patches);
   stampRefs();
   for (const patch of patches) applyDom(patch);
-  notify();
 };
 
 /** Record the deck's original value for a property, the first time it is touched. */
@@ -270,7 +256,6 @@ export const push = (patch) => {
     // to restore the deck's true original value for that property.
     patches.splice(0, 1);
   }
-  redoStack.length = 0;
   rebuild();
   return patch;
 };
@@ -278,15 +263,6 @@ export const push = (patch) => {
 export const undo = () => {
   const patch = patches.pop();
   if (!patch) return null;
-  redoStack.push(patch);
-  rebuild();
-  return patch;
-};
-
-export const redo = () => {
-  const patch = redoStack.pop();
-  if (!patch) return null;
-  patches.push(patch);
   rebuild();
   return patch;
 };
@@ -301,16 +277,22 @@ export const redo = () => {
 export const reset = () => {
   const count = patches.length;
   patches.length = 0;
-  redoStack.length = 0;
   rebuild();
   baselines.clear();
   return count;
 };
 
+/**
+ * The edit log, as data.
+ *
+ * NO `canRedo`, and no redo. The log carried a `redoStack`, a `redo()` and a
+ * `canRedo` flag, and nothing could reach any of them: no tool exposed redo, so
+ * `canRedo` was a field agents were told about and could never act on. Undo plus
+ * reset is the whole surface, which is the honest description of what exists.
+ */
 export const summary = () => ({
   count: patches.length,
   canUndo: patches.length > 0,
-  canRedo: redoStack.length > 0,
   labels: patches.map((p) => p.label),
   stale: patches.filter((p) => p.stale).map((p) => p.label),
 });

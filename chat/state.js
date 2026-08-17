@@ -1,5 +1,3 @@
-/* global localStorage:false, location:false, URLSearchParams:false */
-
 /**
  * Whether the chat is on.
  *
@@ -20,30 +18,13 @@
  * reload is a clean slate.
  *
  * `?chat` (or `?chat=true`) opens it on load, for rehearsing the assistant itself
- * without clicking every time.
+ * without clicking every time -- see `chat/url.js` for why bare flags count.
  */
+import { createStore } from "./store.js";
+import { flag } from "./url.js";
 
 /** Retained only to clear a value written by an older build. */
 const LEGACY_KEY = "chat:enabled";
-
-const listeners = new Set();
-
-/**
- * The URL is the only thing that can open the panel before a click.
- *
- * Accepts a bare `?chat` as well as `?chat=true`, because a flag you have to
- * remember the value of is a flag you will get wrong at the podium.
- */
-const fromUrl = () => {
-  try {
-    const params = new URLSearchParams(location.search);
-    if (!params.has("chat")) return false;
-    const value = params.get("chat");
-    return value === null || value === "" || value === "true" || value === "1";
-  } catch {
-    return false;
-  }
-};
 
 // Drop the persisted flag, so a profile that presented with the chat open once does
 // not keep reopening it. Best-effort: storage may be unavailable entirely.
@@ -53,19 +34,14 @@ try {
   // Nothing to clean up, or no storage. Either way the default below is closed.
 }
 
-let enabled = fromUrl();
+const store = createStore(flag("chat"));
 
-export const isEnabled = () => enabled;
+/** The store itself, for `ui/toggle.js`'s `useSyncExternalStore`. A stable object:
+ *  passing `{ get, subscribe }` built at render time would resubscribe every render. */
+export { store as chatStore };
 
-export const setEnabled = (next) => {
-  if (next === enabled) return;
-  enabled = next;
-  for (const fn of listeners) fn(enabled);
-};
+export const isEnabled = store.get;
+export const setEnabled = store.set;
+export const subscribe = store.subscribe;
 
-export const toggleEnabled = () => setEnabled(!enabled);
-
-export const subscribe = (fn) => {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-};
+export const toggleEnabled = () => store.set(!store.get());

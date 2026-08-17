@@ -1,6 +1,7 @@
-import { createElement, useCallback, useEffect, useState } from "react";
+import { createElement, useCallback } from "react";
 import htm from "htm";
-import { getState, subscribe, switchProvider } from "../agent/model-state.js";
+import { switchProvider } from "../agent/model-state.js";
+import { useModelState } from "./use-model-state.js";
 
 const html = htm.bind(createElement);
 
@@ -26,8 +27,7 @@ const html = htm.bind(createElement);
  * pill is itself the honest report.
  */
 export const ProviderSwitch = () => {
-  const [state, setState] = useState(getState);
-  useEffect(() => subscribe(setState), []);
+  const state = useModelState();
 
   const onPick = useCallback((id) => switchProvider(id), []);
 
