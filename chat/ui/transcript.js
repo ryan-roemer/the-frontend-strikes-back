@@ -48,10 +48,8 @@ const Typing = () => html`
  * The message list.
  *
  * Autoscroll is the sentinel-div trick: an empty node at the end of the list plus
- * `scrollIntoView` in an effect. Both reference repos land on this, and one of
- * them has it in its activity log but NOT in its chat panel -- so the chat there
- * silently stops following a long answer. Keyed on the streaming text as well as
- * the entry count so it also follows mid-answer, not just between turns.
+ * `scrollIntoView` in an effect. Keyed on the streaming text as well as the entry count,
+ * so it follows mid-answer rather than only between turns.
  */
 export const Transcript = ({ entries, streaming, busy, error, empty }) => {
   const endRef = useRef(null);

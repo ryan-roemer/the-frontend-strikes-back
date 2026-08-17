@@ -11,10 +11,9 @@
  * audience should see slides, and a floating window over slide 1 is the wrong
  * first impression. The sparkle in the deck chrome is how it opens.
  *
- * That is why the flag is no longer PERSISTED across reloads either. It used to be,
- * to save a click -- but a panel that reappears by itself after a refresh is a panel
- * you have to remember to close before presenting, and forgetting costs you the
- * opening slide in front of an audience. Toggling still works within a session; a
+ * NOT PERSISTED across reloads, for the same reason: a panel that reappears by itself
+ * after a refresh is one you have to remember to close before presenting, and forgetting
+ * costs the opening slide in front of an audience. Toggling works within a session; a
  * reload is a clean slate.
  *
  * `?chat` (or `?chat=true`) opens it on load, for rehearsing the assistant itself

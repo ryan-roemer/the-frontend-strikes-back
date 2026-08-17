@@ -9,27 +9,18 @@ const html = htm.bind(createElement);
 /**
  * Everything that went into one answer.
  *
- * WHAT THIS IS NOT is the more useful half of the description: it is not the string
- * the model read. Neither provider ever builds one in JS. LiteRT hands
- * `createConversation` a `{ preface: { messages } }` array and the runtime folds it
- * into Gemma's turn template on the far side of the wasm boundary; Chrome takes
- * `initialPrompts` and does the same inside the browser process. So what is shown
- * here is the INGREDIENTS -- the system preface, the prior turns, and the question --
- * captured at the moment of sending, which is the most honest thing available and
- * the thing anyone asking the question actually wants to see.
+ * NOT THE STRING THE MODEL READ -- neither provider ever builds one in JS. Both hand a
+ * message array to a runtime that applies the model's turn template across a wasm or
+ * process boundary. What is shown here is the INGREDIENTS, captured at send time.
  *
- * It matters that these are the ingredients as the PROVIDER had them, not as the
- * panel shows them. The two disagree on purpose: LiteRT sends at most three previous
- * exchanges, so a long conversation on screen is a short one in the model, and that
- * gap is the explanation for half of the surprising answers a small model gives.
+ * THE INGREDIENTS AS THE PROVIDER HAD THEM, not as the panel shows them. The two disagree
+ * on purpose: LiteRT sends at most three previous exchanges, so a long conversation on
+ * screen is a short one in the model -- which explains half the surprising answers.
  *
- * THE PINNED REGION is the same idea one level down. `deck-context.js` sends a
- * slide's text the first time a question is asked from that slide and never again,
- * so the model is carrying deck content that appears nowhere in the transcript and
- * was never typed by anyone. On LiteRT that arrives as its own `pinned` array and is
- * shown as its own region; on Chrome there is no such region -- the block is
- * prepended to the question and shows up inside the message it rode in on, which is
- * exactly where it is in the session.
+ * THE PINNED REGION is the same idea one level down: `deck-context.js` sends a slide's text
+ * once and never again, so the model carries deck content that appears nowhere in the
+ * transcript and was never typed by anyone. LiteRT reports it as its own region; Chrome has
+ * none, so it shows up inside the message it rode in on -- which is where it is.
  *
  * Lazily loaded; see `gate.js`. Default export because `lazy()` requires one.
  */

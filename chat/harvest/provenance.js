@@ -1,38 +1,26 @@
 /**
  * Where a node's text came from, and how much to trust the answer.
  *
- * THIS CANNOT BE COMPLETE, and the honest thing is to say so per node rather
- * than to average it away. `docs/deck-context-handoff.md` §3 measured the
- * ceiling: of 146 prose nodes, 39 trace exactly to a data module, 51 appear
- * verbatim exactly once in `index.html`, 10 appear more than once, 27 are too
- * short to search, and 19 do not exist as a literal anywhere.
+ * THIS CANNOT BE COMPLETE, and the honest thing is to say so per node rather than average
+ * it away. Some nodes exist as a literal nowhere, for three reasons in the deck's own
+ * source:
  *
- * The 19 are not a bug. They are three properties of the deck's own source:
+ *   interpolation         `The frontend is ${em("back")}.` renders as one run
+ *   runtime composition   "Part A · WebMCP" is built from `PARTS`
+ *   structural flattening `<br />` and nested lists join text the source keeps apart
  *
- *   interpolation        `The frontend is ${em("back")}.` renders as one run
- *   runtime composition  "Part A - WebMCP" is built from `PARTS` and exists as
- *                        a literal nowhere
- *   structural flattening `<br />` and nested lists join text the source keeps
- *                        apart
+ * No amount of searching beats those, so this emits a TIER and names it. The consumer is a
+ * human or an agent with `grep`, for whom a search key plus a slide number is enough,
+ * while a confident wrong line number is worse than nothing.
  *
- * No amount of searching beats those, so this file does not try. It emits a
- * TIER and names it, because the consumer is a human or an agent with `grep`
- * (handoff §5), and for them a search key plus a slide number is enough while a
- * confident wrong line number is worse than nothing.
+ * IT FETCHES `index.html` because "does this string appear in the source, and how often"
+ * is a fact about the source, not derivable from the fiber tree. One fetch and a
+ * `split().length` answers it exactly. (Regexing `htm` template literals to EXTRACT
+ * content is fragile; counting an occurrence has no grammar to get wrong.)
  *
- * WHY IT FETCHES `index.html`. The tiers above are only useful if you know which
- * one a node is in, and that is not derivable from the fiber tree -- "does this
- * string appear in the source, and how often" is a fact about the source. One
- * fetch and a `split().length` answers it exactly, turning "best effort" into a
- * measurement. The deleted `knowledge.js` refused to fetch `index.html` because
- * regexing `htm` template literals is fragile; that objection is about EXTRACTING
- * content and does not reach counting a literal, which has no grammar to get
- * wrong.
- *
- * Lazy and cached, and deliberately NOT part of any model view. Provenance is
- * for the person pasting a pointer into an editor. Spending model context on
- * `deck/takeaways.js -> takeaways[3].text` would buy nothing a 2B model can act
- * on.
+ * Lazy, cached, and deliberately NOT part of any model view -- provenance is for the
+ * person pasting a pointer into an editor, and `takeaways[3].text` buys a 2B model
+ * nothing.
  */
 import { chapters } from "../../deck/chapters.js";
 import { AUDIENCES, PARTS, VERDICTS, takeaways } from "../../deck/takeaways.js";
@@ -98,10 +86,9 @@ let source = null;
  * top of a working harvest; a file:// load or an offline tab should lose the search
  * tier, not the addresses. Callers test `if (!html)`.
  *
- * A FAILURE IS NOT CACHED. Only a successful read memoizes: one dropped request --
- * a sleeping laptop, a dev server restarting, a venue network coming up -- used to
- * pin `source` to `""` for the rest of the session, and every `provenanceOf` after
- * it degraded to `match: "unknown"` with no way back short of a reload.
+ * A FAILURE IS NOT CACHED -- only a successful read memoizes. Caching the empty string
+ * pins one dropped request (a sleeping laptop, a restarting dev server) into every later
+ * `provenanceOf` as `match: "unknown"`, with no way back short of a reload.
  */
 const deckSource = async () => {
   if (source !== null) return source;

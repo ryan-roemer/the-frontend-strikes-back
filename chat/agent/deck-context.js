@@ -1,41 +1,20 @@
 /**
  * Which slide the model has been shown, and what this turn still owes it.
  *
- * The volatile half of deck context. `prompt.js` holds everything that does not
- * change while the deck runs; this holds the one thing that does.
+ * The volatile half of deck context; `prompt.js` holds the half that does not change.
  *
- * THE FAILURE THIS IS SHAPED AROUND. `chat-handoff.md` §6 has the measurement
- * that killed the last attempt: retrieved excerpts sent with every question
- * accumulated inside one conversation and took answers from 5-of-5 usable to
- * 2-of-5, with context climbing 0 -> 1364 -> 1764 -> 2673 -> 4338 tokens. The
- * answers did not degrade gently; they degenerated into "please provide the
- * context."
+ * ONE RULE: A SLIDE'S TEXT APPEARS AT MOST ONCE PER CONVERSATION. Growth is then linear
+ * in DISTINCT SLIDES ASKED ABOUT rather than in turns, with no near-duplicate blocks.
  *
- * That was not a window problem -- 4,338 of 8,192 is half a window, and the model
- * was already useless. It was a REPETITION problem. Retrieval re-sent overlapping
- * views of the same few slides on every turn, and a 2B model started answering
- * the pile instead of the question.
+ * That is a repetition constraint, not a window one. Re-sending overlapping views of the
+ * same few slides every turn took answers from 5-of-5 usable to 2-of-5 while context
+ * climbed to only 4,338 of 8,192 tokens -- half a window, and the model was already
+ * answering the pile instead of the question (`chat-handoff.md` §6).
  *
- * So the rule here is one line: A SLIDE'S TEXT APPEARS AT MOST ONCE PER
- * CONVERSATION. That changes growth from linear in TURNS to linear in DISTINCT
- * SLIDES ASKED ABOUT, and removes near-duplicate blocks entirely.
- *
- * WHY NOT THE `remember` SEAM the handoff docs recommend restoring. `remember`
- * sends context and keeps it out of the transcript -- volatile, send-and-drop.
- * That is precisely the thing that measured badly, and Chrome's durable session
- * cannot do it at any price: whatever is sent is in its history forever. This
- * needs the opposite guarantee -- remember once, never re-send -- so it is a
- * different seam rather than the old one restored. See `providers/index.js`.
- *
- * WHAT BOUNDS IT. Not a cap: the deck. There are 35 slides, so the pinned set has
- * a hard ceiling of 35 blocks whatever anyone types, and a realistic talk asks
- * about five to a dozen (~325-780 tokens). An eviction policy was drafted and
- * dropped -- it would have had to drift from, or be threaded into, each provider's
- * own copy of the pinned messages, and the failure it prevents is a conversation
- * with 25+ distinct slides in it and no press of the broom. Silently dropping
- * content the model has been TOLD it was shown is worse than the growth: it
- * leaves a dangling reference, which is the one failure mode this module exists
- * to prevent.
+ * BOUNDED BY THE DECK, not by a cap: 35 slides is a hard ceiling of 35 blocks whatever
+ * anyone types, and a real talk asks about five to a dozen (~325-780 tokens). Eviction is
+ * deliberately absent -- silently dropping content the model has been TOLD it was shown
+ * leaves a dangling reference, which is the failure this module exists to prevent.
  */
 import { getState } from "./model-state.js";
 import {
@@ -59,13 +38,11 @@ let lastAsked = null;
 /**
  * The `epoch` this state belongs to.
  *
- * DERIVED, NOT CLEARED BY CALLERS. `chat-handoff.md` §6's rule is that anything
- * dropping what the model remembers bumps `epoch` in `model-state.js` -- the
- * broom, freeing the session, deleting the model, switching providers. The pinned
- * set is part of what the model remembers, so it has to follow. Reading the epoch
- * here rather than exporting a `clear()` for six call sites to remember is the
- * same trick `ui/panel.js` uses for the transcript, and for the same reason: the
- * call site that forgets is the one that leaves a dangling reference.
+ * DERIVED, NOT CLEARED BY CALLERS. Anything dropping what the model remembers bumps
+ * `epoch` in `model-state.js`, and the pinned set is part of what the model remembers.
+ * Reading the epoch beats exporting a `clear()` for six call sites to remember -- the one
+ * that forgets is the one that leaves a dangling reference. `ui/panel.js` keys the
+ * transcript off the same signal.
  */
 let epoch = null;
 
@@ -82,34 +59,21 @@ const NOTHING = { pin: "", note: "", commit: () => {} };
 /**
  * What this turn owes the model: `{ pin, note }`. Usually both "".
  *
- * TWO FIELDS BECAUSE THEY HAVE DIFFERENT LIFETIMES, and collapsing them into one
- * string was a real bug rather than a tidiness question.
+ * TWO FIELDS BECAUSE THEY HAVE DIFFERENT LIFETIMES:
  *
- *   pin   a slide's text. Sent once, KEPT for the rest of the conversation. It is
- *         durable because the model may be asked about that slide again twenty
- *         turns later, and re-sending is the accumulation that measured badly.
- *   note  where the deck is, right now. Sent with THIS question and not kept,
- *         because it is false the moment the deck moves again.
+ *   pin   a slide's text. Sent once, KEPT for the rest of the conversation, because the
+ *         model may be asked about that slide again twenty turns later.
+ *   note  where the deck is, right now. Sent with THIS question and not kept, because it
+ *         is false the moment the deck moves again.
  *
- * The first version put both in the pinned region, and the note being durable was
- * the least of it: the pinned region lives in the PREFACE, so a "the deck moved to
- * slide 9" line sat far above the last exchange rather than next to the question
- * it described. Measured -- asked "remind me what was on this one?" after moving
- * back to slide 9, the model answered about slide 21, the subject of the previous
- * exchange. A per-turn fact has to be adjacent to the turn. The note is therefore
- * prepended to the question by the provider and the pin is not.
+ * A PER-TURN FACT MUST BE ADJACENT TO ITS TURN, which is why the note is prepended to the
+ * question rather than pinned. In the preface it sits far above the last exchange: asked
+ * "remind me what was on this one?" after moving back to slide 9, the model answered about
+ * slide 21 -- the subject of the previous exchange.
  *
- * A PURE READ OF THE CURRENT SNAPSHOT, called at send time. Two consequences
- * worth keeping:
- *
- *   - A slide navigated past and never asked about NEVER ENTERS THE MAP. That is
- *     not a rule implemented anywhere; it is what "read position when a question
- *     is sent" means.
- *   - The rule is AGNOSTIC TO WHO MOVED THE DECK. A slide the presenter walked to
- *     and a slide the assistant navigated to are both simply "not the slide the
- *     last question came from". When the chat can drive navigation itself, step
- *     four of that sequence -- a question about the slide it just moved to --
- *     already works, provided the caller reads after `nav.settle()`.
+ * A PURE READ OF THE CURRENT SNAPSHOT, called at send time. So a slide navigated past and
+ * never asked about never enters the map, and the rule is agnostic to who moved the deck --
+ * provided the caller reads after `nav.settle()`.
  */
 export const nextContext = () => {
   syncEpoch();
@@ -143,35 +107,27 @@ export const nextContext = () => {
   }
 
   const slide = slideView(n);
-  // `ids: false`: the chat has no tools, so a node id is ~15% of the block spent
-  // on something it cannot act on and might read out loud. See `views.js`.
+  // `ids: false`: the chat has no tools, so a node id is ~15% of the block spent on
+  // something it cannot act on and might read out loud.
   const body = slideText(slide, { ids: false });
   if (!body) return NOTHING;
 
-  // NOT PINNED HERE. Recording the slide as sent is the caller's to do, once the
-  // model has actually started answering -- see `commit` below.
+  // The position line rides along on a first sighting too: the `<slide n="12">` tag
+  // carries the number but not the count.
   //
-  // The position line rides along on a first sighting too: the `<slide n="12">`
-  // tag carries the number but not the count, and "how far through are we" is
-  // one of the likelier questions to be asked of a deck.
-  //
-  // `showStep: false` -- the block holds every node on the slide including the
-  // ones still waiting to animate in, so a step index would describe a visibility
-  // state that nothing else here reflects. See `positionText`.
+  // `showStep: false` -- the block holds every node on the slide including the ones still
+  // waiting to animate in, so a step index would describe a visibility state nothing else
+  // here reflects.
   return {
     pin: body,
     note: positionText(at, { showStep: false }),
     /**
-     * Record that this slide reached the model. Called by `session.js` on the first
-     * chunk of the answer.
+     * Record that this slide reached the model. Called by `session.js` on the first chunk.
      *
-     * THE SPLIT IS THE WHOLE POINT OF THIS MODULE. Marking the slide as sent while
-     * merely READING the position meant a stream that threw before the provider's
-     * `prepare()` ran -- an aborted turn, a lock, an engine error -- left the map
-     * claiming the model held text it was never given. The next question on that
-     * slide would then take the branch above and send a bare pointer at content
-     * that does not exist in the context: precisely the dangling reference the
-     * header of this file says the map exists to prevent. Not committing costs a
+     * READING THE POSITION MUST NOT PIN IT. A stream that throws before the provider's
+     * `prepare()` runs was never sent, and a map claiming otherwise makes the next
+     * question on that slide send a bare pointer at content the model does not have --
+     * the dangling reference this module exists to prevent. Not committing costs a
      * re-send; committing too early costs a wrong answer.
      */
     commit: () => {
@@ -179,8 +135,3 @@ export const nextContext = () => {
     },
   };
 };
-
-// There was a `pinnedSlides()` export here, documented as feeding the context viewer.
-// It never did: `chat/context/modal.js` reads `context.pinned` off the capture that
-// `onPrompt` handed it, which is the stronger source -- what the provider actually
-// sent for that turn, rather than what this map believes about the session now.

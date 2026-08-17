@@ -16,11 +16,11 @@ const html = htm.bind(createElement);
  *
  * IT MUST STAY CLICKABLE IN EVERY STATE, including CREATING.
  *
- * This is the escape hatch from a Chrome `create()` that never resolves -- measured, more
- * than once -- and an escape hatch disabled while the thing it escapes is happening is not
- * one. So there is no `disabled` on the busy path here, only on a provider that genuinely
- * cannot run. `switchProvider()` bumps the load generation, which is what lets it abandon a
- * promise that will never settle rather than waiting for it.
+ * This is the escape hatch from a Chrome `create()` that never resolves, and an escape
+ * hatch disabled while the thing it escapes is happening is not one. So there is no
+ * `disabled` on the busy path, only on a provider that genuinely cannot run.
+ * `switchProvider()` bumps the load generation, which is what lets it abandon a promise
+ * that will never settle rather than waiting for it.
  *
  * Rendered as static text when only one provider is offered. A segmented control with one
  * segment is a button that does nothing, and on a browser with no Prompt API the absent

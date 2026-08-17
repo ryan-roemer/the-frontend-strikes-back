@@ -139,6 +139,7 @@
         AppearComponent,
         mdSlideProps,
         deckTransition,
+        selectSlideFromOverview,
       } from "./deck/components.js";
       const html = htm.bind(createElement);
 
@@ -155,11 +156,15 @@
       // `backgroundImage` on the Deck is inherited by every slide that does not
       // set its own -- including the markdown sets, which never see a per-slide
       // prop -- so the layered background reaches every slide from here.
+      //
+      // `onSlideClick` replaces Spectacle's overview-thumbnail handler, which
+      // cannot navigate to slide 1. See `selectSlideFromOverview`.
       const Presentation = () => html`<${Deck}
           theme=${theme}
           template=${Template}
           transition=${deckTransition}
           backgroundImage=${DECK_BACKGROUND}
+          onSlideClick=${selectSlideFromOverview}
         >
           ${"" /* --- Intro --- */}
           ${"" /* `chrome={false}`: Template draws no chrome on slide 1, so this slide keeps the full 768px canvas. */}

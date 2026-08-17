@@ -18,25 +18,20 @@ import { Unavailable } from "./unavailable.js";
 const html = htm.bind(createElement);
 
 /**
- * The first thing anyone sees, and the only place the assistant gets to say what
- * it is good at.
+ * The empty state: the only place the assistant says what it is good at.
  *
- * IT NAMES THE DECK NOW, because it can -- `agent/deck-context.js` gives it the
- * outline and the slide a question is asked from. A panel that opened saying "ask
- * it anything" was honest when the model knew nothing; now it undersells, and the
- * failure mode is a room full of people asking a 2B model general-knowledge
- * questions it answers badly instead of deck questions it answers well.
+ * IT NAMES THE DECK, because a generic "ask it anything" undersells what this model can
+ * do and invites a room to ask a 2B model general-knowledge questions it answers badly
+ * instead of deck questions it answers well.
  *
- * THE SUGGESTIONS SEND ON CLICK rather than filling the composer. One tap is the
- * whole point from a stage -- and each one is chosen to exercise a different
- * source, so the three of them are a live demo of the context design in order:
- * the outline, the current slide, then the argument in the system prompt.
+ * THE SUGGESTIONS SEND ON CLICK rather than filling the composer -- one tap is the point
+ * from a stage. Each exercises a different context source in order: the outline, the
+ * current slide, then the argument in the system prompt.
  *
- * The middle one NAMES THE SLIDE, from the bus, so it re-reads on every
- * navigation. That is the cheapest possible proof the thing is actually watching
- * the deck, offered before anyone has typed a word. It degrades to "this slide"
- * when the bridge is down -- overview and presenter mode both unmount it, and a
- * confident wrong slide number in the greeting would be a bad first impression.
+ * The middle one NAMES THE SLIDE from the bus, so it re-reads on every navigation, which
+ * is the cheapest proof the thing is watching the deck. It degrades to "this slide" when
+ * the bridge is down (overview and presenter mode unmount it) rather than showing a
+ * confident wrong slide number.
  */
 const SUGGESTIONS = (slide) => [
   "What is this talk about?",
@@ -91,9 +86,8 @@ export const Panel = ({ enabled }) => {
   const model = useModelState();
   const panelRef = useRef(null);
   const { reset, dragHandlers, resizeHandlers } = usePanelGeometry(panelRef);
-  // `streamAnswer` already IS the `respond({ text, onChunk, signal })` contract, so
-  // there is no responder module between them any more -- the router that used to
-  // sit here is gone.
+  // `streamAnswer` already IS the `respond({ text, onChunk, signal })` contract, so there
+  // is no responder module between the two.
   const { entries, streaming, busy, error, send, stop, clear } =
     useConversation(streamAnswer);
 
@@ -158,9 +152,8 @@ export const Panel = ({ enabled }) => {
           <i className="ph-fill ph-sparkle" aria-hidden="true"></i>
         </span>
         ${
-          "" /* Left-aligned, next to the sparkle and away from the action group. It is the
-                one control here that changes WHAT is answering rather than what happens to
-                it, and it earned the space the undo and revert buttons used to take. */
+          "" /* Left-aligned, away from the action group: it is the one control here that
+                changes WHAT is answering rather than what happens to it. */
         }
         <${ProviderSwitch} />
         <span className="chat-panel__actions">

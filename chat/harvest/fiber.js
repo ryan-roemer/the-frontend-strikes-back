@@ -21,12 +21,11 @@
  *     is why the DOM harvest documented them as unharvestable. Rendering null
  *     still means having a fiber, and that fiber holds the note.
  *
- * The entry point is the CONTAINER, not a slide element. Climbing `.return`
- * from a slide's DOM node was the first thing tried and it silently overshoots:
- * the 35 `Slide` fibers sit close together, so a climb of the wrong depth lands
- * on a shared ancestor and hands back five slides' notes as if they belonged to
- * one. Walking down from the root cannot make that mistake, and it needs no DOM
- * at all -- so it works in overview mode, where the slide elements move.
+ * THE ENTRY POINT IS THE CONTAINER, not a slide element. Climbing `.return` from a slide's
+ * DOM node overshoots: the 35 `Slide` fibers sit close together, so a climb of the wrong
+ * depth lands on a shared ancestor and hands back five slides' notes as if they belonged
+ * to one. Walking down from the root cannot make that mistake and needs no DOM, so it also
+ * works in overview mode where the slide elements move.
  */
 
 /** React's handle on the root fiber, stamped onto the container element. */
@@ -77,16 +76,13 @@ export const rootFiber = () => {
  * how `Markdown` is handled: its props hold the source, and descending into
  * what Spectacle built from that source would report the same content twice.
  *
- * `walk(node)` IS NOT "THIS SUBTREE". It visits `node`, then `node.sibling`, and
- * so on to the end of that sibling list -- so passing an arbitrary fiber sweeps
- * everything to its RIGHT as well as everything under it. That is deliberate and
- * every caller here wants it: they pass `parent.child`, meaning "all children of
- * parent". It reads as a subtree walk though, and flattening one node's text
- * with it silently returns that node's text plus all its later siblings' --
- * measured, while prototyping a per-node inventory: an audience card came back
- * as "If you build frontendsAgents are becoming users of your app.", two
- * separate `Text` fibers glued together, and it looked like the deck had merged
- * them rather than the walk. For one node's own subtree, recurse `child` only.
+ * `walk(node)` IS NOT "THIS SUBTREE". It visits `node`, then `node.sibling`, to the end of
+ * that sibling list -- so an arbitrary fiber sweeps everything to its RIGHT as well as
+ * everything under it. Every caller here wants that and passes `parent.child`, meaning
+ * "all children of parent". It reads as a subtree walk though, and flattening one node's
+ * text with it returns that node's text plus all its later siblings' -- two separate
+ * `Text` fibers glued into one string, which looks like the deck merged them rather than
+ * the walk. For one node's own subtree, recurse `child` only.
  */
 export const walk = (fiber, visit, depth = 0) => {
   let node = fiber;
@@ -117,12 +113,10 @@ export const textOf = (fiber) =>
 /**
  * The class list on a fiber, as a string.
  *
- * Host elements carry it in props like everything else, so this reads the same
- * place for a `styled.div` and a hand-written `<span>`. The deck's class
- * vocabulary is a real semantic layer -- `styles.css` and the deleted
- * `deck-adapter.js` both treat it as one -- and it stays useful here for the
- * handful of distinctions component identity does not draw, such as which
- * `Text` is an eyebrow.
+ * Host elements carry it in props like everything else, so this reads the same place for a
+ * `styled.div` and a hand-written `<span>`. The deck's class vocabulary is a real semantic
+ * layer, and the only one that draws the distinctions component identity does not -- such
+ * as which `Text` is an eyebrow.
  */
 export const classOf = (fiber) => {
   const { className } = propsOf(fiber);

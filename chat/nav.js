@@ -1,11 +1,6 @@
 /**
  * Moving the deck.
  *
- * Recovered from the `chat/deck-adapter.js` deleted in `ef4c47f`, because the
- * two things it encodes are both bugs a fresh implementation reintroduces on the
- * first try. `docs/deck-context-handoff.md` §9 was written specifically to stop
- * that happening.
- *
  * The primary path is `chat/bridge.js`, which publishes the very callbacks
  * Spectacle's own keyboard handler uses. `nav` goes null in overview and
  * presenter mode -- both swap the whole View subtree, unmounting the bridge --

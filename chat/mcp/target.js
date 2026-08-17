@@ -80,11 +80,9 @@ export const resolveTarget = (target, { slide } = {}) => {
 
   if (found.match === "none") {
     const where = slide ?? position().slide;
-    // THE NOTE IS A WHOLE SENTENCE, not a clause to splice in. It used to be
-    // interpolated into "... on slide ${where}", which turned the note "no
-    // slide" into `"phrase" — no slide on slide 0.` -- two failure modes glued
-    // into one ungrammatical claim. Notes now stand alone and the slide is named
-    // only where there is a slide to name.
+    // THE NOTE IS A WHOLE SENTENCE, not a clause to splice in: interpolating it into
+    // "... on slide ${where}" turns the note "no slide" into `"phrase" — no slide on
+    // slide 0.`, two failure modes glued into one ungrammatical claim.
     return refuse(
       found.note
         ? `"${said}" — ${found.note}.`

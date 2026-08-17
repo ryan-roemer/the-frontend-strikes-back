@@ -6,28 +6,16 @@ const html = htm.bind(createElement);
 /**
  * A button in the deck chrome that flips one boolean.
  *
- * TWO SHARP EDGES, AND BOTH ARE INHERITED RATHER THAN CHOSEN.
+ * MUST BE RENDERED AS AN ELEMENT, never called as a function: Spectacle calls the
+ * `template` prop as a plain function inside `Deck`'s render, so hooks written directly in
+ * `Template` join DECK's hook list. See `chat/bridge.js`.
  *
- * Hooks are safe here only because every use of this is rendered as an ELEMENT, so it
- * owns its own fiber. Spectacle calls the `template` prop as a plain function inside
- * `Deck`'s render, so a hook written directly in `Template` joins DECK's hook list --
- * see `chat/bridge.js`, which explains what that cost. Never call these as functions.
+ * EVERY TOGGLE CARRIES `.chat-toggle`, which owns `pointer-events: auto`. Spectacle's
+ * `TemplateWrapper` is `pointer-events: none` and nothing in `styles.css` re-enables it, so
+ * a class that forgot that rule would render perfectly and ignore every click.
  *
- * `pointer-events` is the other. Spectacle's `TemplateWrapper` -- the box the whole deck
- * template renders into -- is `pointer-events: none`, and nothing in `styles.css`
- * re-enables it. Spectacle's own `FullScreen` works around this by setting
- * `pointerEvents: "all"` inline; `.chat-toggle` does the same in CSS. That is why every
- * toggle here carries `.chat-toggle` rather than a class of its own: a separate class
- * that forgot the rule would render perfectly and ignore every click.
- *
- * THE BUTTON IS NOT THE THING IT OPENS. All any of these do is flip a boolean; the panel
- * and the sheets render on `#chat-root`, outside the deck's scaled, non-interactive
- * template box. A `position: fixed` scrim inside a `transform`ed ancestor positions
- * against that ancestor rather than the viewport, so a modal rendered here would be
- * pinned to the slide rather than to the screen.
- *
- * Deliberately not using `Icon` from `deck/components.js`: that module imports this one,
- * and the cycle would be real. An `<i>` with the Phosphor classes is what `Icon` renders.
+ * Not using `Icon` from `deck/components.js`: that module imports this one, so the cycle
+ * would be real. An `<i>` with the Phosphor classes is what `Icon` renders anyway.
  *
  * @param {object}   store      `{ get, subscribe }` -- any of `chat/store.js`'s.
  * @param {Function} onToggle   What the click does.

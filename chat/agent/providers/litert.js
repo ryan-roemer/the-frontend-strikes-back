@@ -10,34 +10,23 @@ import {
 import { STATES } from "../states.js";
 
 /**
- * The model itself: wasm, WebGPU, engine, conversations.
+ * The model itself: wasm, WebGPU, engine, conversations. The one module that knows about
+ * LiteRT-LM; everything above it is provider-shaped.
  *
- * Everything above this file is provider-shaped and does not care where tokens come from.
- * This is the one module that knows about LiteRT-LM, and it exists because the Chrome
- * Prompt API could not be made to work -- see `docs/chat-handoff.md` for the measurements.
+ * Requires only `navigator.gpu` -- no `SharedArrayBuffer`, so no COOP/COEP headers, which
+ * is what usually stops wasm ML from working on a static host.
  *
- * What the swap buys, beyond having a model at all: this runs on EVERY desktop-class
- * browser. WebGPU became Baseline in January 2026, and nothing below is vendor-gated
- * beyond `navigator.gpu` -- no `SharedArrayBuffer`, so no COOP/COEP headers, which is
- * usually what stops wasm ML from working on a static host.
- *
- * Three things here are load-bearing and easy to break by tidying:
- *
- *   - `Backend.GPU_ARTISAN` is the only usable backend (see `engineFor`).
- *   - `stream()` must stay an async generator over an explicit reader (see `chatHandle`).
- *   - Generation must stay serialized (see `acquire`).
- *
- * Each is commented where it lives.
+ * Three things are load-bearing and easy to break by tidying, each commented where it
+ * lives: `Backend.GPU_ARTISAN` is the only usable backend, `stream()` must stay an async
+ * generator over an explicit reader, and generation must stay serialized.
  */
 
 /**
  * The only model we ship.
  *
- * Of the whole of HuggingFace, exactly five genuinely web-packaged `.litertlm` files exist,
- * all Gemma 4, and this is the smallest. The `-web` packaging is not cosmetic: the
- * GPU_ARTISAN backend streams the file section by section, and a plain `.litertlm` build
- * fails outright with "Streaming LlmExecutorMetadata section is not supported yet". The
- * Gemma 3 LiteRT repos are `gated: auto` and 401 without a token, so they are unusable.
+ * The `-web` packaging is not cosmetic: GPU_ARTISAN streams the file section by section,
+ * and a plain `.litertlm` build fails with "Streaming LlmExecutorMetadata section is not
+ * supported yet". The Gemma 3 LiteRT repos are `gated: auto` and 401 without a token.
  */
 export const MODEL = {
   id: "gemma-4-E2B-it-web",
@@ -50,47 +39,29 @@ export const MODEL = {
 const MODEL_URL = `https://huggingface.co/${MODEL.repo}/resolve/main/${MODEL.file}`;
 
 /**
- * The size this deck was built and rehearsed against, in bytes.
+ * A VERSION PIN AND A FALLBACK, NOT THE INTEGRITY CHECK.
  *
- * A PIN AND A FALLBACK, NOT THE INTEGRITY CHECK. That distinction is the whole comment.
- * The model is version-pinned by repo and filename only, and HuggingFace serves no other
- * version marker this page can cheaply act on, so the byte count is the one signal that
- * upstream has republished the file. It is used for:
+ * The model is pinned by repo and filename only, so the byte count is the one signal that
+ * upstream has republished the file. Used for the storage pre-check (nothing else exists
+ * before bytes arrive), as the progress total when a response carries no `content-length`,
+ * and for a drift warning that logs and continues.
  *
- *   the storage pre-check   before any bytes arrive there is nothing else to ask
- *   the progress total      only when a response carries no `content-length`
- *   a drift WARNING         if upstream disagrees, said out loud and then ignored
- *
- * What it is deliberately NOT is the truncation check. That compares the bytes on disk
- * against the `content-length` of the response they came from -- live during a download,
- * and read back off the stored entry's own headers afterwards. See `litert-cache.js`.
- *
- * The difference is not academic. Every size check used to compare against this constant,
- * so the day HuggingFace reuploads `gemma-4-E2B-it-web.litertlm` at any other size, the
- * download would complete, be judged "incomplete", delete itself, and fail identically on
- * every retry -- telling the presenter to try again, forever. Verified 2026-08-17: upstream
- * `content-length` is still 2008432640.
+ * Truncation is checked elsewhere, against the `content-length` of the response the bytes
+ * came from -- see `litert-cache.js`. Checking it against this constant instead would make
+ * an upstream reupload unrecoverable: the download completes, is judged incomplete, deletes
+ * itself, and fails the same way on every retry.
  */
 const EXPECTED_BYTES = 2008432640;
 
 /**
  * The context window we ask for, in tokens.
  *
- * There are four different "limits" in play here and they disagree, so all four are worth
- * writing down:
+ * NOTHING ENFORCES A CAP, so whatever we pass is what we get: the architecture does 128k,
+ * the model card claims 32k in prose only, and the `.litertlm` build declares no
+ * `max_num_tokens` at all. Left unset the runtime defaults to 4096.
  *
- *   1. The ARCHITECTURE does 128k. `google/gemma-4-E2B-it`'s config.json says
- *      `max_position_embeddings: 131072`, with a 512-token sliding window.
- *   2. The LITERT PACKAGING claims 32k -- but only in prose, in the
- *      `litert-community/gemma-4-E2B-it-litert-lm` model card. Nothing enforces it.
- *   3. The `.litertlm` FILE declares nothing. `LlmMetadata` has a `max_num_tokens` field
- *      for exactly this purpose and it is absent from this build, which is why LiteRT-LM
- *      has an open issue about being unable to report a model's real capacity. So there
- *      is no cap to hit and no way to query one -- whatever we pass is what we get.
- *   4. The RUNTIME DEFAULT, when this is left unset, is 4096.
- *
- * So the number has to come from measurement, and it did. Sweeping a deck-realistic
- * prompt (~840 tokens of preface plus a question) across candidates on an Apple GPU:
+ * Measured on an Apple GPU, ~840 tokens of preface plus a question. Every value loads,
+ * including 128k; engine creation is flat. What a larger window costs is decode:
  *
  *     maxNumTokens    create    avg ttft    prefill    decode
  *          4,096      1154ms        88ms   1577 tps    72 tps
@@ -100,29 +71,12 @@ const EXPECTED_BYTES = 2008432640;
  *         65,536      1002ms       108ms   1167 tps    60 tps
  *        131,072      1033ms       865ms     37 tps    59 tps
  *
- * Every one of them loads -- 128k included -- and engine creation is flat, because the KV
- * cache is cheap for this model: it is multi-query (one KV head) and shares KV across 20
- * of its 35 layers, leaving only three unshared global layers to scale with the window.
- * What it costs instead is DECODE THROUGHPUT, and that is the number a presenter feels.
+ * 8,192 is chosen so the context meter stays meaningful -- at 16k it reads ~5% all night
+ * and the broom never looks necessary. Below 8k the window starts changing answers.
  *
- * It also changes the ANSWERS, which is not obvious and is worth knowing before tuning
- * this. At `temperature: 0` the same prompt gives byte-identical output at 8,192 and at
- * 16,384 -- but 4,096 differs, consistently and reproducibly (two independent runs at
- * 4,096 agreed with each other 6/6 and disagreed with both larger values). So the window
- * is not a neutral allocation, and there is a threshold somewhere between 4k and 8k.
- * Above 8k it stops mattering. The 4,096 answers are not WORSE, though -- across 13
- * questions they were paraphrases, with near-identical total output and correct refusals
- * either way.
- *
- * So 8,192 is chosen on a UX argument, not a quality one: a window the conversation can
- * actually fill keeps the context underline meaningful. At 16k the meter reads ~5% all
- * night and the broom never looks necessary; at 8k a first turn shows ~14%.
- *
- * NOTE, because it is the obvious thing to assume and it is FALSE: a long conversation
- * does not degrade. The same question asked at turns 1, 7, 12, 17 and 22 returns a
- * byte-identical answer, matching a fresh conversation. History piling up costs context
- * space, and nothing else. So do not raise this hoping to fix a session that has gone
- * soft, and do not lower it hoping to prevent one.
+ * DO NOT TUNE THIS TO FIX A SESSION THAT HAS GONE SOFT: a long conversation does not
+ * degrade. The same question at turns 1, 7, 12, 17 and 22 returns byte-identical output.
+ * History costs context space and nothing else.
  */
 const MAX_NUM_TOKENS = 8192;
 
@@ -195,21 +149,12 @@ const explain = (err) => {
 /**
  * The wasm directory URL, DERIVED from the import map rather than pinned again.
  *
- * `@litert-lm/core` loads its wasm separately from the JS, and the two must be the same
- * version or the engine refuses to start. The reference implementation keeps a second
- * hardcoded URL next to its import map entry with a "bump both together" comment -- a rule
- * that depends on someone remembering it. Deriving instead means the version cannot drift,
- * and this repo keeps its claim that the import map IS the lockfile (see
- * `docs/dependencies.md`).
+ * `@litert-lm/core` loads its wasm separately from its JS and the two must be the same
+ * version, so deriving keeps the import map as the single pin (see `docs/dependencies.md`).
  *
- * `import.meta.resolve` shipped in Chrome 105, Firefox 106 and Safari 16.4, all far older
- * than any browser with WebGPU -- so every browser that can run this at all has it, and
- * there is no fallback to write.
- *
- * The one thing this couples to is jsDelivr's URL LAYOUT: `+esm` is served at the package
- * root, and so is `wasm/`, so `./wasm` resolves correctly. Point the import map at a
- * different CDN or at a `/dist/index.mjs`-style path and the derivation would silently be
- * wrong -- hence the assertion rather than a bare `new URL`.
+ * This couples to jsDelivr's URL LAYOUT -- `+esm` and `wasm/` both sit at the package root,
+ * so `./wasm` resolves. Point the import map at another CDN or a `/dist/index.mjs`-style
+ * path and the derivation would silently be wrong, hence the assertion below.
  */
 let wasmUrlCache = null;
 
@@ -259,16 +204,15 @@ let probeCache = null;
 /**
  * Can this browser run the model at all?
  *
- * Deliberately a SMALL gate. Everything it does not check is discovered by
- * `Engine.create()` throwing a real message, which is more useful than a guess made here.
+ * Deliberately a SMALL gate -- everything it does not check is discovered by
+ * `Engine.create()` throwing a real message, which beats a guess made here.
  *
  * Two things it must NOT check, both of which look reasonable and are wrong:
  *
  *   - `maxBufferSize`. GPU_ARTISAN streams the model section by section, so no single
- *     buffer ever holds 2 GB. WebGPU's DEFAULT limit is 256 MiB, so a gate framed as
+ *     buffer ever holds 2 GB. WebGPU's default limit is 256 MiB, so a gate framed as
  *     "enough for the weights" rejects every conformant device on earth.
- *   - `navigator.deviceMemory`. Chromium-only, so gating on it silently rejects Safari and
- *     Firefox -- the exact outcome this whole change exists to avoid.
+ *   - `navigator.deviceMemory`. Chromium-only, so gating on it rejects Safari and Firefox.
  */
 export const probe = async () => {
   if (probeCache) return probeCache;
@@ -346,19 +290,14 @@ export const probe = async () => {
 /**
  * One generation at a time, across every conversation.
  *
- * This has no counterpart in the reference implementation, and it is the single most
- * likely cause of a mid-talk failure without it.
+ * The engine has ONE main executor, and `chat/use-conversation.js` `stop()` deliberately
+ * does not wait for the responder -- it clears `busy` immediately so the composer feels
+ * instant. So a second `sendMessageStreaming()` can be issued while the previous stream is
+ * still cancelling.
  *
- * `chat/use-conversation.js` `stop()` deliberately does NOT wait for the responder: it
- * bumps a run token, keeps the partial answer, and clears `busy` immediately, so the
- * composer is usable again while the abandoned turn is still winding down. That is what
- * makes stop feel instant, and it is worth keeping. But it means a second
- * `sendMessageStreaming()` can be issued while the previous stream is still cancelling --
- * and the engine has ONE main executor, shared with the router's conversations too.
- *
- * So the lock is held for the whole of an iteration, not just its start, and released in a
- * `finally` so an abandoned generator frees it. Teardown is bounded (see `bounded`),
- * because a lock nobody releases is worse than the overlap it was preventing.
+ * The lock is therefore held for the whole of an iteration, not just its start, and
+ * released in a `finally` so an abandoned generator frees it. Teardown is bounded (see
+ * `bounded`): a lock nobody releases is worse than the overlap it was preventing.
  */
 let tail = Promise.resolve();
 
@@ -382,18 +321,15 @@ let enginePromise = null;
 /**
  * Which engine build the module currently wants.
  *
- * `Engine.create()` is a single call that hands back no handle until it resolves, so an
- * unload during a load has nothing to tear down -- and without this a ~2 GB engine lands
- * resident with nothing referencing it. Reachable in normal use: the panel's restart button
- * is clickable at any state, and an ERROR retry can overlap a late create.
+ * `Engine.create()` hands back no handle until it resolves, so an unload during a load has
+ * nothing to tear down and a ~2 GB engine can land resident with nothing referencing it.
+ * Reachable in normal use: the restart button is clickable at any state, and an ERROR retry
+ * can overlap a late create.
  *
- * A COUNTER, NOT A BOOLEAN, and the difference is two real bugs. As a flag reset at the top
- * of `ensureEngine`, an evict-then-recreate cleared it before the FIRST create resolved, so
- * that create saw "not evicted", assigned itself over the second, and left two engines
- * resident. The mirror case was worse: the first create's rejection handler unconditionally
- * nulled `enginePromise`, clobbering the second create's promise and letting a third start
- * while the second was still loading. Comparing against a generation makes both impossible,
- * and is the same mechanism `model-state.js` already uses one layer up.
+ * A COUNTER, NOT A BOOLEAN. A flag reset at the top of `ensureEngine` is cleared by the
+ * second create before the first resolves, so the first installs itself over the second and
+ * both stay resident -- and on the failure path the first would clear the second's
+ * `enginePromise`. Same mechanism as `model-state.js`'s `loadGeneration` one layer up.
  */
 let generation = 0;
 
@@ -459,10 +395,9 @@ const ensureEngine = async ({ onProgress = null, signal = null } = {}) => {
       enginePromise = null;
       return engine;
     } catch (err) {
-      // Cleared so a failed load can be retried rather than replaying its own rejection --
-      // but ONLY if this attempt is still the current one. A superseded attempt that clears
-      // these is clearing its successor's, which is how a third engine used to get started
-      // while the second was still loading.
+      // Cleared so a failed load can be retried rather than replaying its own rejection,
+      // but ONLY if this attempt is still current: a superseded one clearing these is
+      // clearing its successor's, and a third engine starts while the second is loading.
       if (!superseded()) {
         enginePromise = null;
         engine = null;
@@ -506,24 +441,17 @@ const deleteModel = async () => {
 /* Conversations                                                              */
 /* -------------------------------------------------------------------------- */
 
+/** Sampling temperature. Note the table above was measured at 0, the deterministic case. */
+const TEMPERATURE = 0.7;
+
 /**
  * A conversation, seeded with a preface.
  *
- * `createConversation` measures at ~2ms even with several turns of history in the preface,
- * because the preface is prefilled LAZILY -- `getTokenCount()` reads 0 until the first
- * generation. That single measured fact is what makes the self-healing below affordable,
- * and it is why nothing here bothers to cache or clone conversations.
+ * `createConversation` measures at ~2ms even with several turns of history, because the
+ * preface is prefilled LAZILY -- `getTokenCount()` reads 0 until the first generation.
+ * That is what makes rebuilding one per turn affordable, and why nothing here caches or
+ * clones conversations.
  */
-/**
- * Sampling temperature for every conversation this provider builds.
- *
- * A CONSTANT, not a parameter. `createChat` took `{ temperature = 0.7 }` and the single
- * call site never passed one, so the value was threaded through two functions to arrive
- * at its own default. Note that the measured table above was taken at `temperature: 0`;
- * these are not the same setting and the numbers there are the deterministic case.
- */
-const TEMPERATURE = 0.7;
-
 const newConversation = (system, pinned, history, { temperature }) =>
   engine.createConversation({
     // Gemma has no true system role, so the runtime folds the preface into its prompt
@@ -548,22 +476,16 @@ const newConversation = (system, pinned, history, { temperature }) =>
  * The one place that reads a `Conversation`'s stream.
  *
  * `prepare` runs AFTER the lock is taken and returns the conversation to use, which is what
- * lets the chat rebuild its own conversation without racing a live generation. It was also
- * shared with one-shot `generate()` calls, which is why the seam is shaped this way --
- * `generate()` is gone (see the note further down on what its removal cost), leaving `stream`
- * as the only caller. The indirection stays because the rebuild still needs it.
+ * lets the chat rebuild its conversation without racing a live generation.
  *
- * IT MUST STAY AN ASYNC GENERATOR, and it must read with an explicit reader.
- *
+ * IT MUST STAY AN ASYNC GENERATOR reading through an explicit reader.
  * `sendMessageStreaming` returns a ReadableStream, and Safari does not implement async
- * iteration on those -- there is no `Symbol.asyncIterator`, so `for await` throws. The
- * consumer in `session.js` DOES use `for await`, and that is only legal because what it gets
- * from here is a generator, which has one by construction. So never "simplify" this into
- * `return conversation.sendMessageStreaming(text)`: Chrome would stay green and Safari would
- * break, silently, in the one configuration nobody checks before walking on stage.
+ * iteration on those -- no `Symbol.asyncIterator`, so `for await` throws. `session.js` uses
+ * `for await`, which is only legal because a generator has one by construction. Simplifying
+ * this to `return conversation.sendMessageStreaming(text)` keeps Chrome green and breaks
+ * Safari.
  *
- * Yields DELTAS. `chat/agent/session.js` accumulates them and hands the accumulated string
- * onward, so a dropped or reordered chunk cannot desync the display.
+ * Yields DELTAS; `session.js` accumulates them, so a dropped chunk cannot desync the view.
  */
 async function* streamFrom({ text, signal = null, prepare }) {
   const release = await acquire();
@@ -631,48 +553,24 @@ async function* streamFrom({ text, signal = null, prepare }) {
   }
 }
 
-/*
- * There was a `generate()` here: one complete answer from a throwaway conversation, for the
- * router and the edit planner, which needed a whole string rather than a stream and must not
- * pollute the chat's history. Both are gone, so it had no callers left.
- *
- * If a non-streaming call comes back, note what it cost on the other provider: Chrome has no
- * throwaway session, so the same call meant a full `create()` -- measured at ~9.5s -- before
- * every answer. A router that runs per turn is affordable here and is not there.
- */
-
 /**
  * The durable chat session.
  *
- * WE own the transcript; the `Conversation` is disposable and rebuilt every turn. That is
- * the opposite of the obvious design -- a `Conversation` keeps its own history and could
- * simply be talked to -- and it is worth explaining, because it fixes a serious measured
- * failure and dissolves two others.
+ * WE OWN THE TRANSCRIPT; the `Conversation` is disposable and rebuilt every turn. The
+ * obvious design -- let the `Conversation` keep its own history -- fails because what is
+ * SENT and what is REMEMBERED must differ: a turn sends a position line that is false as
+ * soon as the deck moves, and per-turn context that accumulates. Measured on five code
+ * questions, letting it accumulate gave 2 of 5 usable answers against 5 of 5 on a fresh
+ * conversation, with context climbing 0 -> 4338 tokens and answers degenerating into
+ * "please provide the context".
  *
- * THE FAILURE. Every answer turn sends retrieved slide text with the question: ~700-1500
- * characters of DECK EXCERPTS, rebuilt per turn because it depends on the question. Let the
- * conversation keep those and by the third turn its history holds several excerpt blocks,
- * and a 2B model starts answering the accumulated soup instead of what was asked. Measured
- * on five code questions: 2 of 5 usable when they accumulated, 5 of 5 when each ran on a
- * fresh conversation, with context climbing 0 -> 1364 -> 1764 -> 2673 -> 4338 tokens.
- * The answers did not degrade gently, they degenerated into "please provide the context".
+ * Rebuilding costs ~2ms plus prefill at ~1600 tok/s, and it makes `cancel()` poisoning
+ * irrelevant -- one `cancel()` makes every later `sendMessageStreaming` on that
+ * conversation reject with "Task cancelled" forever, and `clone()` inherits the poison and
+ * loses the history, so the only safe move is to throw the object away.
  *
- * THE FIX. `stream()` takes what to SEND and, separately, what to REMEMBER. The excerpts
- * are sent and then dropped; only the bare question and the answer go into the transcript.
- * Each turn rebuilds a conversation from that transcript, which costs ~2ms plus prefill of
- * a few hundred tokens at ~1600 tokens/sec.
- *
- * WHAT IT DISSOLVES. Rebuilding every turn means a cancelled conversation is never reused,
- * so the `cancel()` poisoning that used to need a whole heal-on-next-turn mechanism is now
- * simply irrelevant -- the poisoned object is thrown away. (The poisoning is real and worth
- * remembering: one `cancel()`, from any cause, and every later `sendMessageStreaming` on
- * that conversation rejects with "Task cancelled". It never recovers, and `clone()` inherits
- * it AND loses the history.) It also means "clear the context" is a transcript reset rather
- * than an engine concern.
- *
- * The transcript is BOUNDED. Prefill is re-paid each turn, so an unbounded one would make
- * every turn slower than the last; `MAX_HISTORY_MESSAGES` keeps that flat while leaving
- * enough room for "tell me more" to mean something.
+ * The transcript is BOUNDED because prefill is re-paid each turn; an unbounded one makes
+ * every turn slower than the last.
  */
 
 /** Exchanges kept for continuity. 6 messages = 3 question/answer pairs. */
@@ -687,13 +585,9 @@ const createChat = async ({ system }) => {
   /**
    * Deck context already handed to the model, in the order it was sent.
    *
-   * APPEND-ONLY AND NEVER TRIMMED, which is the one way it differs from
-   * `transcript`. `chat/agent/deck-context.js` guarantees a slide is offered here
-   * at most once, so this grows with distinct slides asked about rather than with
-   * turns -- bounded by the deck at 35 blocks, and five to a dozen in a real talk.
-   * It is exactly what the removed `remember` option could not express: that
-   * option existed to keep per-turn excerpts OUT of the model's memory, and this
-   * one exists to keep them in it, once.
+   * APPEND-ONLY AND NEVER TRIMMED, which is the one way it differs from `transcript`.
+   * `deck-context.js` offers each slide at most once, so this grows with distinct slides
+   * asked about rather than with turns -- bounded by the deck at 35 blocks.
    */
   let pinned = [];
 
@@ -722,20 +616,16 @@ const createChat = async ({ system }) => {
     /**
      * Stream one turn.
      *
-     * `pin` is a slide's text, the first time a question comes from that slide. It
-     * goes into `pinned` rather than into `text`, so it survives history trimming
-     * and the transcript keeps the question the user actually typed.
+     * TWO KINDS OF CONTEXT, GOING OPPOSITE WAYS, which is the whole signature.
      *
-     * `note` is where the deck is right now, and it goes the OTHER way -- prepended
-     * to the sent string and deliberately left out of the transcript, so it is gone
-     * next turn. That asymmetry is the point: a position line is false as soon as
-     * the deck moves, and pinning one put it in the preface, far above the exchange
-     * it was about. The model then answered about the previous slide.
+     * `pin` is a slide's text, sent the first time a question comes from that slide. It
+     * goes into `pinned` rather than into `text`, so it survives history trimming and the
+     * transcript keeps the question the user actually typed.
      *
-     * `note` is therefore exactly the removed `remember` seam, restored for the one
-     * thing it was right for; `pin` is its opposite and is new. The old option sent
-     * excerpts and kept only the question. This sends the question, keeps the slide,
-     * and drops the position.
+     * `note` is where the deck is right now: prepended to the sent string and left out of
+     * the transcript, so it is gone next turn. A position line is false as soon as the deck
+     * moves, and pinning one puts it in the preface above the exchange it describes -- the
+     * model then answers about the previous slide.
      */
     async *stream(
       text,
@@ -769,14 +659,10 @@ const createChat = async ({ system }) => {
               pinned.length = pinnedBefore;
               throw err;
             }
-            // Reported from here, after the rebuild that consumed it, because THIS
-            // is the preface the conversation was actually built from -- not what
-            // the UI transcript happens to hold. The two diverge by design: this
-            // one is trimmed to `MAX_HISTORY_MESSAGES` and the panel's is not.
-            //
-            // Copied, not passed by reference. `transcript` is reassigned by the
-            // slice below on the very next turn, and a caller keeping this around
-            // to show later must see what was sent, not what is current.
+            // Reported after the rebuild that consumed it, so this is the preface the
+            // conversation was actually built from -- trimmed to `MAX_HISTORY_MESSAGES`,
+            // unlike the panel's transcript. Copied, not passed by reference: `transcript`
+            // is reassigned by the slice below on the next turn.
             onPrompt?.({
               provider: "litert",
               system,
@@ -796,13 +682,11 @@ const createChat = async ({ system }) => {
         }
       } finally {
         // Recorded even on abort -- the presenter saw a partial answer and the transcript
-        // should match what is on screen -- but NOT when the turn never reached the model.
-        // Trimmed from the front, in pairs.
+        // should match the screen -- but NOT when the turn never reached the model.
         //
-        // BARE `text`, not the sent string: `note` is deliberately dropped here. That
-        // is the whole of the restored `remember` behaviour -- a position line is true
-        // for one turn, and a transcript accumulating five contradictory ones is the
-        // accumulation failure in miniature.
+        // BARE `text`, not the sent string: `note` is dropped here on purpose. A position
+        // line is true for one turn, and a transcript accumulating five contradictory ones
+        // is the accumulation failure in miniature.
         if (sent) {
           transcript.push(
             { role: "user", content: text },
@@ -818,15 +702,12 @@ const createChat = async ({ system }) => {
     /**
      * Live context occupancy: preface plus every turn so far.
      *
-     * SYNCHRONOUS, because `model-status.js` reads it in a component body. LiteRT's
-     * `getTokenCount()` is async, so the number is cached here and refreshed out of band by
-     * `sampleContext()`. This pair used to live in `model-state.js` as a module-level
-     * `lastTokens` plus a `sampling` guard; it belongs on the handle, because it is the
-     * single largest difference between the two providers -- Chrome reads `inputUsage` and
-     * `inputQuota` straight off its session and has nothing to sample.
+     * SYNCHRONOUS, because the UI reads it during render. LiteRT's `getTokenCount()` is
+     * async, so the number is cached here and refreshed out of band by `sampleContext()`.
+     * Chrome needs neither -- it reads `inputUsage` straight off its session.
      *
-     * Reads 0 until the first generation, because the preface prefills lazily. That is not
-     * a bug to paper over -- nothing has been spent yet, so 0 is the honest number.
+     * Reads 0 until the first generation, because the preface prefills lazily. Nothing has
+     * been spent yet, so 0 is the honest number.
      */
     context() {
       if (tokens == null) return null;
@@ -866,18 +747,13 @@ const createChat = async ({ system }) => {
     /**
      * Empty the context window and keep talking. The broom, not the trash.
      *
-     * Now a transcript reset first and a conversation rebuild second -- dropping the
-     * transcript is what actually clears the context, since the next turn rebuilds from it.
-     * Mutates in place, so every reference to the session stays valid; an earlier version
-     * returned a new handle and the second restart had nothing to call.
+     * Dropping the transcript is what clears the context, since the next turn rebuilds from
+     * it. Mutates in place so every reference to the session stays valid.
      *
-     * `pinned` MUST BE CLEARED WITH IT, and this is not optional bookkeeping. Every
-     * caller of `restart()` bumps `epoch`, and `deck-context.js` clears its seen-set
-     * from `epoch` -- so a `pinned` that survived would meet a policy that has
-     * forgotten those slides and offers them again, putting two copies of the same
-     * slide in one preface. Duplicate blocks are the precise failure
-     * `chat-handoff.md` §6 measured. The two structures track the same fact and
-     * therefore reset on the same signal.
+     * `pinned` MUST BE CLEARED WITH IT. Callers of `restart()` bump `epoch`, and
+     * `deck-context.js` clears its seen-set from `epoch` -- so a surviving `pinned` would
+     * meet a policy that has forgotten those slides and offers them again, putting two
+     * copies of one slide in a single preface.
      */
     async restart() {
       transcript = [];
@@ -911,12 +787,7 @@ const createChat = async ({ system }) => {
 
 /**
  * Everything above, as the shape `model-state.js` drives. See `providers/index.js` for the
- * contract and for the table of where the two providers disagree.
- *
- * Deliberately a thin adaptor appended to the file rather than a restructuring of it. The
- * functions above are the measured, commented, load-bearing part; this is just the socket
- * they plug into, and keeping the seam obvious means a future reader can tell which is
- * which.
+ * contract and for where the two providers disagree.
  */
 export const provider = {
   id: "litert",

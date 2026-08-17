@@ -22,7 +22,7 @@ import { useModelState } from "./use-model-state.js";
 
 const html = htm.bind(createElement);
 
-/** joyce shows elapsed next to the label; same idea, same terse format. */
+/** Elapsed load time, next to the label. */
 const formatElapsed = (ms) =>
   ms == null ? null : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 
@@ -121,13 +121,10 @@ const InfoModal = ({ onClose }) => {
 };
 
 /**
- * The model's state as icons, after joyce's `LoadingButton`.
+ * The model's state as icons.
  *
- * A FRAGMENT, not a row. These used to live in a second bar under the panel header,
- * which cost a whole strip of vertical space to say something that is three icons
- * wide -- so they are now rendered straight into the header's action group, and the
- * bar they used to occupy is gone. Nothing here may assume it owns a container:
- * spacing and alignment belong to the group it is dropped into.
+ * A FRAGMENT, NOT A ROW: these render straight into the header's action group, so nothing
+ * here may assume it owns a container. Spacing and alignment belong to the group.
  *
  * Four slots, always in the same order and always the same width:
  *
@@ -141,11 +138,11 @@ const InfoModal = ({ onClose }) => {
  *                 `unload()` -- see the note on `discard`.
  *   4. INFO    -- what is knowable about the model.
  *
- * Only the ones that apply are rendered. joyce holds a hidden placeholder open so an icon
- * row never shifts, and that was right while these lived in a bar of their own -- inline in
- * a right-aligned group it read as a broken icon instead, a 26px hole between the state and
- * info icons. Nothing moves that matters: the group is anchored on its RIGHT edge, so close,
- * recentre and the broom hold their positions and only the state icon slides.
+ * Only the ones that apply are rendered, with NO reserved slot. Holding a hidden
+ * placeholder open to stop the row shifting reads as a broken icon inline in a
+ * right-aligned group -- a 26px hole between the state and info icons. Nothing that
+ * matters moves anyway: the group is anchored on its RIGHT edge, so close, recentre and
+ * the broom hold their positions and only the state icon slides.
  */
 export const ModelControls = () => {
   const state = useModelState();
@@ -224,16 +221,6 @@ export const ModelControls = () => {
           >
             <i className=${`ph-fill ${meta.icon}`} aria-hidden="true"></i>
           </span>`}
-      ${
-        "" /* Rendered only when there is something to discard, with NO reserved slot.
-              joyce holds the box open so a row of icons never shifts, and that was
-              right while these lived in a bar of their own -- but inline in a
-              right-aligned group it reads as a broken icon: a 26px hole between the
-              state and info icons, which is exactly what it looks like. The shift it
-              was preventing costs nothing here, because the group is anchored on its
-              RIGHT edge: close, recentre and the broom hold their positions whatever
-              happens, and only the state icon slides. */
-      }
       ${canDiscard
         ? html`<button
             type="button"

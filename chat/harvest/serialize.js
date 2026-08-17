@@ -1,60 +1,34 @@
 /**
- * One slide's fiber subtree, as Markdown.
+ * One slide's fiber subtree, as Markdown. (`chat/agent/markdown.js` runs the other way,
+ * rendering a model's answer into HTML for a chat bubble; the two share nothing.)
  *
- * `serialize.js`, NOT `markdown.js`, which is what this was called. There is a
- * `chat/agent/markdown.js` too and the two run in opposite directions: that one
- * renders a model's Markdown-ish answer into escaped HTML for a chat bubble; this
- * one serializes React fibers into a Markdown document. They share no code and
- * nothing but the old filename, and "compare the two markdown.js files" is a
- * question this repo kept provoking.
- *
- * The successor to the `chat/deck-adapter.js` that `docs/chat-handoff.md` still
- * describes -- but NOT, unlike that file, the only deck-aware one. Deck
- * knowledge is split across two files, and anyone pointing this at a different
- * deck has to change both:
+ * DECK KNOWLEDGE LIVES IN TWO FILES, and porting this to another deck means changing both:
  *
  *   HERE          the class vocabulary below -- `TITLE_CLASSES`, `LABEL_CLASSES`,
- *                 `DECORATION_CLASSES`, `slide-subtitle`, `code-frame__name` --
- *                 plus two things the deck emits as raw HTML rather than as
- *                 components: `em()`'s `<span class="em">` and Phosphor's
- *                 `<i class="ph-*">`.
+ *                 `DECORATION_CLASSES`, `slide-subtitle`, `code-frame__name` -- plus the
+ *                 two things the deck emits as raw HTML rather than components: `em()`'s
+ *                 `<span class="em">` and Phosphor's `<i class="ph-*">`.
  *
- *   `index.js`    `/\bch-(\d)\b/` for the chapter a slide belongs to,
- *                 `.title-subtitle` for the deck's subtitle, and the `.slide` /
- *                 `.slide-title, .title-display, .divider__title` / code-pane
- *                 selectors the DOM fallback runs on. It also reads
- *                 `deck/chapters.js` and `deck/takeaways.js`, which are
- *                 structured data -- no DOM, no rendering assumptions.
+ *   `index.js`    `/\bch-(\d+)\b/` for a slide's chapter, `.title-subtitle` for the deck
+ *                 subtitle, and the `.slide` / title / code-pane selectors the DOM
+ *                 fallback runs on.
  *
- * Naming both is the point. The selectors in `index.js` are easy to miss behind
- * a "rewrite one file" claim, and they fail at RUNTIME rather than at import,
- * so a port that trusted that claim would look like it worked.
+ * Those selectors fail at RUNTIME rather than at import, so a port that missed them would
+ * look like it worked. Everything else here and in `fiber.js` is portable to any Spectacle
+ * deck.
  *
- * Everything else in this file and all of `fiber.js` is portable to any
- * Spectacle deck: component identity, the fiber walk, the `DeckContext` dedup,
- * and the `Notes` / `CodePane` / `Markdown` handling. Consolidating the
- * deck-specific half into one module is a real option, and the time to take it
- * is when `agent/prompt.js` finally consumes this -- a second consumer will say
- * whether the context layer needs deck vocabulary at all, which is not knowable
- * from here.
+ * IDENTITY, NEVER NAME. Spectacle arrives as a minified `+esm` bundle -- `Notes` is `Br`,
+ * `Slide` is `Uo`. `fiber.type === Notes` works because the import and the fiber hold the
+ * same reference; `fiber.type.name` would match nothing, silently.
  *
- * IDENTITY, NEVER NAME. Spectacle arrives from jsdelivr as a minified `+esm`
- * bundle: `Notes` is `Br`, `Slide` is `Uo`, `Deck` is `ri`. Comparing
- * `fiber.type === Notes` works anyway because the import and the fiber hold the
- * same function reference. `fiber.type.name` would match nothing, silently.
+ * NOTHING IS IMPORTED FROM `deck/components.js`. Every custom component renders THROUGH a
+ * Spectacle primitive, so Spectacle identity plus the class vocabulary covers them -- and
+ * `components.js` statically imports `chat/bridge.js`, so reaching for it would close a
+ * `chat -> deck -> chat` loop.
  *
- * NOTHING IS IMPORTED FROM `deck/components.js`, deliberately. Every custom
- * component in this deck renders THROUGH a Spectacle primitive -- `SlideHeading`
- * is a `Heading`, `Eyebrow` is a `Text`, `AccentRule` is a `Box`, `TakeawayCard`
- * is a `FlexBox` of `Text`s -- so Spectacle identity plus the deck's own class
- * vocabulary already covers them. Reaching for it would also close a loop:
- * `components.js` statically imports `chat/bridge.js` and `chat/toggle.js`, so
- * from here that is `chat -> deck -> chat`.
- *
- * The unknown-component default is DESCEND. A layout wrapper contributes no
- * prose and its children do, so anything not listed below is treated as
- * transparent -- which is also what makes this survive new slide components
- * being added without the harvest going blind to them.
+ * THE UNKNOWN-COMPONENT DEFAULT IS DESCEND: a layout wrapper contributes no prose and its
+ * children do, which is what lets new slide components appear without the harvest going
+ * blind to them.
  */
 import {
   Box,
@@ -123,17 +97,13 @@ const DECORATION_CLASSES = [
 /**
  * Layout primitives that are really content cells.
  *
- * `Box` and `Grid` are transparent here, which is right for the wrappers they
- * usually are -- but `MatrixSlide` builds its rows out of bare `Box`es
- * (`components.js`: one Grid holds every cell so the label column stays
- * aligned), and transparent means their text came back as INLINE with no block
- * to attach to. Slide-level inline text is discarded by `render`, so all ten
- * cells of slide 21 -- every runtime the talk compares -- were silently absent
- * from the harvest. Measured: "transformers.js" appeared zero times in a
- * 16,100-character dump of the deck.
+ * `Box` and `Grid` are transparent, which is right for the wrappers they usually are --
+ * but `MatrixSlide` builds its rows from bare `Box`es, and transparent means their text
+ * comes back INLINE with no block to attach to. Slide-level inline text is discarded by
+ * `render`, so without this every cell of the comparison matrix vanishes from the harvest.
  *
- * The label half is bold for the same reason `LABEL_CLASSES` is: it reads as a
- * heading on the slide without being one structurally.
+ * The label half is bold for the same reason `LABEL_CLASSES` is: it reads as a heading on
+ * the slide without being one structurally.
  */
 const CELL_CLASSES = [
   ["matrix__name", true],
@@ -171,13 +141,9 @@ const unwrapEm = (text) =>
 const dedent = (text) => {
   const lines = text.replace(/\t/g, "  ").split("\n");
 
-  // THE FIRST LINE DOES NOT VOTE. It follows an opening backtick or a `${`, so
-  // it is flush against the template's own indentation while every line under
-  // it is indented to the source. Letting it into the minimum is what left the
-  // three `DemoSlide` notes with fourteen spaces on every line but their first:
-  // `DemoSlide` joins its `backup` string ahead of its `notes` string, so the
-  // note begins with "**IF IT BREAKS:**" at column zero, the minimum came out
-  // as zero, and nothing was stripped.
+  // THE FIRST LINE DOES NOT VOTE. It follows an opening backtick or a `${`, so it is
+  // flush against the template's own indentation while every line under it is indented to
+  // the source. Counting it makes the minimum zero and strips nothing.
   const indents = lines
     .slice(1)
     .filter((line) => line.trim())
@@ -404,18 +370,14 @@ function serialize(fiber, ctx) {
     // `Notes` -- and that direction is safe because the branch above returns
     // without descending.
     //
-    // ADDRESSABLE NODES ARE DOWN HERE TOO, and they are the reason this scan now
-    // does two jobs. The source above is the right thing to SERIALIZE -- it is
-    // what the author wrote -- but it is one opaque string, so a markdown slide
-    // had nothing to point at. Spectacle builds the source into real components
-    // through `MARKDOWN_COMPONENTS` in `deck/components.js` (`p` is a `Text`,
-    // `h1`-`h4` reach `Heading` through `SlideHeading`, `li` is a `ListItem`),
-    // so the nodes are here for the taking. Measured: 33 across the 7 markdown
-    // slides, which are otherwise the least addressable in the deck despite
-    // being the only ones whose provenance is exact.
+    // ADDRESSABLE NODES ARE DOWN HERE TOO, which is why this scan does two jobs. The
+    // source above is the right thing to SERIALIZE, but it is one opaque string, so a
+    // markdown slide would have nothing to point at. Spectacle builds that source into
+    // real components through `MARKDOWN_COMPONENTS` in `deck/components.js`, so the nodes
+    // are here for the taking.
     //
-    // NO DOUBLE COUNT. Nodes are a separate sink from blocks, and this branch
-    // still returns the source as the one and only block.
+    // NO DOUBLE COUNT: nodes are a separate sink from blocks, and this branch still
+    // returns the source as the one and only block.
     walk(fiber.child, (node) => {
       if (node.type === Notes) {
         collectNote(node, ctx);
@@ -427,12 +389,10 @@ function serialize(fiber, ctx) {
       if (isNodeKind(node)) {
         emitNode(ctx, node, roleOf(node), normalize(flattenNode(node)));
       }
-      // DESCENDS through an emitted node, because a nested list sits INSIDE its
-      // parent `ListItem` and its items are separate bullets on the slide. This
-      // used to return SKIP here, which cost slide 9 three addressable nodes:
-      // the sub-items had no id at all, while their text was glued into the
-      // parent's. `flattenNode` stopping at a list is the other half -- together
-      // they give one node per visible line.
+      // DESCENDS THROUGH an emitted node, because a nested list sits INSIDE its parent
+      // `ListItem` and its items are separate bullets on the slide. `SKIP` here leaves
+      // sub-items with no id, their text glued into the parent's. `flattenNode` stopping
+      // at a list is the other half; together they give one node per visible line.
       return undefined;
     });
 
@@ -460,19 +420,15 @@ function serialize(fiber, ctx) {
 
   // --- Block-level components ----------------------------------------------
 
-  // NODE TEXT IS THE RAW RUN, NOT THE RENDERED ONE, which is why these emit
-  // through `flattenNode` rather than reusing the `kids.inline` beside them.
-  // Serialization decorates as it goes -- a `takeaway__text` becomes `**...**`,
-  // a link becomes `[text](href)`, an image becomes `![](src)` -- and none of
-  // that is on the slide. Measured on this deck: the author bio came back as
-  // "![](https://encrypted-tbn0.gstatic.com/images?q=...) I lead technology &
-  // OSS at [Nearform](https://nearform.com)", where 90% of the tokens are a URL
-  // and the phrase a user would ask to change is split around the markup.
+  // NODE TEXT IS THE RAW RUN, NOT THE RENDERED ONE, which is why these emit through
+  // `flattenNode` rather than reusing the `kids.inline` beside them. Serialization
+  // decorates as it goes -- bold, `[text](href)`, `![](src)` -- and none of that is on the
+  // slide; on an image-and-links line most of the tokens become URL and the phrase a user
+  // would ask to change is split around the markup.
   //
-  // It also makes the two emission paths agree. The markdown-slide scan below
-  // has no `kids` to reuse and always flattened; having the component path
-  // decorate and the markdown path not would make a node's text mean something
-  // different depending on which kind of slide it came from.
+  // It also keeps the two emission paths agreeing: the markdown-slide scan has no `kids`
+  // to reuse and always flattens, so decorating here would make a node's text mean
+  // different things depending on which kind of slide it came from.
   if (type === Heading) {
     emitNode(
       ctx,
@@ -545,12 +501,10 @@ function serialize(fiber, ctx) {
 
   // --- Everything else ------------------------------------------------------
 
-  // `Link` and `Image` are NOT handled here, deliberately. Both are styled
-  // wrappers that render a host `<a>` / `<img>` carrying the same props one
-  // level down, so handling the component too wrapped every link twice:
-  // `[[](https://nearform.com)](https://nearform.com)`. Letting them fall
-  // through to the host rules below also picks up the raw `<a>` and `<img>`
-  // that `media.js` injects, which a component-level rule would have missed.
+  // `Link` and `Image` are NOT handled here, deliberately. Both are styled wrappers that
+  // render a host `<a>` / `<img>` with the same props one level down, so handling the
+  // component too wraps every link twice: `[[](https://x)](https://x)`. Falling through to
+  // the host rules also picks up the raw `<a>` and `<img>` that `media.js` injects.
 
   if (typeof type === "string") return serializeHost(fiber, ctx);
 

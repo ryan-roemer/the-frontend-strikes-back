@@ -1,25 +1,22 @@
 /**
  * Ops in, deck changes out. The ONLY module that writes to the deck.
  *
- * Recovered from `ef4c47f`. Every result carries a `label` for the receipt, so
- * what the caller reads is generated from what was ACTUALLY APPLIED rather than
- * from what was asked for.
+ * Every result carries a `label` for the receipt, generated from what was ACTUALLY
+ * APPLIED rather than from what was asked for.
  *
- * THE RECEIPT-LIES FAMILY is why the validation here is not ceremony. A schema
- * can only check shape, and this used to accept any non-empty string as a CSS
- * value. Three separate turns produced "Done." for a change nothing on the slide
- * reflected, which is worse than a refusal because the presenter stops looking:
+ * THE RECEIPT-LIES FAMILY is why the validation here is not ceremony. A schema can only
+ * check shape, so accepting any non-empty string as a CSS value produces "Done." for a
+ * change nothing on the slide reflects -- worse than a refusal, because the presenter
+ * stops looking:
  *
- *   - `font-size: bigger` -- not a CSS value at all, so the declaration was
- *     dropped on parse.
- *   - `font-size: larger` -- valid CSS, and it made the title-slide subtitle
- *     SMALLER, 46px to 19.2px, because `larger` resolves against the PARENT.
- *   - `color` on the display title -- painted by a gradient clipped to the
- *     glyphs, so setting `color` changed the computed value and nothing else.
+ *   - `font-size: bigger` -- not a CSS value, so the declaration is dropped on parse.
+ *   - `font-size: larger` -- valid CSS, and it makes the title-slide subtitle SMALLER,
+ *     46px to 19.2px, because `larger` resolves against the PARENT.
+ *   - `color` on the display title -- painted by a gradient clipped to the glyphs, so
+ *     setting `color` changes the computed value and nothing else.
  *
- * The general rule, and the one to apply to the next one that looks like these:
- * ASK THE BROWSER, DON'T TRUST THE STRING. `CSS.supports` and `getComputedStyle`
- * answer these questions exactly, and both were already available.
+ * The rule to apply to the next one that looks like these: ASK THE BROWSER, DON'T TRUST
+ * THE STRING. `CSS.supports` and `getComputedStyle` answer all three exactly.
  *
  * Never throws. A bad op is a message, not a crash.
  */
@@ -85,18 +82,14 @@ export const MAX_TEXT = 140;
 /**
  * Turn "bigger" into a size that is actually bigger.
  *
- * CSS's own `larger` and `smaller` resolve against the PARENT's font size, not
- * the element's. Measured: the title slide's subtitle computes to 46px inside a
- * 16px container, so `font-size: larger` took it to 19.2px -- "make it bigger"
- * shrank it by more than half, with a receipt cheerfully reporting success.
+ * CSS's own `larger` and `smaller` resolve against the PARENT's font size, not the
+ * element's: the title-slide subtitle computes to 46px inside a 16px container, so
+ * `font-size: larger` takes it to 19.2px -- "make it bigger" shrinking it by half, with a
+ * receipt reporting success.
  *
- * So relative sizes are resolved here against the element's OWN computed size.
- * That makes the value concrete before it is stored, which also means the receipt
- * reports the px the slide actually got rather than a keyword whose meaning
- * depends on where it landed.
- *
- * Deliberately font-size only. It is the property where "bigger" is asked for,
- * and the one where the parent-relative trap bites.
+ * Resolved here against the element's OWN computed size, which also makes the receipt
+ * report the px the slide got rather than a keyword whose meaning depends on where it
+ * landed. Font-size only: it is where "bigger" is asked for and where the trap bites.
  */
 const RELATIVE_SIZES = {
   bigger: 1.2,

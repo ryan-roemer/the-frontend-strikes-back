@@ -2,24 +2,22 @@
  * The model bytes: download, cache, verify, delete.
  *
  * LiteRT-LM caches nothing itself -- `Engine.create({ model })` takes a URL, a Blob or a
- * ReadableStream and reads it once. So we own the download, which is not a burden but the
- * point: it is what gives the status row real byte-level progress, a working "on disk?"
- * answer, and -- unlike the Prompt API, where the model belonged to the browser -- the
- * ability to delete it again.
+ * ReadableStream and reads it once -- so the page owns the download. That is what gives
+ * the status row real byte-level progress, a working "on disk?" answer, and the ability to
+ * delete the model again.
  *
- * Two rules govern everything here.
+ * Two rules govern everything here:
  *
  * 1. NOTHING BUFFERS THE WHOLE MODEL. It is 2 GB. Every path is a stream or a Blob handed
  *    to the engine by reference; the JS heap never holds more than one chunk.
- * 2. A CACHED ENTRY IS NOT TRUSTED UNTIL ITS SIZE IS CHECKED. This is the trap the
- *    reference implementation left open: an aborted, quota-killed or partially-evicted
- *    `cache.put` leaves a SHORT entry, `cache.match` happily returns it, and the engine
- *    then fails on truncated bytes with a message about wasm sections. That reads as a
- *    permanent, inexplicable breakage with no way out. Size is checked on write AND on
- *    read, and a bad entry is deleted rather than reported.
+ * 2. A CACHED ENTRY IS NOT TRUSTED UNTIL ITS SIZE IS CHECKED. An aborted, quota-killed or
+ *    partially-evicted `cache.put` leaves a SHORT entry, `cache.match` happily returns it,
+ *    and the engine fails on truncated bytes with a message about wasm sections -- which
+ *    reads as permanent, inexplicable breakage. Size is checked on write AND on read, and
+ *    a bad entry is deleted rather than reported.
  *
- * This module knows nothing about LiteRT. It takes a URL and a byte count. That is
- * deliberate -- it makes the download testable without a 2 GB model or a GPU.
+ * This module knows nothing about LiteRT: it takes a URL and a byte count, which makes the
+ * download testable without a 2 GB model or a GPU.
  */
 
 const CACHE_NAME = "deck-litert-models-v1";
@@ -35,13 +33,10 @@ const mb = (bytes) => Math.round(bytes / 1e6);
 export const gb = (bytes) => (bytes / 1e9).toFixed(1);
 
 /**
- * Quota errors are not reliably identifiable by name.
- *
- * Chrome and Safari throw `QuotaExceededError`, but Firefox has been observed throwing a
- * bare `TypeError` or `AbortError` from `cache.put` under storage pressure. Since the
- * consequence of a false negative is a hard failure after a completed 2 GB download, and
- * the consequence of a false positive is merely running uncached, the message is worth
- * sniffing too.
+ * Quota errors are not reliably identifiable by name: Chrome and Safari throw
+ * `QuotaExceededError`, Firefox a bare `TypeError` or `AbortError` from `cache.put` under
+ * storage pressure. A false negative is a hard failure after a completed 2 GB download; a
+ * false positive merely runs uncached. So the message is sniffed too.
  */
 const isQuotaError = (err) =>
   err?.name === "QuotaExceededError" ||
@@ -109,14 +104,10 @@ const openCache = async () => {
  * What a cached entry says its own full size is.
  *
  * THE ENTRY IS THE AUTHORITY ON ITSELF, not a constant compiled into the page. `cache.put`
- * stores the upstream `Response`'s headers alongside the body, so the `content-length`
- * HuggingFace served with those exact bytes is still there to read. Comparing the blob
- * against that answers the only question the integrity check is actually asking -- did all
- * of the bytes we were promised arrive -- and it keeps answering it correctly if upstream
- * ever republishes the file at a different size.
- *
- * `expected` is the fallback for an entry written before this, or a response that somehow
- * carried no `content-length`. It is a floor on correctness, not the rule.
+ * stores the upstream response's headers with the body, so the `content-length` served
+ * with those exact bytes is still readable -- which answers the question the integrity
+ * check is actually asking, and keeps answering it if upstream republishes at a different
+ * size. `expected` is only the fallback for an entry carrying no `content-length`.
  */
 const declaredSize = (response, expected) => {
   const header = Number(response.headers.get("content-length"));
@@ -225,20 +216,18 @@ export const getModelSource = async (
 ) => {
   let cache = await openCache();
 
-  // ASKED HERE, AND ONLY HERE. Reaching this function at all means a deliberate load --
-  // `refresh()`'s mount-time probe goes through `isCached`, which never comes this way --
-  // so this is the "download click" `requestPersistence` documents itself as needing, and
-  // Firefox's permission doorhanger cannot appear over slide 1.
+  // ASKED HERE, AND ONLY HERE. Reaching this function means a deliberate load -- the
+  // mount-time probe goes through `isCached`, which never comes this way -- so this is the
+  // "download click" `requestPersistence` needs, and Firefox's permission doorhanger
+  // cannot appear over slide 1.
   //
-  // BEFORE THE CACHE-HIT BRANCH, not after it, which is the part that took a second pass
-  // to get right. Asking only on a miss protects the model from the run after the one that
-  // fetched it and never protects a model that was already there -- measured:
-  // `navigator.storage.persisted()` was still false with 2 GB sitting in the cache.
+  // BEFORE THE CACHE-HIT BRANCH: asking only on a miss never protects a model that was
+  // already on disk, which is the state most machines are in by the time anyone presents.
   //
   // DELIBERATELY NOT AWAITED. Firefox does not resolve `persist()` until the user answers
-  // that doorhanger, and a load that will not start until somebody notices a permission
-  // prompt is worse than an unprotected cache entry. It never rejects, so there is nothing
-  // to catch. A denial costs a re-download later, which the size check catches cleanly.
+  // the doorhanger, and a load that stalls until somebody notices a permission prompt is
+  // worse than an unprotected entry. It never rejects. A denial costs a re-download, which
+  // the size check catches cleanly.
   if (cache) requestPersistence();
 
   if (cache) {
@@ -281,13 +270,11 @@ export const getModelSource = async (
   const totalBytes = header ? Number(header) : expectedBytes;
   const stream = withProgress(response.body, totalBytes, onProgress);
 
-  // A DISAGREEMENT IS NEWS, NOT A FAILURE. `expectedBytes` doubles as a version pin: this
-  // model is pinned by repo and filename only, so if HuggingFace republishes the file the
-  // size is the first place it shows. Worth saying out loud before a talk -- the weights
-  // are not the ones this deck was rehearsed against -- but refusing to run would be
-  // strictly worse, and used to be exactly what happened: every size check compared against
-  // the constant, so an upstream change made the download fail, delete itself, and fail
-  // again on retry, reporting "incomplete" about a file that was complete.
+  // A DISAGREEMENT IS NEWS, NOT A FAILURE. `expectedBytes` doubles as a version pin -- the
+  // model is pinned by repo and filename only, so a republished file shows up here first.
+  // Worth saying out loud before a talk, but refusing to run would be strictly worse:
+  // checking truncation against the constant makes an upstream change fail, delete itself,
+  // and fail again on retry, reporting "incomplete" about a complete file.
   if (header && totalBytes !== expectedBytes) {
     console.warn(
       `[chat] the model upstream is ${mb(totalBytes)} MB, not the pinned ${mb(expectedBytes)} MB. ` +

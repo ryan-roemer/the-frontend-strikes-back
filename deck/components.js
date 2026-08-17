@@ -338,6 +338,55 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
 };
 
 /**
+ * Handles a click on an overview-mode thumbnail. Passed to `Deck` as
+ * `onSlideClick`, which replaces Spectacle's own handler. It has to: Spectacle's
+ * cannot navigate to the first slide.
+ *
+ * A thumbnail click is a full page load. Spectacle's `useMode` hook assigns
+ * `window.location.search` and the deck re-initializes from the query string.
+ * The index it writes comes out of `toggleMode`:
+ *
+ *     let stepIndex = 0, slide = senderSlideIndex || "";
+ *     const params = parse(window.location.search);
+ *     if (!slide) { slide = params.slideIndex; stepIndex = params.stepIndex; }
+ *
+ * `senderSlideIndex || ""` -- SLIDE INDEX 0 IS FALSY, so clicking the first
+ * thumbnail looks the same as no slide being clicked, and the fallback sends you
+ * to the slide the URL already names: the one you opened overview mode from.
+ * Measured: enter overview at slide 10, click thumbnail 1, land back on slide 10.
+ * Every other thumbnail works, so it reads as flaky rather than broken.
+ *
+ * The override takes effect because Spectacle spreads the deck's props over its
+ * internal defaults (`{overviewMode, onSlideClick: theirs, ...}, ourProps`).
+ * `Deck` has already turned the clicked slide's id into a position by the time it
+ * calls this, so `index` needs no lookup.
+ *
+ * It also keeps the deck's own flags. Spectacle rebuilds the query string from
+ * scratch, so any mode change drops `?chat`, `?tools`, `?dump` and
+ * `?animate=false` -- open the chat, glance at the overview, and the chat is
+ * gone. Rewriting only the two navigation params leaves the rest alone.
+ *
+ * THE OVERVIEW CHECK IS NOT OPTIONAL. Spectacle wires this callback to `onClick`
+ * on every slide wrapper in every mode; its own handler starts with
+ * `inOverviewMode && ...`, and that test is all that keeps clicks quiet during
+ * the talk. Without it, one stray click on the slide being presented reloads the
+ * page and resets the step to 0.
+ */
+export const selectSlideFromOverview = (event, index) => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("overviewMode") !== "true") return;
+
+  event?.preventDefault();
+
+  params.set("slideIndex", String(index));
+  params.set("stepIndex", "0");
+  // Leaving overview: the mode is carried entirely by this flag.
+  params.delete("overviewMode");
+
+  window.location.search = params.toString();
+};
+
+/**
  * Flatten a note's indentation before Spectacle ever sees it.
  *
  * Spectacle dedents markdown with `indentNormalizer`, which takes the SHORTEST

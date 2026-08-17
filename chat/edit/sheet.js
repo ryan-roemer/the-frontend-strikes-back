@@ -1,9 +1,6 @@
 /**
  * The deck's own stylesheet: the one edit channel React cannot touch.
  *
- * Recovered from the `chat/edit/sheet.js` deleted in `ef4c47f`, nearly verbatim,
- * because the reasoning below is measured rather than stylistic.
- *
  * React diffs its own previous props against its next props -- never against the
  * DOM -- so it only rewrites what IT changed. A `<style>` element it did not
  * create is invisible to it, and so is every rule inside. Same for

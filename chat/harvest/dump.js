@@ -24,15 +24,12 @@
  *     deckDump.context(question)   the view a turn would pick, and what it costs
  *     deckDump.views              { position, outline, slide, index }
  *
- * Installed by `mountChat()`, which is why there is no `import()` for it in
- * `index.html`: the assistant is meant to come out in three edits that go
- * together, and a fourth entry point would have made that comment a lie.
+ * Installed by `mountChat()` rather than by its own `import()` in `index.html`, so removing
+ * the assistant stays the three edits that comment promises.
  *
- * NO REACT HERE, on purpose. The overlay is built with `createElement` and
- * appended to `<body>`, so it shares nothing with the deck's tree -- a debug
- * surface that could disturb what it is inspecting would be worse than no debug
- * surface. Same reasoning that put the chat on its own root: see the comment on
- * `mountChat()` in `chat/index.js`.
+ * NO REACT HERE, on purpose: the overlay is built with `createElement` and appended to
+ * `<body>`, so it shares nothing with the deck's tree. A debug surface that could disturb
+ * what it inspects is worse than no debug surface.
  *
  * THE DECK STAYS MOUNTED. The overlay covers it rather than replacing it,
  * because the fiber tree IS the source -- unmounting the deck to show its own
@@ -240,9 +237,8 @@ export const installDump = () => {
     },
   };
 
-  // Matching `installTools()` and `mountChat()`: whatever this put on `window`,
-  // it takes back off. The console handle used to survive an unmount and go on
-  // answering from a deck that had been torn down.
+  // Whatever this put on `window`, it takes back off -- otherwise the console handle
+  // survives an unmount and goes on answering from a deck that is gone.
   const teardown = () => {
     delete window.deckDump;
     document.getElementById(OVERLAY_ID)?.remove();

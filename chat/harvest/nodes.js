@@ -60,13 +60,11 @@ const MAX_DEPTH = 40;
  * `divider__title` has to be ahead of `slide-title` or every chapter divider
  * reports itself as an ordinary slide title.
  *
- * This is the same class vocabulary `markdown.js` serializes from and
- * `styles.css` styles from, which is the point: the deck has no semantic HTML
- * (Spectacle renders `Heading` and `Text` as the same `styled.div`), so its
- * class names are the only naming layer that exists. Every entry below was
- * measured against the live tree rather than read off a stylesheet -- an
- * aspirational role for a class nothing renders is a role the model can never
- * use.
+ * The same class vocabulary `serialize.js` reads and `styles.css` styles, which is the
+ * point: the deck has no semantic HTML -- Spectacle renders `Heading` and `Text` as the
+ * same `styled.div` -- so class names are the only naming layer that exists. Every entry
+ * is checked against the live tree rather than read off a stylesheet; a role for a class
+ * nothing renders is a role the model can never use.
  */
 const ROLES = [
   ["title-display", "title"],
@@ -136,13 +134,10 @@ export const normalize = (text) => text.replace(/\s+/g, " ").trim();
  * props. Nearly every heading in this deck is `<Heading>Hi!</Heading>`, and
  * missing this is what once cost 25 of 35 slide titles.
  *
- * A NESTED LIST IS NOT THIS NODE'S TEXT. Stopping at one is what makes a parent
- * bullet addressable separately from its sub-bullets. Slide 9's third bullet used
- * to come back as "And the agent can be just about anywhere: Claude Desktop, over
- * a local relay A browser extension Or code running in the page itself" -- four
- * visible bullets in one string, so naming any of the three sub-items resolved to
- * their parent, and rewriting that parent's element would have taken the whole
- * sub-list with it.
+ * A NESTED LIST IS NOT THIS NODE'S TEXT. Stopping at one is what makes a parent bullet
+ * addressable separately from its sub-bullets. Without it, four visible bullets come back
+ * as one string: naming any sub-item resolves to the parent, and rewriting that parent's
+ * element takes the whole sub-list with it.
  */
 export const flattenNode = (fiber, depth = 0) => {
   if (!fiber || depth > MAX_DEPTH) return "";

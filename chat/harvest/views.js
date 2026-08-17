@@ -1,14 +1,10 @@
 /**
  * Sized views of the deck, and the rule that picks one.
  *
- * THE BUDGET IS THE DESIGN. Both providers have a real input window around
- * 8-9k tokens (`docs/chat-handoff.md` §8), and §6 there records what happens
- * when you spend it: excerpts accumulating across one conversation took answers
- * from 5-of-5 usable to 2-of-5 while context climbed 0 -> 4,338 tokens. Context
- * is not free and more of it is not better.
- *
- * So the question is never "what could the model know" but "what does THIS
- * request need". Measured against the deck's own command families:
+ * THE BUDGET IS THE DESIGN. Both providers have a real input window around 8-9k tokens,
+ * and spending it degrades answers well before filling it (`docs/chat-handoff.md` §6). So
+ * the question is never "what could the model know" but "what does THIS request need",
+ * measured against the deck's own command families:
  *
  *   "go to slide 10" / "the previous one" / "the last slide"   position    ~20 tok
  *   "summarize this slide"                                     + active     ~90 tok
@@ -16,37 +12,22 @@
  *   "which slide covers WebMCP"                                + outline   ~370 tok
  *   "every slide that says TODO"                               + index    ~1,700 tok
  *
- * Three of those five need no slide content at all -- a navigation command is
- * answerable from a slide number and a count. That is why the default here is
- * ~90 tokens rather than the ~745 the handoff doc proposed: it sized the default
- * as facts + outline + active slide, before the command families were written
- * down and it became clear how few of them read the outline.
+ * Three of the five need no slide content at all, which is why the default is ~90 tokens.
  *
- * SCOPE IS A SAFETY PROPERTY, not only a budget one. If only the active slide's
- * ids are in view, a content command CANNOT address slide 22 -- the blast radius
- * is bounded by construction rather than by the model behaving. That matters
- * more here than usual, because neither provider offers grammar-constrained
- * decoding (chat-handoff §10), so there is no schema keeping a 2B model inside
- * the lines.
+ * SCOPE IS A SAFETY PROPERTY, not only a budget one. With only the active slide's ids in
+ * view, a content command CANNOT address slide 22 -- the blast radius is bounded by
+ * construction rather than by the model behaving. Neither provider offers
+ * grammar-constrained decoding, so nothing else keeps a 2B model inside the lines.
  *
- * THE VIEW IS CHOSEN IN JS, NEVER BY THE MODEL. A deterministic rule costs
- * nothing and cannot hallucinate its way into the wrong scope, which a
- * model-driven selector can and eventually would.
+ * THE VIEW IS CHOSEN IN JS, NEVER BY THE MODEL.
  *
- * WHO CONSUMES WHAT. Three callers, taking opposite halves -- `chat/agent/prompt.js`
- * takes `outline` and `outlineText` for the system prompt, and the two below:
+ * WHO CONSUMES WHAT:
  *
- *   WebMCP / `deckDump.context()`  `selectView` + `contextFor` -- the per-request
- *                                  cascade above, with node ids, for an agent
- *                                  that can act on them.
- *   the chat  `chat/agent/deck-context.js` -- `outlineText` once in the system
- *             prompt, and `slideText(slide, { ids: false })` pinned at most once
- *             per slide. It does NOT use the cascade: it has two fixed sources,
- *             and routing between five views per question is the complexity that
- *             sank the last attempt.
- *
- * The cascade stays regardless. It is the seam for the chat driving navigation
- * itself, which is the next thing after this one.
+ *   WebMCP / `deckDump.context()`  `selectView` + `contextFor`, the per-request cascade
+ *                                  above, with node ids for an agent that can act on them.
+ *   the chat  `agent/prompt.js` takes `outline`/`outlineText` for the system prompt;
+ *             `agent/deck-context.js` pins `slideText(slide, { ids: false })` at most once
+ *             per slide. Neither uses the cascade -- they have two fixed sources.
  */
 import { getSnapshot } from "../bus.js";
 import { harvestDeck, harvestSlide, resolveNode } from "./index.js";
@@ -85,10 +66,9 @@ export const outline = () =>
 /**
  * One slide's addressable nodes. The view content commands run on.
  *
- * AN ALIAS, not a wrapper. It was `(number) => harvestSlide(number)`, which reads as
- * though it might one day do something. It does not and should not: what this module adds
- * is a vocabulary -- `position`, `outline`, `slideView`, `nodeIndex` are the four sized
- * views, and `dump.js` exposes exactly those as `deckDump.views` -- not behaviour.
+ * AN ALIAS, not a wrapper: what this module adds is a vocabulary -- `position`, `outline`,
+ * `slideView`, `nodeIndex` are the four sized views, exposed as `deckDump.views` -- not
+ * behaviour.
  */
 export const slideView = harvestSlide;
 
@@ -115,21 +95,15 @@ const tagged = (tag, lines, attrs = "") =>
   [`<${tag}${attrs}>`, ...lines, `</${tag}>`].join("\n");
 
 /**
- * `step` is reported to an agent and withheld from the chat, which is not an
- * inconsistency but the same rule applied twice.
+ * A SLIDE'S CONTENT IS WHAT IT SAYS, NOT WHAT HAS FADED IN YET. `harvestSlide` reads the
+ * fiber tree, so `Appear`-wrapped bullets are present from step 0 -- a question asked
+ * before the last bullet animates gets the same answer as one asked after. Animation is
+ * pacing for the room, not a fact about the deck.
  *
- * A SLIDE'S CONTENT IS WHAT IT SAYS, NOT WHAT HAS FADED IN YET. `harvestSlide`
- * reads the fiber tree, so `Appear`-wrapped bullets are present from step 0 --
- * measured identical before and after stepping through slide 3 -- and that is the
- * behaviour we want: a question asked before the last bullet animates should get
- * the same answer as one asked after. Animation is pacing for the room, not a
- * fact about the deck.
- *
- * Which makes `step` actively misleading in the chat's context. Handing a model
- * every bullet AND "step 1 of 4" invites it to reason about what the audience can
- * currently see, from a number that says nothing about which nodes those are. An
- * agent driving the deck genuinely needs the step, because it has to be able to
- * advance it; the chat cannot, so it does not get it.
+ * Which makes `step` misleading in the chat's context: handing a model every bullet AND
+ * "step 1 of 4" invites it to reason about what the audience can see, from a number that
+ * says nothing about which nodes those are. An agent driving the deck needs the step
+ * because it can advance it; the chat cannot, so it does not get it.
  */
 const positionText = ({ slide, step, count }, { showStep = true } = {}) =>
   tagged("deck-position", [
@@ -177,15 +151,12 @@ const nameCounts = (nodes) => {
 /**
  * What to call one node, out loud.
  *
- * The ordinal is only added when the name REPEATS at that depth. "title 1" where
- * there is one title is noise the model reads past on every turn, but "bullet 2"
- * is how a presenter names the thing -- and without it "replace the first bullet"
- * has nothing to attach to. The deleted `deck-adapter.js` recorded that failure:
- * it rewrote a slide title instead.
+ * The ordinal is added only when the name REPEATS at that depth: "title 1" where there is
+ * one title is noise, but without "bullet 2" a phrase like "replace the first bullet" has
+ * nothing to attach to and lands on the slide title instead.
  *
- * SHARED with `describeNode`, deliberately. A confirmation that says "bullet"
- * where the roster said "bullet 2" is worse than no confirmation, because the
- * user agrees to a different thing than the one that will change.
+ * SHARED with `describeNode`, deliberately -- a confirmation saying "bullet" where the
+ * roster said "bullet 2" has the user agreeing to a different thing than will change.
  */
 const labelOf = (node, totals) => {
   const name = roleName(node.role, node.depth);
@@ -201,13 +172,10 @@ const labelOf = (node, totals) => {
  * of slide 9's bullets sit under the one above them. Without it the roster reads
  * as seven siblings and "the last bullet" picks the wrong one.
  *
- * `ids` IS A FLAG, NOT A SECOND RENDERER. The WebMCP layer needs the `12.3`
- * vocabulary because an agent addresses nodes by it; the chat does not, because
- * it has no tools and cannot act on an id -- so ids there are ~15% of the block
- * spent on something whose only observable effect would be a 2B model reading
- * "12.3" out loud. The day the chat can navigate or edit, this flips back to
- * true and nothing else moves. Same reasoning `provenance` is kept out of model
- * context in `deck-context-handoff.md` §5.
+ * `ids` IS A FLAG, NOT A SECOND RENDERER. WebMCP needs the `12.3` vocabulary because an
+ * agent addresses nodes by it; the chat has no tools, so ids there are ~15% of the block
+ * spent on something whose only observable effect is a 2B model reading "12.3" out loud.
+ * The day the chat can navigate or edit, this flips back to true and nothing else moves.
  */
 const nodeLine = (node, totals, { ids }) => {
   const indent = "  ".repeat(Math.max(0, node.depth - 1));
@@ -223,23 +191,16 @@ const nodeLines = (nodes, { ids = true } = {}) => {
 /**
  * A code pane's actual source, fenced.
  *
- * A `CodePane` node's TEXT IS ITS FILENAME -- `code: register-tool.js` -- because
- * that is what `roleOf` can see on the fiber. Which meant a slide whose entire
- * content is a code sample serialised to two lines, and the assistant, asked to
- * explain the code, correctly and uselessly answered "I cannot see the actual
- * code within register-tool.js. I can only see the slide title and the file name."
- * On a talk whose first chapter is three slides of WebMCP registration code, that
- * is the single worst place to be blind.
+ * A `CodePane` NODE'S TEXT IS ITS FILENAME -- `code: register-tool.js` -- because that is
+ * all `roleOf` can see on the fiber. Without this, a slide whose entire content is a code
+ * sample serialises to two lines and the model answers "I can only see the slide title and
+ * the file name", on the chapter that is three slides of registration code.
  *
- * The source is right there on `slide.code[]` and always has been; nothing was
- * reading it. Whole deck: three slides, 1,815 characters, ~450 tokens for ALL of
- * it, so there is no budget argument for leaving it out -- one code slide's block
- * goes from ~40 characters to ~620, still under 160 tokens.
+ * The whole deck's source is ~450 tokens, so there is no budget argument for omitting it.
  *
- * Matched by FILE NAME rather than by position, because the node's text is
- * exactly the key `render()` builds its line from (`file ?? language`), and
- * matching on order would silently pair the wrong source on any slide that ever
- * grows a second pane.
+ * Matched by FILE NAME rather than position: the node's text is exactly the key `render()`
+ * builds its line from (`file ?? language`), and matching on order would silently pair the
+ * wrong source on any slide that grows a second pane.
  */
 const codeFence = (slide, node) => {
   const entry = (slide.code ?? []).find(
@@ -250,13 +211,9 @@ const codeFence = (slide, node) => {
 };
 
 /**
- * `code` defaults ON, unlike `ids`.
- *
- * The two flags look symmetrical and are not. An id is addressing metadata that
- * only a caller able to act on it wants; the source of a code pane is the slide's
- * CONTENT, and a view of slide 10 without it is not a smaller view of slide 10,
- * it is a wrong one. So the only caller who should turn this off is one that has
- * measured that it cannot afford it, and none currently do.
+ * `code` defaults ON, unlike `ids`. The flags look symmetrical and are not: an id is
+ * addressing metadata only a caller able to act on it wants, while a code pane's source is
+ * the slide's CONTENT -- a view of slide 10 without it is not smaller, it is wrong.
  */
 const slideText = (slide, { ids = true, code = true } = {}) => {
   if (!slide) return "";
@@ -281,17 +238,15 @@ const indexText = (nodes) => tagged("deck-nodes", nodeLines(nodes));
 /**
  * "You are here, and you have seen this one already."
  *
- * The cheap half of the chat's per-turn context: ~20 tokens instead of the ~65 a
- * slide block costs, for the case where the deck has moved back to a slide whose
- * content is already in the conversation. Naming the title as well as the number
- * is what makes it a REFERENCE rather than a bare coordinate -- the model has to
- * be able to find the block this points at, and it was tagged with that title.
+ * ~20 tokens instead of the ~65 a slide block costs, for when the deck moves back to a
+ * slide already in the conversation. Naming the title as well as the number makes it a
+ * REFERENCE rather than a coordinate -- the model has to find the block this points at,
+ * and that block was tagged with the title.
  *
- * SPELLED OUT RATHER THAN TERSE, and that was measured. "Now on slide 9 of 35
- * ("How WebMCP works"), already shown above" left a 2B model answering about the
- * slide from the previous exchange instead. Naming the earlier block explicitly,
- * and saying that the question is about this slide, is what actually redirects it
- * -- 15 tokens is a bad place to economise.
+ * SPELLED OUT RATHER THAN TERSE, which was measured: the compact form left a 2B model
+ * answering about the slide from the previous exchange. Naming the earlier block and
+ * stating that the question is about THIS slide is what redirects it. A bad 15 tokens to
+ * economise on.
  */
 export const positionRef = ({ slide, count, title }) =>
   tagged("deck-position", [
@@ -307,28 +262,22 @@ export const positionRef = ({ slide, count, title }) =>
  *
  *   slide 9, bullet 2 -- "One API: document.modelContext"
  *
- * THE CHEAPEST SAFETY THERE IS. Every way an address can go wrong here ends the
- * same way -- the right-looking id for the wrong thing -- and none of them are
- * visible from the id. Resolving it and quoting the text back turns all of them
- * into something the user can catch in one glance, for the cost of one lookup.
+ * THE CHEAPEST SAFETY THERE IS. Every way an address goes wrong ends the same way -- the
+ * right-looking id for the wrong thing -- and none of them are visible from the id.
+ * Quoting the text back makes all of them catchable in one glance.
  *
- * The label comes from the same `labelOf` the roster uses, so the words in the
- * confirmation are the words the model was offered.
- *
- * Names the SLIDE as well as the node, because the id already encodes it and a
- * confirmation that omits it cannot catch the one failure that matters most:
- * having resolved against the wrong slide entirely.
+ * The label comes from the same `labelOf` the roster uses, so the confirmation uses the
+ * words the model was offered. It names the SLIDE too, which is the only way to catch the
+ * failure that matters most: having resolved against the wrong slide entirely.
  */
 export const describeNode = (id) => {
   const node = resolveNode(id);
   if (!node) return null;
 
-  // NULL RATHER THAN A THROW when the second harvest comes back empty. This runs on
-  // the receipt path of every edit, inside `chat/edit/apply.js`, whose header promises
-  // "Never throws. A bad op is a message, not a crash." The two harvests are separate
-  // reads of a live deck: the first can succeed and the deck can move or unmount
-  // before the second, and `slide.nodes` on a null slide took the whole edit down as a
-  // transport failure. Callers already fall back to the bare id.
+  // NULL RATHER THAN A THROW when the second harvest comes back empty. This runs on the
+  // receipt path of every edit, and `apply.js` promises never to throw. The two harvests
+  // are separate reads of a live deck -- it can move or unmount between them -- and
+  // callers already fall back to the bare id.
   const slide = harvestSlide(node.slide);
   if (!slide) return null;
 
@@ -443,7 +392,4 @@ export const contextFor = (text) => {
   };
 };
 
-// `indexText`, `labelOf`, `nameCounts` and `roleName` were exported here too and had
-// no consumer outside this file. They are still used inside it -- `describeNode` and
-// the roster builders -- just no longer part of the module's surface.
 export { outlineText, positionText, slideText };

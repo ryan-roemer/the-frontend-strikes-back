@@ -111,9 +111,8 @@ export const installTools = () => {
     groups.push({ group: "edit", tools: edit.tools });
   }
 
-  // ONE PASS, ONE `guard()` PER TOOL. `call` is the guarded function, and `tools`
-  // is the registry rather than a parallel list built from the same groups -- the
-  // two used to be built separately and wrapped the same tool twice.
+  // ONE PASS, ONE `guard()` PER TOOL: `call` is the guarded function and `tools` IS the
+  // registry, rather than a parallel list that would wrap each tool a second time.
   registry = groups.flatMap(({ group, tools: list }) =>
     list.map((tool) => ({
       name: tool.name,
@@ -193,8 +192,3 @@ export const installTools = () => {
 
   return teardown;
 };
-
-// There was a `deckReady()` here, documented as "exported for tools". No tool ever
-// imported it -- they read `position()` from `harvest/views.js` inside `execute`,
-// which answers the same question and carries the slide with it. It also collided by
-// name with `harvest/index.js`'s `deckReady`, which IS used.

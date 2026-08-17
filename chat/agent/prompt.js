@@ -2,38 +2,29 @@
  * The system prompt: who the assistant is, and everything about the deck that
  * does not change while it is running.
  *
- * A FUNCTION, not a constant, and that is now load-bearing rather than merely
- * tidy. `outlineText()` reads a live harvest of the fiber tree, so this cannot be
- * a string evaluated at import time -- at import time there is no deck yet.
- * `chat/index.js` hands it over via `setSystemPrompt`, and `model-state.js` calls
- * it at the moment a session is actually created.
+ * A FUNCTION, not a constant: `outlineText()` reads a live harvest of the fiber
+ * tree, and at import time there is no deck yet. `chat/index.js` hands it over via
+ * `setSystemPrompt`, and it is called when a session is created.
  *
- * WHAT GOES HERE AND WHAT DOES NOT IS DECIDED BY VOLATILITY, not by importance.
- * The system prompt is fixed when the session is created, so anything that
- * changes while the deck is running cannot live here -- rebuilding the session on
- * every navigation would be a full `create()` on Chrome. The slide on screen is
- * therefore NOT here; see `deck-context.js`.
+ * VOLATILITY DECIDES WHAT GOES HERE, not importance. The system prompt is fixed
+ * when the session is created, so anything that changes while the deck runs cannot
+ * live here -- rebuilding on every navigation is a full `create()` on Chrome. The
+ * slide on screen is therefore in `deck-context.js` instead.
  *
- * THE BUDGET. Both providers have a real input window around 8-9k tokens, and
- * LiteRT re-prefills the whole preface on every turn (`providers/litert.js`), so
- * a token here is a token paid again on every answer at ~1,600 tok/s. This block
- * costs ~680 and buys ~0.4s per turn:
+ * THE BUDGET. LiteRT re-prefills the whole preface every turn, so a token here is
+ * paid again on every answer at ~1,600 tok/s. This block costs ~680 and ~0.4s:
  *
  *   identity + capabilities   ~60 tok
  *   <deck-facts>             ~350 tok   the argument, from the data modules
  *   <deck-outline>           ~270 tok   35 titles
  *
- * The alternative was the whole deck as Markdown -- 16,100 characters, ~4,000
- * tokens, 49% of the window and +2.5s on every turn, taking a ~1s answer to
- * ~3.5s. It also carries the speaker notes, which are full of presenter timings,
- * TODOs and "first cut if we're running long". Those must not reach a model that
- * is answering out loud, in a room, with the notes' author standing in it.
+ * The whole deck as Markdown would be ~4,000 tokens -- 49% of the window and
+ * +2.5s per turn -- and would carry the speaker notes, which hold presenter
+ * timings and TODOs that must not reach a model answering out loud in a room.
  *
- * `deck-context-handoff.md` §4 dropped the outline from the per-turn default
- * because navigation commands never read it. That was right for the WebMCP
- * command router and is wrong here: "which slide covers WebMCP" and "what's the
- * argument" are most of what a Q&A chat is asked, and the outline answers the
- * first for 270 tokens with no retrieval at all.
+ * The outline earns its 270 tokens here even though the WebMCP command router
+ * drops it: "which slide covers X" and "what's the argument" are most of what a
+ * Q&A chat is asked, and it answers the first with no retrieval at all.
  */
 import { chapters } from "../../deck/chapters.js";
 import { AUDIENCES, takeaways, VERDICTS } from "../../deck/takeaways.js";
@@ -45,16 +36,13 @@ const tagged = (tag, lines) => [`<${tag}>`, ...lines, `</${tag}>`].join("\n");
 /**
  * The talk's argument, from the modules that define it.
  *
- * READ FROM THE DATA, NOT FROM A HARVEST. `deck/takeaways.js` and
- * `deck/chapters.js` exist precisely because each of these appears several times
- * across the deck and hand-copies drift; harvesting them back out of the rendered
- * slides would reassemble from three lossy copies something we can read from the
- * source of truth in one line each.
+ * READ FROM THE DATA, NOT FROM A HARVEST. Each of these appears several times across the
+ * deck, which is why `deck/takeaways.js` and `deck/chapters.js` exist -- harvesting them
+ * back out of rendered slides reassembles from lossy copies what the source states once.
  *
- * The `detail` line is included and `provenance`-style metadata is not: a detail
- * is the caveat that makes a claim honest ("good for narrow jobs, not your
- * product's core... yet"), which is exactly the nuance a small model drops if you
- * give it only the headline.
+ * `detail` is included because it is the caveat that makes a claim honest ("good for
+ * narrow jobs, not your product's core... yet") -- exactly the nuance a small model drops
+ * when given only the headline.
  */
 const factsText = () =>
   tagged("deck-facts", [
@@ -84,14 +72,12 @@ const IDENTITY = [
 /**
  * What the assistant can and cannot see.
  *
- * WORTH GETTING EXACTLY RIGHT, because both ways of being wrong fail on stage.
- * Overstate it and the model answers confidently about slide 22, whose text it
- * has never been given. Understate it -- the old line was a flat "you have no
- * access to the slides" -- and it refuses to discuss the slide it is currently
- * being shown, in front of an audience watching that slide.
+ * BOTH WAYS OF BEING WRONG FAIL ON STAGE. Overstate it and the model answers confidently
+ * about slide 22, whose text it has never been given; understate it and it refuses to
+ * discuss the slide it is being shown, in front of an audience watching that slide.
  *
- * So it is stated as three specifics rather than as a posture: the outline of
- * all of them, the full text of the ones asked about, nothing else.
+ * Hence three specifics rather than a posture: the outline of all of them, the full text
+ * of the ones asked about, nothing else.
  */
 const CAPABILITIES = [
   "",

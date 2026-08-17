@@ -3,11 +3,10 @@ import { byId, offered, pick, remember } from "./providers/index.js";
 import { createStore } from "../store.js";
 
 /**
- * Where the on-device model is, as one small state machine -- for either provider.
+ * Where the on-device model is, as one state machine driving either provider.
  *
- * Shaped after joyce's `LoadingButton`: a states table, an icon per state, and a primary
- * action whose MEANING changes with the state. What each affordance can actually do is the
- * part worth reading, because it is completely different depending on who owns the model.
+ * A states table, an icon per state, and a primary action whose MEANING changes with the
+ * state -- because what each affordance can do differs entirely by who owns the model:
  *
  *   affordance              LiteRT (page owns it)        Chrome (browser owns it)
  *   ----------------------  ---------------------------  ----------------------------
@@ -16,11 +15,8 @@ import { createStore } from "../store.js";
  *   delete from disk        a real button                NOT POSSIBLE from a page
  *   is the status a fact?   yes                          no -- availability() flaps
  *
- * The machine holds ONE state object, reset on a provider switch rather than kept per
- * provider. Four components read `state.status` flat, so slices would force every one of
- * them to learn which provider is active -- and a switch is destructive by definition (it
- * bumps `epoch` and tears down the conversation), so there is nothing worth preserving
- * across it.
+ * ONE state object, reset on a provider switch rather than kept per provider: a switch is
+ * destructive by definition, so there is nothing worth preserving across it.
  *
  * A module singleton rather than React state, because the session must outlive the panel
  * being closed.
@@ -64,12 +60,10 @@ const BASE_STATE_META = {
     title: "On disk — click to start a session",
     action: "load",
   },
-  // Distinct from DOWNLOADING, because conflating them tells a lie that shows. Both
-  // providers have made the same lie available in opposite directions: Chrome fires a
-  // download event with `loaded: 0` for a model already on disk, which showed
-  // "Downloading… (0%)" forever; LiteRT reports a cache hit as progress 1, which would show
-  // a frozen "100%" through the whole GPU load. Hence the rule in `doLoad()`: progress
-  // belongs to the download phase and NOTHING else.
+  // Distinct from DOWNLOADING, and both providers make conflating them tempting in
+  // opposite directions: Chrome fires a download event with `loaded: 0` for a model
+  // already on disk, LiteRT reports a cache hit as progress 1. Hence the rule in
+  // `doLoad()` -- progress belongs to the download phase and nothing else.
   [STATES.CREATING]: {
     icon: "ph-arrows-clockwise",
     tone: "busy",
@@ -96,13 +90,9 @@ let active = pick();
 
 export const activeProvider = () => active;
 
-/**
- * Presentation for a state, with the active provider's overrides merged in.
- *
- * Replaces what used to be an exported `STATE_META` table. A plain object could not work
- * once the same state means different things per provider -- `DOWNLOADING` is a cancel
- * button on LiteRT and a re-check on Chrome.
- */
+/** Presentation for a state, with the active provider's overrides merged in. A function
+ *  rather than a table because `DOWNLOADING` is a cancel on LiteRT and a re-check on
+ *  Chrome. */
 export const stateMeta = (status) => {
   const base = BASE_STATE_META[status] ?? BASE_STATE_META[STATES.UNSUPPORTED];
   const override = active?.stateMeta?.[status];
@@ -125,7 +115,7 @@ let state = {
   /** Byte counts, e.g. "412 / 2008 MB". A percentage alone cannot distinguish slow from
    *  stalled. Null on Chrome, which reports a fraction and never a total. */
   progressText: null,
-  /** ms the last load took, for the label -- joyce shows this too. */
+  /** ms the last load took, for the label. */
   elapsed: null,
   error: null,
   /** Whether the provider is holding something expensive: a hot GPU engine, or a session. */
@@ -138,11 +128,8 @@ let state = {
    *
    * Distinct from `revision`, which moves for any change worth re-rendering. This one is a
    * single claim: whatever the model remembered, it does not any more. The panel watches it
-   * and wipes the transcript, so the two can never disagree.
-   *
-   * They used to. Freeing the conversation from the status row left the transcript on
-   * screen, so the window showed an exchange the model had no memory of -- and a follow-up
-   * like "tell me more" would then resolve against nothing.
+   * and wipes the transcript, so a window showing an exchange the model cannot recall --
+   * where "tell me more" resolves against nothing -- is impossible by construction.
    */
   epoch: 0,
 };
@@ -196,16 +183,14 @@ let pendingLoad = null;
 /**
  * Which generation `pendingLoad` belongs to.
  *
- * THIS FIELD EXISTS BECAUSE OF A REAL WEDGE, and it is the most important two lines in the
- * file. `pendingLoad` was previously cleared only in `load()`'s `finally` -- which never
- * runs if `doLoad()` never settles. Chrome's `create()` has been measured to never settle.
- * So a hung Chrome load pinned `pendingLoad` forever, `refresh()` early-returned on it
- * forever, and the escape hatch (switch back to LiteRT) landed in a state machine that
- * could no longer re-sample anything. The bail-out was itself wedged.
+ * CHROME'S `create()` HAS BEEN MEASURED TO NEVER SETTLE, so `pendingLoad` cannot be
+ * cleared in a `finally` alone -- that never runs, `refresh()` early-returns on the stale
+ * promise forever, and the escape hatch (switch providers) lands in a machine that can no
+ * longer re-sample anything.
  *
- * Anything that invalidates a load in flight bumps `loadGeneration`, and both `refresh()`
- * and `load()` treat a `pendingLoad` from an older generation as absent. The abandoned
- * promise is then free to never settle; nothing is waiting on it.
+ * Anything invalidating a load in flight bumps `loadGeneration`, and both `refresh()` and
+ * `load()` treat an older-generation `pendingLoad` as absent. The abandoned promise is
+ * then free to never settle.
  */
 let pendingGeneration = 0;
 
@@ -242,13 +227,10 @@ export const refresh = async () => {
     set({ status: STATES.READY });
     return state;
   }
-  // A load in flight already owns the status, and this early return matters far more on
-  // LiteRT than it did under the Prompt API: it guards a window measured in minutes rather
-  // than seconds. The panel calls `refresh()` every time it opens, and without this,
-  // opening the panel mid-download would find no cache entry, report DOWNLOADABLE, and put
-  // a second multi-gigabyte fetch one click away.
-  //
-  // Generation-checked, so a load that will never settle cannot pin this closed forever.
+  // A load in flight owns the status. The panel calls `refresh()` every time it opens, and
+  // without this, opening it mid-download finds no cache entry, reports DOWNLOADABLE, and
+  // puts a second multi-gigabyte fetch one click away. Generation-checked, so a load that
+  // will never settle cannot pin this closed forever.
   if (loadInFlight()) return state;
 
   const status = await active.status();
@@ -286,10 +268,9 @@ const idleTimer = (ms, onIdle) => {
 /**
  * Download the model if needed, create the session.
  *
- * Two phases, and keeping them apart is the whole design. A `create()` that is secretly
- * waiting on a download surfaces as "the model took too long to start", which is both wrong
- * and unactionable -- that was the Prompt API's actual failure mode. Here the download is a
- * state of its own, with no deadline, and only the create is bounded.
+ * TWO PHASES, KEPT APART, which is the whole design. A `create()` secretly waiting on a
+ * download surfaces as "the model took too long to start" -- wrong and unactionable. Here
+ * the download is a state of its own with no deadline, and only the create is bounded.
  */
 const doLoad = async () => {
   const startedAt = Date.now();
@@ -300,10 +281,9 @@ const doLoad = async () => {
   const { ownsBytes } = provider.capabilities;
   const { stallMs, createCeilingMs } = provider.timings;
 
-  // OUTSIDE THE MAIN TRY, so it needs its own. `load()` is called bare from a click
-  // handler in `model-status.js`; a `status()` or `probe()` that throws here used to
-  // reject all the way out as an unhandled rejection, with nothing written to state
-  // and the panel showing whatever it showed before.
+  // Outside the main try, so it needs its own: `load()` is called bare from a click
+  // handler, and a throw here would reject as an unhandled rejection with nothing
+  // written to state.
   let before;
   try {
     before = await provider.status();
@@ -320,9 +300,8 @@ const doLoad = async () => {
 
   let stalled = false;
 
-  // The download itself gets NO deadline: 2 GB on venue wifi is legitimately many minutes,
-  // and any fixed limit would be a lie told to a presenter who is merely being patient. An
-  // idle timer is the honest bound -- it fires only when nothing is actually arriving.
+  // The download gets NO deadline: 2 GB on venue wifi is legitimately many minutes, so any
+  // fixed limit punishes patience. An idle timer fires only when nothing is arriving.
   const stall = idleTimer(stallMs, () => {
     stalled = true;
     downloadAbort?.abort();
@@ -391,9 +370,8 @@ const doLoad = async () => {
       ceiling,
     ]);
 
-    // A late arrival must be torn down, not kept. Easy to omit on Chrome, whose `create()`
-    // hands back no handle until it resolves -- so a session can land seconds after the
-    // presenter has switched providers, holding its context with nothing referencing it.
+    // A late arrival is torn down, not kept: Chrome's `create()` hands back no handle until
+    // it resolves, so a session can land seconds after the presenter switched providers.
     if (superseded()) {
       handle.destroy();
       return null;
@@ -411,14 +389,13 @@ const doLoad = async () => {
     });
     return chat;
   } catch (err) {
-    // A DELIBERATE CANCEL NEVER LANDS HERE. `cancelDownload()` bumps the generation before
-    // it aborts, so the only way out of this block is superseded, and it owns the repaint
-    // itself. Everything reaching the lines below is a real failure.
+    // A DELIBERATE CANCEL NEVER LANDS HERE: `cancelDownload()` bumps the generation before
+    // aborting and owns its own repaint. Everything below is a real failure.
     if (superseded()) return null;
 
     // A timeout says nothing about the model, only that we stopped waiting -- so ask the
-    // provider where things stand instead of guessing. On Chrome this is usually a download
-    // that started underneath us, and "downloading" is the honest answer.
+    // provider rather than guessing. On Chrome this is usually a download that started
+    // underneath us, and "downloading" is the honest answer.
     const timedOut = /timed out/i.test(err.message);
     const settled = timedOut
       ? await provider.status().catch(() => STATES.ERROR)
@@ -456,12 +433,9 @@ export const load = async () => {
   if (chat) return chat;
   if (!active) return null;
 
-  // Loading takes seconds at best and minutes at worst, which is ample time for a second
-  // click and a submitted question to both ask for a session. Handing back the in-flight
-  // promise means they wait on the same one instead of building two.
-  //
-  // Generation-checked: an abandoned load is not handed to a new caller, or a presenter who
-  // switched away from a hung Chrome create would immediately be made to wait on it again.
+  // A second click and a submitted question can both ask for a session while one is
+  // loading; they wait on the same promise rather than building two. Generation-checked,
+  // so a presenter escaping a hung Chrome create is not made to wait on it again.
   if (loadInFlight()) return pendingLoad;
 
   const attempt = doLoad();
@@ -478,10 +452,9 @@ export const load = async () => {
  * Stop a download in progress. Only meaningful when the provider owns the bytes; on
  * Chrome the same slot is a re-check, so this is never wired to a button there.
  *
- * IT MUST REPAINT ITSELF. Bumping the generation is what stops the abandoned `doLoad()`
- * from writing state after the fact -- which also means `doLoad()`'s catch returns early
- * and never repaints. Without the `refresh()` the panel sits on DOWNLOADING with a frozen
- * progress bar until something else happens to ask.
+ * IT MUST REPAINT ITSELF. Bumping the generation stops the abandoned `doLoad()` writing
+ * state after the fact -- which also means its catch returns early and never repaints.
+ * Without the `refresh()` the panel sits on DOWNLOADING with a frozen progress bar.
  */
 export const cancelDownload = async () => {
   loadGeneration += 1;
@@ -492,14 +465,12 @@ export const cancelDownload = async () => {
 /**
  * Free the conversation.
  *
- * On LiteRT the ENGINE deliberately stays resident. It is ~2 GB of GPU memory, so freeing
- * it looks like the tidy thing to do -- but the buttons that come here are the header's
- * broom and the header bar's trash, both of which exist to be pressed MID-TALK. Reloading
- * 2 GB onto the GPU from a button whose whole purpose is to let you carry on talking would
- * make both useless. Freeing the conversation is what actually matters anyway: that is
- * where the context window lives.
+ * On LiteRT the ENGINE deliberately stays resident. The buttons that come here exist to be
+ * pressed mid-talk, and reloading 2 GB onto the GPU from a control whose purpose is to let
+ * you carry on talking would make it useless. The conversation is what matters anyway --
+ * that is where the context window lives.
  *
- * Synchronous, because `model-status.js` calls it from a click without awaiting.
+ * Synchronous, because the click handler does not await it.
  */
 export const unload = () => {
   // Bumped even when there is no session yet: during CREATING `chat` is still null, so an
@@ -525,9 +496,8 @@ export const unload = () => {
     revision: state.revision + 1,
     epoch: state.epoch + 1,
   });
-  // The provider is the authority on what the status actually is now. Caught rather
-  // than left floating: this function is synchronous by design, so nothing is around
-  // to handle a rejection, and `refresh()` already writes its own failure into state.
+  // The provider is the authority on the status now. Caught because this function is
+  // synchronous, so nothing is around to handle a rejection.
   refresh().catch(() => {});
 };
 
@@ -557,9 +527,8 @@ export const restart = async () => {
     });
     return chat;
   } catch (err) {
-    // A failed restart on Chrome leaves no usable session -- `restart()` destroys the old
-    // one only after the new one resolves, but a rejection here means we cannot vouch for
-    // either. Drop to a known state rather than leaving a half-live handle in place.
+    // A failed restart on Chrome leaves no usable session: it destroys the old one only
+    // after the new one resolves, so a rejection vouches for neither.
     chat = null;
     set({
       status: STATES.ERROR,
@@ -574,11 +543,9 @@ export const restart = async () => {
 /**
  * Delete the downloaded model. Only offered when the provider owns the bytes.
  *
- * The affordance that matters most when something has gone wrong, which is exactly why
- * it has to survive things going wrong: a download in flight is aborted first, so its
- * `cache.put` cannot re-create the entry `remove()` just deleted, and the status is
- * asked for rather than asserted, so a delete that failed does not report DOWNLOADABLE
- * over a model that is still on disk.
+ * A download in flight is aborted FIRST, so its `cache.put` cannot re-create the entry
+ * `remove()` just deleted. The status is then asked for rather than asserted, so a delete
+ * that failed does not report DOWNLOADABLE over a model still on disk.
  */
 export const deleteDownload = async () => {
   if (!active?.capabilities.canDelete) return false;
@@ -588,8 +555,7 @@ export const deleteDownload = async () => {
     try {
       chat.destroy();
     } catch (err) {
-      // Matching `unload()` and `switchProvider()`. A handle that will not tear down
-      // must not stop the bytes from going.
+      // A handle that will not tear down must not stop the bytes from going.
       console.warn("[chat] destroying the session failed:", err.message);
     }
     chat = null;
@@ -636,10 +602,8 @@ export const switchProvider = async (id) => {
     }
     chat = null;
   }
-  // EVICT, not release. `release()` deliberately keeps LiteRT's engine hot for the broom,
-  // but switching away means nothing will reference those ~2 GB of GPU memory again until
-  // the presenter switches back -- and on a laptop mid-talk that is the difference between
-  // a working deck and a swapping one.
+  // EVICT, not release. `release()` keeps LiteRT's engine hot for the broom; switching away
+  // means nothing references those ~2 GB until the presenter switches back.
   await previous?.evict().catch(() => {});
 
   active = next;
@@ -672,21 +636,15 @@ export const switchProvider = async (id) => {
  */
 export const touch = () => {
   set({ revision: state.revision + 1 });
-  // Caught, not floating. A sample that fails is a stale meter, which is a far smaller
-  // problem than an unhandled rejection in the console of a deck being presented.
+  // A failed sample is a stale meter; an unhandled rejection is a console error mid-talk.
   chat
     ?.sampleContext()
     .then(() => set({ revision: state.revision + 1 }))
     .catch(() => {});
 };
 
-/**
- * Live context usage.
- *
- * Synchronous because it is called in a component body. Both providers answer synchronously
- * now -- LiteRT caches an async sample behind this, Chrome reads its session directly --
- * which is why the caching that used to live here moved onto the chat handle.
- */
+/** Live context usage. Synchronous: LiteRT caches an async sample behind this, Chrome
+ *  reads its session directly. */
 export const contextInfo = () => chat?.context() ?? null;
 
 /** Everything the info modal can honestly show. Generic rows first, then the provider's. */
@@ -706,9 +664,8 @@ export const modelInfo = async () => {
   ];
 
   const bench = chat ? await chat.benchmark() : null;
-  // Real numbers from the runtime, and a far better row than the Prompt API's `params()` --
-  // which was absent in Chrome 151 anyway. Omitted rather than shown as zeroes on a session
-  // that has not generated yet: "0 in, 0 out · 0 tok/s" reads as a broken readout.
+  // Omitted rather than shown as zeroes on a session that has not generated yet:
+  // "0 in, 0 out · 0 tok/s" reads as a broken readout.
   if (bench?.lastDecodeTokenCount) {
     rows.push([
       "Last turn",
@@ -720,9 +677,8 @@ export const modelInfo = async () => {
 
   return {
     rows,
-    // Offering "delete 2.0 GB" for bytes that were never fetched is a worse lie than
-    // offering nothing. Derived from the status rather than asked of the provider: every
-    // state except these two implies the bytes are present.
+    // Derived from the status: every state except these two implies the bytes are present,
+    // and offering "delete 2.0 GB" for bytes never fetched is worse than offering nothing.
     canDelete:
       Boolean(active?.capabilities.canDelete) &&
       state.status !== STATES.DOWNLOADABLE &&
@@ -742,17 +698,10 @@ export const unavailableCopy = (status) =>
     bullets: [],
   };
 
-// There was a `warmUp()` here. It was `await refresh(); return state;` -- and `refresh()`
-// already returns `state` -- behind fifteen lines explaining a promotion it stopped doing
-// several refactors ago. Its one caller ignored the return value. The reasoning it carried
-// is worth keeping and now lives at that call site, in `chat/index.js`, where the decision
-// is actually taken.
-
 // A background download finishing is the one thing that changes status without us asking.
 // Chrome fires no event for it, so its provider polls and calls this.
 //
-// RE-REGISTERED ON EVERY PROVIDER SWITCH. `onPromoted` is a single slot on the provider
-// module, not a subscription list, so registering once at import only ever wired up
-// whichever provider happened to be stored. Start on Gemma, switch to Chrome, and Chrome's
-// poller would run, notice the promotion, and call nothing.
+// RE-REGISTERED ON EVERY PROVIDER SWITCH, because `onPromoted` is a single slot on the
+// provider module rather than a subscription list -- registering once at import wires up
+// only whichever provider happened to be stored.
 watchPromotion();

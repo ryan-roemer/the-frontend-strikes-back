@@ -1,19 +1,16 @@
 /**
  * The whole deck, as data and as one Markdown document.
  *
- * TWO SOURCES, and the split is the same one the deleted `knowledge.js` drew,
- * for the same reason:
+ * TWO SOURCES:
  *
- *   1. STRUCTURED, from `chapters.js` and `takeaways.js`. The talk's argument is
- *      kept as data specifically so it cannot drift -- `takeaways.js`: "Edit the
- *      claim here and all three move together" -- which makes those modules the
- *      best deck knowledge available and needs no rendering at all.
- *   2. HARVESTED, from the live React tree. Every slide's headings, bullets,
- *      code and speaker notes, structure intact.
+ *   1. STRUCTURED, from `chapters.js` and `takeaways.js`. The talk's argument is kept as
+ *      data so it cannot drift across the slides that repeat it, which makes those
+ *      modules the best deck knowledge available and needs no rendering at all.
+ *   2. HARVESTED, from the live React tree: every slide's headings, bullets, code and
+ *      speaker notes, structure intact.
  *
- * Layering is STRUCTURE FIRST. `harvestDeck()` returns objects and
- * `deckMarkdown()` renders them, because the next consumer of this is retrieval
- * and it will want the fields, not a re-parse of prose.
+ * STRUCTURE FIRST -- `harvestDeck()` returns objects and `deckMarkdown()` renders them,
+ * because consumers want the fields rather than a re-parse of prose.
  */
 import { DeckContext, Slide } from "spectacle";
 import { chapters } from "../../deck/chapters.js";
@@ -62,16 +59,14 @@ const deckMeta = (slideCount, source) => ({
 /**
  * The deck view a slide belongs to.
  *
- * PRESENTER MODE MOUNTS EVERY SLIDE TWICE -- once for the pane the presenter is
- * reading and once for the next-slide preview -- so a plain `Slide` sweep finds
- * 70 of them and the dump ran to "Slide 70 - Thanks!" with all 35 duplicated.
- * The DOM agrees: `document.querySelectorAll(".slide").length` is 70 there.
+ * PRESENTER MODE MOUNTS EVERY SLIDE TWICE -- the reading pane and the next-slide preview
+ * -- so a plain `Slide` sweep finds 70 and the dump runs to "Slide 70" with all 35
+ * duplicated. The DOM agrees: `querySelectorAll(".slide").length` is 70 there.
  *
- * `Deck` is NOT the discriminator, tempting as it looks: both copies sit under a
- * single exported `Deck` fiber, and the two "Deck"-named fibers that do differ
- * are internal and minified. Each pane does get its own `DeckContext` provider,
- * which is an exported symbol and the same one `chat/bridge.js` reads the deck's
- * navigation state from -- so it is a supported seam rather than a hash.
+ * `Deck` is NOT the discriminator, tempting as it looks: both copies sit under a single
+ * exported `Deck` fiber, and the "Deck"-named fibers that do differ are internal and
+ * minified. Each pane gets its own `DeckContext` provider, which is an exported symbol --
+ * a supported seam rather than a hash.
  */
 const deckViewOf = (fiber) => {
   for (let node = fiber; node; node = node.return) {
@@ -91,9 +86,8 @@ const deckViewOf = (fiber) => {
  * the new provider fiber and some still point at the old one, even though there
  * is exactly one provider on screen.
  *
- * Comparing by `===` therefore splits ONE pane into two, which is what made the
- * dedup below silently drop slides. Comparing through `alternate` asks the
- * question that was always meant: is this the same component instance.
+ * Comparing by `===` therefore splits ONE pane into two and makes the dedup below drop
+ * slides. Comparing through `alternate` asks the real question: same component instance?
  */
 const sameFiber = (a, b) =>
   !!a && !!b && (a === b || a.alternate === b || b.alternate === a);
@@ -101,20 +95,15 @@ const sameFiber = (a, b) =>
 /**
  * Every slide of ONE deck view, in slide order.
  *
- * Keeps the first view rather than de-duplicating by content: the copies are
- * identical, so any tie-break is arbitrary, and the first is both the pane the
- * presenter is actually on and a contiguous leading run -- measured [35] in a
- * normal load and [35, 35] in presenter mode.
+ * Keeps the first view rather than de-duplicating by content: the copies are identical, so
+ * any tie-break is arbitrary, and the first is both the pane the presenter is on and a
+ * contiguous leading run -- [35] on a normal load, [35, 35] in presenter mode.
  *
- * THE `alternate` COMPARISON IS LOAD-BEARING, and its absence was a real bug for
- * as long as this file has existed. It never showed up on a fresh load, because
- * nothing has re-rendered yet and every fiber is on its first copy -- so all the
- * verification this harvest has ever passed ran in the one state where the
- * identity check happens to hold.
- *
- * Measured after three navigations: 35 slides became 33. Slides 2 and 3 dropped
- * out of the deck entirely and every id from 4 up shifted down by two, so
- * `harvestSlide(9)` returned slide 11's content -- under its own name, with a
+ * THE `alternate` COMPARISON IS LOAD-BEARING, and its absence only shows AFTER a
+ * re-render: on a fresh load every fiber is on its first copy, so the identity check
+ * happens to hold and any verification run there passes. Measured after three
+ * navigations, 35 slides became 33 -- two dropped out and every id above them shifted
+ * down, so `harvestSlide(9)` returned slide 11's content under its own name, with a
  * plausible title, reporting success. Nothing threw.
  */
 const findSlideFibers = () => {
@@ -137,11 +126,10 @@ const findSlideFibers = () => {
  * for `stampRefs`. Every one of those runs a `findAll` over the ENTIRE fiber tree of a
  * 35-slide deck.
  *
- * A MICROTASK, NOT A TIMER, and that is the whole safety argument. The cache is dropped
- * at the end of the current task, so it can never span a React commit: anything
- * synchronous sees one consistent set of fibers, and the next turn re-reads. That also
- * closes the gap `describeNode` used to sit in, where two harvests of the same slide
- * could disagree because the deck moved between them.
+ * A MICROTASK, NOT A TIMER, which is the whole safety argument: the cache cannot span a
+ * React commit, so anything synchronous sees one consistent set of fibers and the next
+ * turn re-reads. It also stops two harvests of the same slide disagreeing because the
+ * deck moved between them.
  */
 let cache = null;
 
@@ -165,16 +153,13 @@ export const deckReady = () => slideFibers().length > 0;
 /**
  * Give a slide's nodes their addresses.
  *
- * IDS ARE GLOBAL: `9.2` is the second addressable node on slide 9, and it means
- * that everywhere. Per-slide ids (`b2`) would be shorter and would collide the
- * first time two slides' nodes appear in one context -- silently, because both
- * would look valid.
+ * IDS ARE GLOBAL: `9.2` is the second addressable node on slide 9 everywhere. Per-slide
+ * ids would be shorter and would collide the first time two slides' nodes appear in one
+ * context -- and both would look valid.
  *
- * `roleOrdinal` is the half that survives contact with a presenter. Nobody says
- * "node 9.3"; they say "the second bullet". The deleted `deck-adapter.js`
- * recorded what its absence costs -- "replace the first bullet" once rewrote a
- * slide TITLE, because three sibling nodes all came back as plain "text" with
- * nothing for "first" to attach to.
+ * `roleOrdinal` is the half that survives contact with a presenter, who says "the second
+ * bullet" rather than "node 9.3". Without it, sibling nodes all come back as plain "text"
+ * with nothing for "first" to attach to, and "replace the first bullet" rewrites a title.
  *
  * IT IS SCOPED BY DEPTH AS WELL AS BY ROLE. Emission order is depth-first, so on
  * slide 9 the three sub-bullets are emitted between the third top-level bullet
@@ -208,14 +193,8 @@ const addressNodes = (nodes, number) => {
   });
 };
 
-/**
- * One slide fiber, as the nine-field record everything downstream reads.
- *
- * Written once. `fiberSlides` and `harvestSlide` built this object literal
- * line-for-line identically, which is the shape most likely to drift: adding a
- * field to the whole-deck harvest and not to the single-slide one produces a
- * record that is correct on `?dump` and missing a key on every tool call.
- */
+/** One slide fiber, as the record everything downstream reads. Written once so the
+ *  whole-deck and single-slide harvests cannot grow different fields. */
 const slideRecord = (fiber, number) => {
   const slide = serializeSlide(fiber, { headingBase: HEADING_BASE });
   return {
@@ -258,22 +237,18 @@ export const harvestSlide = (number) => {
 /**
  * An id -> the node it names, including the live element.
  *
- * RE-WALKS RATHER THAN CACHING, on two counts. React double-buffers fibers
- * through `alternate`, so a fiber held across a commit can be the stale copy of
- * a node that has since re-rendered. And the obvious alternative -- stamping a
- * `data-chat-ref` attribute on the element and querying it later -- is worse:
- * React drops attributes it does not own when it recreates a node, so the
- * address would work right up until the slide re-rendered.
+ * RE-WALKS RATHER THAN CACHING, on two counts. React double-buffers fibers through
+ * `alternate`, so a fiber held across a commit can be the stale copy of a node that has
+ * re-rendered. And stamping a `data-chat-ref` attribute to query later is worse: React
+ * drops attributes it does not own when it recreates a node, so the address works right
+ * up until the slide re-renders.
  *
- * EVERY SLIDE'S ELEMENTS EXIST, not just the visible one's. Measured across all
- * 35 slides: every addressable node (162 of 162 at the last count) resolves to a
- * connected element carrying the right
- * text. Off-screen slides are laid out at 0x0 rather than unmounted -- Spectacle
- * keeps them in the portal and hides them with transform and overflow -- so a
- * `getBoundingClientRect` of zero means "not on screen", never "not there".
- *
- * Worth knowing before trusting a rect: anything measuring an element to decide
- * whether it is real will conclude that 34 of 35 slides do not exist.
+ * EVERY SLIDE'S ELEMENTS EXIST, not just the visible one's -- measured across all 35,
+ * every addressable node resolves to a connected element carrying the right text.
+ * Off-screen slides are laid out at 0x0 rather than unmounted, so a
+ * `getBoundingClientRect` of zero means "not on screen", never "not there". Anything
+ * measuring a rect to decide whether an element is real will conclude that 34 of 35
+ * slides do not exist.
  */
 export const resolveNode = (id) => {
   const [slide] = String(id).split(".");
@@ -325,10 +300,9 @@ const domSlides = () => {
       el.remove();
     }
     const body = normalize(clone.textContent ?? "");
-    // SCOPED TO THIS SLIDE. Unscoped, this queried `document` and so handed slide 1's
-    // heading to all 35 of them -- on the fallback path, which is the path that runs when
-    // the fiber walk has already failed and a plausible-looking wrong answer is the last
-    // thing anyone needs. `node` rather than `clone`: the clone has had its panes stripped.
+    // SCOPED TO THIS SLIDE. Querying `document` hands slide 1's heading to all 35 -- on
+    // the path that runs when the fiber walk has already failed, where a plausible wrong
+    // answer is the last thing needed. `node`, not `clone`: the clone has been stripped.
     const title = text(".slide-title, .title-display, .divider__title", node);
 
     return {
@@ -340,9 +314,9 @@ const domSlides = () => {
       source: null,
       code: [],
       notes: "",
-      // Always empty, never absent. Addressing needs component identity and the
-      // DOM has none -- but a caller that has to check for the FIELD as well as
-      // for its contents will forget, so the degraded harvest keeps the shape.
+      // Always empty, never absent: addressing needs component identity and the DOM has
+      // none, but the degraded harvest keeps the shape so callers need only check
+      // contents, not the field itself.
       nodes: [],
     };
   });

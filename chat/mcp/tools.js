@@ -53,23 +53,15 @@ import { line, nodeData } from "./shape.js";
 /**
  * EVERY RESULT CARRIES BOTH A SENTENCE AND ITS DATA.
  *
- * A tool result has two readers with opposite needs. A model reads the text
- * blocks and wants prose. Whatever chains one call into the next -- an agent's
- * code, a side panel, a script -- needs the ids, and should not have to recover
- * them with a regex from "6.9 — takeaway: A full agent workflow…".
+ * A tool result has two readers with opposite needs: a model reads the text blocks and
+ * wants prose, while whatever chains one call into the next needs the ids and should not
+ * have to recover them with a regex from "6.9 — takeaway: A full agent workflow…". Without
+ * `structuredContent` the seam between `find_node` and `edit_node` is a parsing problem,
+ * and a mis-parse is silent -- it edits the wrong node rather than failing.
  *
- * That was the shape until now, and it made the seam between two tools a parsing
- * problem: `find_node` handed back three lines of prose and `edit_node` wanted an
- * id. Every consumer would have written the same brittle extractor, and a
- * mis-parse is silent -- it edits the wrong node rather than failing.
+ * Hosts that ignore `structuredContent` still get readable prose with the ids in it.
  *
- * So: `structuredContent` beside the text, and an `outputSchema` on the tool so a
- * host knows the shape without guessing. Hosts that do not support it ignore the
- * field and still get readable prose with the ids in it; hosts that do get data
- * nobody has to parse.
- *
- * ONE text block, not one per line. Several blocks read as several messages, and
- * a list is one message.
+ * ONE text block, not one per line: several blocks read as several messages.
  */
 const text = (s) => ({ type: "text", text: s });
 
@@ -155,16 +147,12 @@ const NO_DECK =
  * slide 99" has no sensible reading and answering it from some other slide is a
  * confidently wrong answer nobody has a reason to double-check.
  *
- * SLIDE 0 IS THE ONE WORTH NAMING. `activeView.slideIndex` really is 0-based
- * inside Spectacle while everything a person or an agent says about this deck is
- * 1-based, so passing 0 is a reasonable mistake rather than a nonsense one --
- * which is why the refusal states the range instead of only rejecting.
+ * SLIDE 0 IS WORTH NAMING. `activeView.slideIndex` is 0-based inside Spectacle while
+ * everything a person or agent says about this deck is 1-based, so passing 0 is a
+ * reasonable mistake -- hence a refusal that states the range rather than only rejecting.
  *
- * This used to be `if (Number.isInteger(n) && n > 0) return n;` with a fallback
- * to the current slide, so `get_speaker_notes({ slide: 0 })` silently returned
- * the notes for whatever slide was on screen. Measured: asked for slide 0 while
- * on slide 9, got slide 9's notes, labelled "slide 9", with nothing to say the
- * request had been quietly rewritten.
+ * An out-of-range ask must NOT fall back to the current slide: that returns slide 9's
+ * notes labelled "slide 9" with nothing to say the request was rewritten.
  */
 const readSlide = (asked) => {
   if (asked === undefined || asked === null || asked === "") {
@@ -293,17 +281,14 @@ export const READ_TOOLS = [
         slide: { type: "integer" },
         matched: {
           type: "string",
-          // Mirrors `locate()`'s own `match` values exactly. It must: a value
-          // the code can produce and the schema does not list is a result a
-          // strict host is entitled to reject, and "ambiguous" -- the whole
-          // multiple-matches case -- was missing from the first draft of this.
+          // Mirrors `locate()`'s `match` values exactly, and must: a value the code can
+          // produce and the schema does not list is one a strict host may reject.
           enum: ["text", "ordinal", "role", "ambiguous", "none"],
           description:
             "How it resolved. 'text' is strongest — the phrase is in the node's wording. 'ambiguous' means several matched equally; pick one by id.",
         },
-        // Emitted on `matched: "none"` only, and it is the useful half of that answer:
-        // the roster turns "no" into a menu. Same rule as `matched`'s enum two lines up --
-        // the code was already returning this and the schema did not admit it.
+        // Emitted on `matched: "none"` only, and the useful half of that answer -- the
+        // roster turns "no" into a menu.
         slideNodes: {
           ...NODES_SCHEMA,
           description:
@@ -316,11 +301,9 @@ export const READ_TOOLS = [
     // NOT go through `resolveTarget` for that reason.
     //
     // Ambiguity is only dangerous for a tool that ACTS: `edit_node` given three
-    // candidates would change the wrong one, so it refuses. This one reports,
-    // and reporting three matches is the correct and complete answer rather than
-    // a failure. It used to return `isError` with the candidates attached, which
-    // told the host and the caller that a search had failed when it had
-    // succeeded -- and left "what on this slide mentions the browser?" with no
+    // candidates would change the wrong one, so it refuses. This one reports, and three
+    // matches is the correct and complete answer rather than a failure -- returning
+    // `isError` here leaves "what on this slide mentions the browser?" with no
     // expressible answer at all.
     //
     // `isError` here is reserved for what it means everywhere else: the request
@@ -743,10 +726,8 @@ const EDIT_SCHEMA = {
  * constructed on a normal load: having nothing to register is a stronger
  * guarantee than registering nothing.
  *
- * RETURNS THE WATCHDOG'S `stop` ALONGSIDE THE TOOLS. It used to return the tools
- * alone and drop `stop` on the floor, which left a `MutationObserver` on the
- * slide portal and a bus subscription running after `installTools()`'s teardown
- * had claimed everything was undone.
+ * RETURNS THE WATCHDOG'S `stop` ALONGSIDE THE TOOLS, so `installTools()`'s teardown can
+ * actually stop the `MutationObserver` and the bus subscription it starts.
  */
 export const installEditTools = () => {
   // Only once anything can actually edit: an observer on the slide portal costs

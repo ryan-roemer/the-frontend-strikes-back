@@ -1,13 +1,11 @@
 /**
  * Re-apply edits after the deck rebuilds itself underneath them.
  *
- * Recovered from `ef4c47f`. Scope note, so this does not grow into something it
- * should not be: with all styling carried by the deck's own stylesheet and text
- * edits limited to `nodeValue`, almost nothing needs re-applying. React only
- * rewrites what its own props changed, and this deck's slide content is static.
- * This watchdog exists for ONE event class: a full remount, which `mod+shift+P`
- * / `O` / `R` / `E` cause by swapping the entire view subtree. It is not a
- * general DOM-diff engine.
+ * SCOPE NOTE, so this does not grow into something it should not be: with styling carried
+ * by the deck's own stylesheet and text edits limited to `nodeValue`, almost nothing needs
+ * re-applying -- React only rewrites what its own props changed, and slide content is
+ * static. This exists for ONE event class: a full remount, which `mod+shift+P` / `O` / `R`
+ * / `E` cause by swapping the entire view subtree. It is not a DOM-diff engine.
  *
  * `childList` ONLY. `attributes` would fire on our own `classList` and
  * `data-deck-ref` writes and loop, and react-spring rewrites each slide

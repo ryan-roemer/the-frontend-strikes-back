@@ -3,35 +3,22 @@ import { STATES } from "../states.js";
 /**
  * The Chrome Prompt API: Gemini Nano, owned by the browser.
  *
- * The other half of the deck's story, and the more uncomfortable half. Everything LiteRT
- * gives the page -- the bytes, the progress, the cancel button, the delete button, a status
- * that is a fact -- belongs to Chrome here. What you get in exchange is real: no 2 GB
- * download to run, no WebGPU gate to pass, and a model that is already on disk for a large
- * number of people.
+ * Everything LiteRT gives the page -- the bytes, the progress, a cancel, a delete, a status
+ * that is a fact -- belongs to Chrome here. In exchange there is no 2 GB download and no
+ * WebGPU gate.
  *
- * ---------------------------------------------------------------------------
- * MEASURED 2026-08-12, Chrome 151.0.7922.76, and reproduced independently in a normal
- * Chrome profile with the Prompt API fully enabled:
+ * THE API IS NOT RELIABLE, measured on Chrome 151 in a normal profile with the Prompt API
+ * fully enabled. `availability()` returned "downloading" for over ninety minutes across
+ * every configuration tried; `create()` hung past 30s repeatedly, including a bare call
+ * with none of this code in the stack; it reported "available" and served a real answer
+ * before going back to "downloading". `params()` was absent entirely, which is why the info
+ * modal has no sampler rows.
  *
- *   - `LanguageModel.availability(...)` returned "downloading" INDEFINITELY -- for over
- *     ninety minutes, and for every configuration tried: no arguments, `{}`,
- *     `expectedInputs` alone, with and without `languages: ["en"]`, and `outputLanguage`.
- *     So it was not this file's `PROMPT_OPTIONS`.
- *   - `LanguageModel.create(...)` never resolved. A bare call with no arguments and none of
- *     this code in the stack hung past 30s, repeatedly.
- *   - It reported "available" twice and served one real answer early on, then went back to
- *     "downloading". The plumbing works; the platform is what is unreliable.
- *   - `params()` was absent entirely, which is why the info modal has no sampler rows.
- *
- * Every defensive thing in this file exists because of one of those observations: the
- * create ceiling, the availability poller, the `canDownload` arbiter, and
- * `authoritativeStatus: false`. None of it is speculative hardening.
- *
- * The single most important consequence is not in this file at all: because `create()` can
- * hang forever, `model-state.js` must be able to abandon a load that never settles, and the
- * switcher must stay clickable during CREATING so a presenter can fall back to LiteRT
- * mid-failure. See `pendingGeneration` there.
- * ---------------------------------------------------------------------------
+ * The create ceiling, the availability poller, the `canDownload` arbiter and
+ * `authoritativeStatus: false` all exist because of that, and none of it is speculative.
+ * The most important consequence is not in this file: because `create()` can hang forever,
+ * `model-state.js` must be able to abandon a load that never settles, and the provider
+ * switcher must stay clickable during CREATING.
  */
 
 /**
@@ -98,11 +85,8 @@ const wrap = (raw, system) => {
   /**
    * What this page has handed the session, kept only so `onPrompt` can report it.
    *
-   * Chrome's history lives in the browser process and is not readable from here,
-   * so unlike LiteRT this is a MIRROR rather than the source of truth. It is
-   * accurate because it is written on the same code path that does the sending --
-   * but it is a record of what went in, not a read of what the session holds, and
-   * it is unbounded for the same reason Chrome's is.
+   * A MIRROR, not the source of truth: Chrome's history lives in the browser process and
+   * cannot be read from here. Unbounded, for the same reason Chrome's is.
    */
   let sent = [];
 
@@ -121,30 +105,21 @@ const wrap = (raw, system) => {
       text,
       { pin = "", note = "", signal = null, onPrompt = null } = {},
     ) {
-      // BOTH go inline, in front of the question, because there is nowhere else
-      // for either: Chrome's session is durable and owns its own history, so there
-      // is no preface to rebuild the way LiteRT does.
+      // BOTH GO INLINE, because Chrome's session is durable and owns its own history --
+      // there is no preface to rebuild the way LiteRT does.
       //
-      // For `pin` that is the one place Chrome's can't-un-send is an ADVANTAGE. The
-      // slide needs to persist for the rest of the conversation, and here it does
-      // so by itself -- no pinned region, no bookkeeping, no reset path to forget.
-      // `deck-context.js` guarantees a slide is offered at most once, which is what
-      // makes an unremovable send safe.
+      // For `pin` that makes Chrome's can't-un-send an advantage: the slide persists for
+      // the rest of the conversation by itself, and `deck-context.js` offering each slide
+      // at most once is what makes an unremovable send safe.
       //
-      // For `note` it is a small, accepted loss. LiteRT drops the position line
-      // after its turn; Chrome cannot, so a conversation that wanders the deck
-      // accumulates ~20 tokens per move. Cheap, and the alternative -- not sending
-      // it -- is a model that does not know the deck moved.
+      // For `note` it is an accepted loss. LiteRT drops the position line after its turn;
+      // Chrome cannot, so wandering the deck accumulates ~20 tokens per move. The
+      // alternative is a model that does not know the deck moved.
       const outgoing = [pin, note, text].filter(Boolean).join("\n\n");
 
-      // Reported BEFORE the send, and from the mirror rather than from the session:
-      // `sent` is what this page has put in, and the turn below is about to be added
-      // to it. Copied, so a caller can hold it after later turns have appended.
-      //
-      // `message` is what actually goes to the model, block and all, rather than the
-      // bare question -- the viewer's whole job is showing what was really sent, and
-      // on this provider the block is part of the message. `pinned` is empty for the
-      // same reason: there is no separate region here to show.
+      // `message` is what actually goes to the model, block and all: on this provider the
+      // block IS part of the message, which is also why `pinned` is empty. Copied, so a
+      // caller can hold it after later turns have appended.
       onPrompt?.({
         provider: "chrome",
         system,
@@ -169,14 +144,12 @@ const wrap = (raw, system) => {
       } finally {
         // CANCEL, THEN RELEASE. Breaking out of the `for await` in `session.js` abandons
         // this generator without the outer signal necessarily firing, and releasing the
-        // lock alone leaves the underlying stream open and producing. LiteRT's half of
-        // this already cancels; Chrome's was the asymmetric one.
+        // lock alone leaves the underlying stream open and producing.
         await reader.cancel().catch(() => {});
         reader.releaseLock?.();
-        // Recorded even on abort, matching LiteRT: Chrome keeps a cancelled turn in
-        // its own history, so a mirror that dropped it would drift from the session.
-        // `outgoing`, not `text`: the block went to the session, so a mirror holding
-        // the bare question would understate what the model is carrying.
+        // Recorded even on abort: Chrome keeps a cancelled turn in its own history, so a
+        // mirror that dropped it would drift. `outgoing`, not `text` -- the block went to
+        // the session, so recording the bare question understates what the model holds.
         sent.push(
           { role: "user", content: outgoing },
           { role: "assistant", content: answer },
@@ -185,21 +158,15 @@ const wrap = (raw, system) => {
     },
 
     /**
-     * Synchronous and exact, which is the one place Chrome is straightforwardly better.
+     * Synchronous and exact -- the session tracks its own occupancy, so there is a real
+     * number to read rather than LiteRT's cached async sample.
      *
-     * The session tracks its own occupancy, so there is a real number to read rather than
-     * LiteRT's cached async sample. Measured on Chrome 151: 9 / 9216 on a fresh session with
-     * a short system prompt, 24 after one turn.
+     * TWO SPELLINGS, both checked because the spec renamed them mid-flight.
+     * `contextUsage`/`contextWindow` are what Chrome 151 ships; `inputUsage`/`inputQuota`
+     * are the older names still in most published documentation. Reading only the
+     * documented pair returns `undefined` and silently hides the meter.
      *
-     * TWO SPELLINGS, and both are checked because the spec renamed them mid-flight.
-     * `contextUsage`/`contextWindow` are what Chrome 151 actually ships; `inputUsage`/
-     * `inputQuota` are the older names still in much of the published documentation. Reading
-     * only the documented pair returned `undefined` here and silently hid the meter -- which
-     * looked exactly like a provider that has no context to report, so it took a property
-     * dump on a live session to notice.
-     *
-     * A non-finite or zero window reads as "no context" rather than as a percentage: a
-     * percent of Infinity is NaN, which renders as a broken meter.
+     * A non-finite or zero window reads as "no context": a percent of Infinity is NaN.
      */
     context() {
       const used = raw.contextUsage ?? raw.inputUsage;
@@ -220,10 +187,9 @@ const wrap = (raw, system) => {
     /**
      * Empty the context window and keep talking.
      *
-     * NOT `clone()`. Cloning copies the conversation history, which is precisely what the
-     * broom exists to drop -- so it would leave the meter exactly where it was. A fresh
-     * `create()` is the only real reset, and it is expensive, which is why
-     * `capabilities.cheapRestart` is false and `model-state.js` routes this through a spinner.
+     * NOT `clone()`: cloning copies the history, which is exactly what the broom drops, so
+     * the meter would not move. A fresh `create()` is the only real reset, and it is
+     * expensive -- hence `cheapRestart: false` and the spinner.
      */
     async restart() {
       const next = await LanguageModel.create({
@@ -263,10 +229,9 @@ export const provider = {
     // Chrome does not say how big Gemini Nano is, and inventing a number to put in a
     // warning label would be worse than omitting the label.
     downloadBytes: null,
-    // THE LOAD-BEARING ONE. `availability()` flaps between "available" and "downloading"
-    // while Chrome works, so a DOWNLOADING reading is a sample, not a fact. `session.js`
-    // re-checks before refusing a question on it -- without that, questions were rejected
-    // for minutes after the model had become usable.
+    // THE LOAD-BEARING ONE. `availability()` flaps between "available" and "downloading",
+    // so a DOWNLOADING reading is a sample rather than a fact, and `session.js` re-checks
+    // before refusing a question on it.
     authoritativeStatus: false,
     // A full `create()`, measured at ~9.5s when it worked at all.
     cheapRestart: false,
@@ -275,10 +240,8 @@ export const provider = {
   timings: {
     stallMs: 60000,
     // A BAIL-OUT, not a wedge detector -- the opposite of LiteRT's ceiling on the same
-    // field. `create()` blocks for as long as Chrome is fetching the model, which measured
-    // past 30s with no sign of finishing, so this bounds a phase that can legitimately take
-    // minutes. Timing out lets the machine drop back to whatever `availability()` now says
-    // instead of hanging on a condition that resolves itself.
+    // field. `create()` blocks for as long as Chrome is fetching, so timing out lets the
+    // machine drop back to whatever `availability()` now says.
     createCeilingMs: 90000,
   },
 
@@ -330,14 +293,12 @@ export const provider = {
   /**
    * Create the durable session.
    *
-   * NO `signal`, unlike LiteRT's `acquire`. `LanguageModel.create()` takes no AbortSignal,
-   * so there would be nothing to pass one to -- it is not destructured here rather than
-   * accepted and quietly dropped, so the absence is visible in the signature. The escape
-   * hatch is the ceiling in `model-state.js` plus a provider switch, not cancellation.
+   * NO `signal`, unlike LiteRT's `acquire`: `LanguageModel.create()` takes no AbortSignal,
+   * so it is left out of the signature rather than accepted and dropped. The escape hatch
+   * is the ceiling in `model-state.js` plus a provider switch, not cancellation.
    */
   async acquire({ system, onPhase }) {
-    // Whether a download is even possible decides how to read the monitor below. Asking
-    // first is cheap and turns a guess into a fact.
+    // Whether a download is even possible decides how to read the monitor below.
     const before = await availability();
     const canDownload = before === "downloadable" || before === "downloading";
 
@@ -346,10 +307,10 @@ export const provider = {
       initialPrompts: [{ role: "system", content: system }],
       monitor: (monitor) => {
         monitor.addEventListener("downloadprogress", (event) => {
-          // Chrome fires this even when nothing is being fetched -- an already-available
-          // model reports `loaded: 0` once and then simply finishes creating. Trusting the
-          // event alone produced a permanent "Downloading… (0%)" on a model that was fully
-          // on disk, so the pre-create availability is the arbiter of what it means.
+          // Chrome fires this even when nothing is being fetched: an already-available
+          // model reports `loaded: 0` once and then finishes creating. Trusting the event
+          // alone shows a permanent "Downloading… (0%)" over a model that is on disk, so
+          // the pre-create availability is the arbiter.
           if (!canDownload) return;
           onPhase?.({
             phase: "download",
@@ -370,13 +331,9 @@ export const provider = {
   },
 
   /**
-   * Stop watching, keep the session.
-   *
-   * NOT the same as `evict`, which also destroys it. The distinction is thinner here than
-   * on LiteRT -- there, `release` deliberately keeps ~2 GB of GPU engine hot for the broom
-   * -- but it is still a distinction: `model-state.js`'s `unload()` calls this after it has
-   * already destroyed the conversation itself, and destroying `session` a second time from
-   * here would be a double teardown of a handle the machine has disowned.
+   * Stop watching, keep the session. NOT the same as `evict`, which also destroys it:
+   * `unload()` calls this after destroying the conversation itself, so destroying `session`
+   * here too would be a double teardown of a handle the machine has already disowned.
    */
   release: () => {
     stopPoll();
@@ -403,9 +360,8 @@ export const provider = {
       ["Runtime", "Chrome Prompt API · window.LanguageModel"],
       ["Availability", now ?? "availability() threw"],
       ["Session", session ? "live" : "none"],
-      // `LanguageModel.params()` is absent on Chrome 151 -- verified by property dump, not
-      // assumed -- so there are no defaultTopK / maxTemperature rows to show. Saying why
-      // beats leaving a gap where a reader expects numbers.
+      // `params()` is absent on Chrome 151, so there are no defaultTopK / maxTemperature
+      // rows. Saying why beats leaving a gap where a reader expects numbers.
       [
         "Sampler params",
         typeof LanguageModel.params === "function"

@@ -1,8 +1,6 @@
 /**
  * The patch log. The source of truth for every edit; the DOM is its projection.
  *
- * Recovered from `ef4c47f`, with one simplification the new addressing bought.
- *
  * UNDO REBUILDS FROM THE LOG rather than applying inverses, and that single
  * choice pays for itself three times:
  *
@@ -15,12 +13,10 @@
  *   3. CSS patches need no inverse at all: the sheet is regenerated from whatever
  *      patches remain, so removing one removes its rule.
  *
- * WHAT CHANGED ON RECOVERY: the deleted version needed `chat/edit/locator.js` --
- * a structural path plus role plus a 40-character snippet -- because its
- * addresses were `data-chat-ref` attributes and React drops an attribute it does
- * not own when it recreates a node. Node ids come from the fiber tree instead,
- * and `resolveNode` re-walks on every call, so the address survives the remount
- * that killed the old one. That whole file is gone and the log keys on the id.
+ * THE LOG KEYS ON NODE ID, which is what lets it stay this simple. Ids come from the fiber
+ * tree and `resolveNode` re-walks on every call, so an address survives a remount --
+ * unlike a `data-chat-ref` attribute, which React drops when it recreates a node, and
+ * which would need a structural path plus role plus a text snippet to recover from.
  *
  * Baselines are captured ONCE per (id, property) -- the first time that property
  * is touched -- so they always hold the deck's original value rather than the
@@ -56,18 +52,15 @@ const textNodesOf = (el) =>
  * The longest trimmed one is the sentence; the short ones are the whitespace
  * between inline elements.
  *
- * CHOSEN ONCE, THEN ADDRESSED BY INDEX FOREVER. "Longest" is a property of the
- * CURRENT text, so re-deciding it on every rebuild moves the target as soon as
- * an edit changes a length. Measured on slide 9's first bullet -- "The page
- * **registers** tools. The agent discovers and calls them.", two text nodes
- * either side of a `<strong>`: the edit shortened the longer one, the next
- * rebuild picked the other one as "longest", restored the original into it and
- * wrote the replacement into it too. The bullet came out as
- * "CHANGEDregistersCHANGED", and reset could not put it back because both
- * halves had been overwritten.
+ * CHOSEN ONCE, THEN ADDRESSED BY INDEX FOREVER. "Longest" is a property of the CURRENT
+ * text, so re-deciding it on every rebuild moves the target as soon as an edit changes a
+ * length. On a bullet with two text nodes either side of a `<strong>`, shortening the
+ * longer one makes the next rebuild pick the other as "longest", restore the original into
+ * it AND write the replacement into it -- "CHANGEDregistersCHANGED", with both halves
+ * overwritten so reset cannot recover it.
  *
- * The index is stable because `childNodes` order is; a `nodeValue` write never
- * adds or removes a node, which is the other half of why this channel is safe.
+ * The index is stable because `childNodes` order is; a `nodeValue` write never adds or
+ * removes a node, which is the other half of why this channel is safe.
  */
 const mainTextIndex = (el) => {
   const nodes = textNodesOf(el);
@@ -88,15 +81,12 @@ const textNodeAt = (el, index) => textNodesOf(el)[index] ?? null;
 /**
  * The exact string a text edit will overwrite.
  *
- * NOT the node's harvested text. Those differ whenever a node has inline markup:
- * slide 9's second bullet harvests as "One API: document.modelContext" but its
- * main text node holds only "One API: " -- the rest is a `<code>` element. A
- * baseline taken from the harvest therefore restores the WHOLE flattened string
- * into the first text node and leaves the markup beside it, so "undo" produced
- * "One API: document.modelContextdocument.modelContext".
- *
- * Measured: reset left the deck visibly different from how it started, while
- * reporting success.
+ * NOT the node's harvested text. The two differ whenever a node has inline markup: a
+ * bullet harvesting as "One API: document.modelContext" may hold only "One API: " in its
+ * main text node, the rest being a `<code>` element. A baseline taken from the harvest
+ * restores the WHOLE flattened string into that one node and leaves the markup beside it,
+ * so undo yields "One API: document.modelContextdocument.modelContext" -- a deck visibly
+ * different from how it started, reported as success.
  */
 export const mainTextValue = (el) => {
   const index = mainTextIndex(el);

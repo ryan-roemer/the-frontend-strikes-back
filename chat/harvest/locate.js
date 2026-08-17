@@ -119,8 +119,7 @@ const result = (match, nodes, phrase, note = null) => ({
  * changed. Neither direction alone covers both, and both are cheap.
  *
  * AN EXACT MATCH OUTRANKS A CONTAINING ONE, and nothing else does. Several hits
- * that are all partial are reported as several. See the measured note inside --
- * this rule used to be "shortest wins", which discarded real candidates silently.
+ * that are all partial are reported as several. Length is not a tie-break; see below.
  */
 const byText = (nodes, phrase) => {
   const needle = clean(phrase);
@@ -134,26 +133,15 @@ const byText = (nodes, phrase) => {
 
   // AN EXACT MATCH OUTRANKS A CONTAINING ONE. Nothing else does.
   //
-  // This used to collapse to the SHORTEST hit whenever that was uniquely
-  // shortest, on the reasoning that a short node matching a short phrase is more
-  // specific than a paragraph that merely quotes it. That reasoning holds for the
-  // case it was written for and fails everywhere else, because length is not
-  // relevance -- it is a proxy that happens to correlate sometimes.
+  // Length is NOT a tie-break. Preferring the shortest hit looks reasonable -- a short
+  // node matching a short phrase seems more specific than a paragraph quoting it -- but
+  // length is a proxy that only sometimes correlates with relevance. Searching "browser"
+  // on slide 6 matches three real nodes, and shortest-wins returns one of them as
+  // `match: "text"`, the tier this file calls the strongest answer, purely because it has
+  // fewer characters. Two genuine candidates vanish.
   //
-  // Measured on slide 6, searching "browser". Three nodes match:
-  //
-  //   6.6  Part B · The agent-ready browser              (32)   <- returned
-  //   6.7  Vector search in the browser works really well (46)
-  //   6.9  A full agent workflow runs in a browser tab    (43)
-  //
-  // It returned 6.6 alone, as `match: "text"` -- the tier this file describes as
-  // "the strongest answer, because it could not have been confidently wrong" --
-  // for no better reason than 32 < 43. Two real candidates were discarded
-  // silently, which is the exact behaviour the header promises never happens.
-  //
-  // Equality is a genuine discriminator rather than a proxy: a node whose whole
-  // text IS the phrase is what the phrase names. Anything short of that, with
-  // more than one hit, is ambiguity and gets reported as such.
+  // Equality is a real discriminator: a node whose whole text IS the phrase is what the
+  // phrase names. Anything less, with more than one hit, is ambiguity and says so.
   const exact = hits.filter((node) => clean(node.text) === needle);
   return exact.length === 1 ? exact : hits;
 };

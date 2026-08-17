@@ -19,8 +19,7 @@ const MAX_ROWS = 6;
  * "insert a line break", and Shift+Enter rides along on it -- so not calling
  * `preventDefault()` is enough there. Ctrl+Enter and Cmd+Enter have NO default
  * editing action in a textarea: letting them through produces nothing at all, so
- * the break has to be inserted by hand. Measured in Chrome 151; the first cut of
- * this file did just suppress submit and silently ate the keystroke.
+ * the break has to be inserted by hand or the keystroke is silently eaten.
  *
  * `isComposing` is checked because Enter commits an IME candidate; submitting
  * there would eat the first word of any non-Latin input.
@@ -83,10 +82,10 @@ export const Composer = ({ onSend, onStop, busy, disabled, placeholder }) => {
     [autoGrow],
   );
 
-  // The button lives INSIDE the bordered box with the textarea, the way joyce and
-  // every other chat UI does it: `.chat-composer__box` owns the border, radius and
-  // background, and the textarea is stripped bare inside it. Two adjacent bordered
-  // controls read as a form; one box with a button in it reads as a composer.
+  // The button lives INSIDE the bordered box with the textarea: `.chat-composer__box`
+  // owns the border, radius and background, and the textarea is stripped bare inside it.
+  // Two adjacent bordered controls read as a form; one box with a button in it reads as
+  // a composer.
   return html`
     <form className="chat-composer" onSubmit=${submit}>
       <div className="chat-composer__box">

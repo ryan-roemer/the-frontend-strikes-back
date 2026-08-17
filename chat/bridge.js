@@ -16,12 +16,11 @@ const html = htm.bind(createElement);
  *   const templateElement = typeof template === "function"
  *     ? template({ slideNumber, numberOfSlides }) : template;
  *
- * so a hook written directly in `Template` becomes one of `DECK`'s hooks. That
- * matters because `Template` used to return early on slide 1: the hook count
- * would change on the first navigation and React would throw "rendered fewer
- * hooks than expected", taking the whole deck with it. As an element this gets
- * its own fiber and its own hook list, and it is reconciled inside
- * `DeckContext.Provider` -- so the context is genuinely available here.
+ * so a hook written directly in `Template` becomes one of DECK's hooks -- and the moment
+ * `Template` returns early for any slide, the hook count changes and React throws
+ * "rendered fewer hooks than expected", taking the whole deck with it. As an element this
+ * gets its own fiber and hook list, reconciled inside `DeckContext.Provider`, so the
+ * context is genuinely available here.
  *
  * It renders a hidden marker rather than `null` for one reason: the marker's
  * `parentElement` IS Spectacle's `TemplateWrapper`, which is a sibling of the
@@ -31,11 +30,10 @@ const html = htm.bind(createElement);
 /**
  * Which mounted bridge is allowed to publish.
  *
- * The template is NOT always rendered once. Overview mode renders it per slide, so
- * this component mounts 35 times and every instance publishes to the same bus --
- * measured, `document.querySelectorAll("[data-chat-bridge]").length === 35`. The
- * snapshot then ends up describing whichever copy rendered last, including a
- * `templateWrapperNode` belonging to some arbitrary slide.
+ * THE TEMPLATE IS NOT ALWAYS RENDERED ONCE. Overview mode renders it per slide, so this
+ * component mounts 35 times and every instance publishes to the same bus -- leaving the
+ * snapshot describing whichever copy rendered last, with a `templateWrapperNode` belonging
+ * to an arbitrary slide.
  *
  * First mount wins and keeps winning until it unmounts. The `isConnected` check
  * matters for the remount case: the outgoing owner's cleanup can run after the

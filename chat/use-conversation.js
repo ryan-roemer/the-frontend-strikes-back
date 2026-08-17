@@ -24,23 +24,19 @@ import { useCallback, useRef, useState } from "react";
  * "what was sent" no longer exists anywhere else. Absent on entries whose turn
  * never reached the model.
  *
- * STOPPING DOES NOT WAIT FOR THE RESPONDER.
+ * STOPPING DOES NOT WAIT FOR THE RESPONDER, for two independent reasons.
  *
- * The first version aborted the controller and let the `finally` clear `busy` when
- * the promise settled. That is wrong whenever the promise never settles -- and
- * under the Chrome Prompt API, which hung inside `create()`, it never did: the stop
- * button aborted a signal nobody was listening to and the panel stayed busy
- * forever. So `stop()` now does the bookkeeping itself, immediately, and a run
- * token makes any late-arriving result from the abandoned turn get discarded
- * instead of appearing minutes later under a question the user has moved on from.
+ * Letting a `finally` clear `busy` when the promise settles is wrong whenever the promise
+ * never settles -- which Chrome's `create()` does, leaving the stop button aborting a
+ * signal nobody listens to and the panel busy forever. So `stop()` does the bookkeeping
+ * itself, immediately, and a run token discards any late result from the abandoned turn
+ * rather than letting it appear under a question the user has moved on from.
  *
- * That design survived the move to LiteRT because it turned out to be load-bearing
- * for a different reason. LiteRT DOES cancel promptly -- but `conversation.cancel()`
- * permanently poisons the conversation it is called on, so the provider has to
- * rebuild one behind our back before the next turn (see `providers/litert.js`).
- * Clearing `busy` here without waiting is what lets that happen out of sight, and
- * it is why the composer is usable ~11ms after the click rather than after a
- * teardown and a rebuild. Measured.
+ * On LiteRT the same design pays differently: cancelling is prompt, but
+ * `conversation.cancel()` permanently poisons that conversation, so the provider rebuilds
+ * one behind our back before the next turn. Clearing `busy` without waiting is what lets
+ * that happen out of sight -- the composer is usable ~11ms after the click rather than
+ * after a teardown and a rebuild.
  */
 export const useConversation = (respond) => {
   const [entries, setEntries] = useState([]);
