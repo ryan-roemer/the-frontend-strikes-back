@@ -72,6 +72,9 @@ const ContextModal = ({ context }) => {
   const sheet = useRef(null);
   const body = useRef(null);
 
+  // Focusable via the lowercase `tabindex` below -- prettier formats these html``
+  // templates as HTML and rewrites `tabIndex` back on every format run. See the
+  // longer note in `chat/tools/modal.js`.
   useEffect(() => sheet.current?.focus(), []);
 
   /** Escape closes, and arrows are kept off the deck -- see `use-dismiss-keys.js`. */

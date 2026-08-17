@@ -44,9 +44,13 @@ export const useCopy = (getText, fallbackRef) => {
     } catch {
       const node = fallbackRef.current;
       if (!node) return;
+      // `getSelection()` is null in a document with no browsing context, and this is
+      // already the path where the first choice failed -- throwing here would turn a
+      // silent button into an unhandled rejection and still not copy anything.
+      const selection = window.getSelection?.();
+      if (!selection) return;
       const range = document.createRange();
       range.selectNodeContents(node);
-      const selection = getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
     }

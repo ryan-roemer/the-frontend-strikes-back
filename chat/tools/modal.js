@@ -227,6 +227,11 @@ const ToolInspector = () => {
   // Focus the overlay so Escape reaches the handler below even before anything
   // inside has been clicked. Without this the key lands on whatever the deck
   // left focused, which is usually nothing.
+  //
+  // The `tabindex` that makes the div focusable is lowercase because prettier
+  // formats these html`` templates as HTML and rewrites `tabIndex` back on every
+  // format run. React sets the attribute either way, and the deck loads React's
+  // production build, which has no casing warning to trip.
   useEffect(() => overlay.current?.focus(), []);
 
   /** Escape closes, arrows stay off the deck -- see `use-dismiss-keys.js`. */

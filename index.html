@@ -847,7 +847,11 @@
       // that does break the deck.
       import("./chat/index.js")
         .then(({ mountChat }) => mountChat())
-        .catch((err) => console.warn("[chat] not mounted:", err.message));
+        .catch((err) =>
+          // The value itself when there is no message on it -- a rejection that is
+          // not an Error, or an Error with an empty one, still has to say something.
+          console.warn("[chat] not mounted:", err?.message || err),
+        );
     </script>
   </body>
 </html>
