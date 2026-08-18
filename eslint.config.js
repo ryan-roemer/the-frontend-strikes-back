@@ -58,10 +58,18 @@ export default [
   js.configs.recommended,
   eslintConfigPrettier,
   {
-    // Everything in this repo is browser code -- no build step, no bundler, no Node.
+    // Everything the deck *ships* is browser code -- no build step, no bundler, no Node.
     files: ["chat/**/*.js", "deck/**/*.js", "examples/**/*.js"],
     languageOptions: {
       globals: Object.fromEntries(BROWSER.map((name) => [name, "readonly"])),
+    },
+  },
+  {
+    // `scripts/` is the exception: authoring tools that run under Node and write
+    // committed assets. Nothing here is loaded by the deck at runtime.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { console: "readonly", process: "readonly" },
     },
   },
 ];
