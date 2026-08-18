@@ -353,8 +353,11 @@ body::after {
  * subtitle from running underneath it, and it did. Reserving the gutter here
  * holds for any subtitle string, which nudging one font size would not.
  *
- * 280px = the 46px offset, the ~200px the caption spans (it is wider than the
- * 174px card above it), and a gap so the two columns read as separate.
+ * 280px = the 46px offset plus the ~234px the caption spans. The caption is
+ * what sets this, not the code: at 200px the card is 224px wide including its
+ * padding, so "Scan for slides" is still the wider of the two. Grow the code
+ * past ~210px and the card takes over as the constraint, and this has to grow
+ * with it.
  */
 #root .title-copy {
   padding-right: 280px;

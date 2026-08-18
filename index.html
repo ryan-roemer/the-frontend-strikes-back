@@ -203,7 +203,8 @@
               bottom="46px"
               right="46px"
             >
-              <${Image} className="qr-card" src=${images.qrCode} width="150px" height="150px" />
+              ${"" /* 200px matches `qrCodeImg` on the closing slides, so the code is one size deck-wide. The gutter reserved by `.title-copy` is what keeps it clear of the headline. */}
+              <${Image} className="qr-card" src=${images.qrCode} width="200px" height="200px" />
               <${Text} className="qr-caption" fontSize="18px" margin="12px 0 0">
                 Scan for slides
               </${Text}>

@@ -6,9 +6,9 @@
 // Two things keep this scannable rather than just pretty:
 //
 //   * Error correction level H recovers ~30% of a damaged symbol, which is what
-//     buys the space for the center logo. The knockout below is ~7% of the area,
-//     so there is a wide margin left over for a bad camera angle or a glare
-//     streak off the projector screen.
+//     buys the space for the center logo. The knockout below is ~10% of the
+//     area, so there is a wide margin left over for a bad camera angle or a
+//     glare streak off the projector screen.
 //   * Only the *dark* modules get brand color, and only in colors dark enough to
 //     hold contrast against white. Nearform's signature `#00E5A4` is far too
 //     light to encode with -- it appears on the underscore in the logo, where
@@ -18,7 +18,12 @@ import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import QRCode from "qrcode";
+// `uqr` is the whole dependency: zero deps of its own, one file, MIT. It does
+// only the hard part -- turning a string into a module matrix -- and hands back
+// a `types` grid saying what each module is for, which is what lets the drawing
+// code below treat structural modules differently from data without hardcoding
+// their coordinates.
+import { encode, QrCodeDataType } from "uqr";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -115,26 +120,52 @@ const LOGO = {
 
 // --- Symbol -----------------------------------------------------------------
 
-const qr = QRCode.create(URL_TO_ENCODE, { errorCorrectionLevel: "H" });
-const size = qr.modules.size;
-const { data } = qr.modules;
+// `border: 0` because the quiet zone is drawn here, at `QUIET`.
+const qr = encode(URL_TO_ENCODE, { ecc: "H", border: 0 });
+const { size, data, types } = qr;
 
-const isDark = (row, col) => data[row * size + col] === 1;
+const isDark = (row, col) => data[row][col];
 
 /**
- * True for the 7x7 blocks in three corners. These are what a scanner locks onto
- * first, so they are drawn as one continuous shape rather than as loose modules.
+ * Modules a scanner measures geometry from, rather than reads bits out of.
+ *
+ * These are drawn full-bleed while everything else is inset by `MODULE_SIZE`:
+ *
+ *   Position  -- the three corner eyes, whose 1:1:3:1:1 runs set the module
+ *                pitch for the entire symbol.
+ *   Timing    -- the alternating row and column that give the module count.
+ *   Alignment -- the small block near the far corner, used to correct for
+ *                reading the code at an angle.
+ *
+ * Format information (`Function`) is not in this list: it is read as bits like
+ * data is, so the inset does not hurt it.
  */
-const inFinder = (row, col) =>
-  (row < 7 && col < 7) ||
-  (row < 7 && col >= size - 7) ||
-  (row >= size - 7 && col < 7);
+const STRUCTURAL = new Set([
+  QrCodeDataType.Position,
+  QrCodeDataType.Timing,
+  QrCodeDataType.Alignment,
+]);
 
 /** True for modules the logo sits on top of, which are left undrawn. */
 const half = (LOGO_MODULES - 1) / 2;
 const mid = (size - 1) / 2;
 const underLogo = (row, col) =>
   Math.abs(row - mid) <= half && Math.abs(col - mid) <= half;
+
+// Guard the `LOGO_MODULES` knob. Error correction can rebuild data modules the
+// logo covers, but it cannot rebuild the patterns a scanner needs to find and
+// square up the symbol in the first place. Widen the knockout far enough and it
+// reaches the timing row; this fails loudly rather than shipping a code that
+// only sometimes scans.
+for (let row = 0; row < size; row++) {
+  for (let col = 0; col < size; col++) {
+    if (underLogo(row, col) && STRUCTURAL.has(types[row][col])) {
+      throw new Error(
+        `LOGO_MODULES=${LOGO_MODULES} reaches the ${QrCodeDataType[types[row][col]]} pattern at row ${row}, col ${col}. Reduce it.`,
+      );
+    }
+  }
+}
 
 // --- SVG --------------------------------------------------------------------
 
@@ -172,14 +203,16 @@ const roundedRect = (x, y, w, h, r) =>
 const modules = [];
 for (let row = 0; row < size; row++) {
   for (let col = 0; col < size; col++) {
-    if (!isDark(row, col) || inFinder(row, col) || underLogo(row, col))
+    // Position modules are skipped entirely: `finder()` draws those three
+    // corners as continuous shapes rather than as loose modules.
+    const type = types[row][col];
+    if (
+      !isDark(row, col) ||
+      type === QrCodeDataType.Position ||
+      underLogo(row, col)
+    )
       continue;
-    // Row 6 and column 6 are the timing patterns: a dead-straight alternating
-    // run that a scanner counts to work out how many modules wide the symbol is.
-    // Shrinking those turns a 1:1 alternation into 0.86:1.14 and the count comes
-    // out wrong, so they are drawn full-bleed and only the rest gets the gap.
-    const full = row === 6 || col === 6;
-    const w = full ? 1 : MODULE_SIZE;
+    const w = STRUCTURAL.has(type) ? 1 : MODULE_SIZE;
     const offset = (1 - w) / 2;
     modules.push(
       `<rect x="${px(QUIET + col + offset)}" y="${px(QUIET + row + offset)}" width="${w}" height="${w}" rx="${px(MODULE_ROUND * w)}"/>`,

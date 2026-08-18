@@ -530,11 +530,11 @@
     <rect x="29.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="30.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="33.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="34.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="35.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="36.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="37.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="38.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
+    <rect x="34" y="34" width="1" height="1" rx="0.3"/>
+    <rect x="35" y="34" width="1" height="1" rx="0.3"/>
+    <rect x="36" y="34" width="1" height="1" rx="0.3"/>
+    <rect x="37" y="34" width="1" height="1" rx="0.3"/>
+    <rect x="38" y="34" width="1" height="1" rx="0.3"/>
     <rect x="40.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="41.05" y="34.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="10.05" y="35.05" width="0.9" height="0.9" rx="0.27"/>
@@ -549,8 +549,8 @@
     <rect x="28.05" y="35.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="30.05" y="35.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="33.05" y="35.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="34.05" y="35.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="38.05" y="35.05" width="0.9" height="0.9" rx="0.27"/>
+    <rect x="34" y="35" width="1" height="1" rx="0.3"/>
+    <rect x="38" y="35" width="1" height="1" rx="0.3"/>
     <rect x="39.05" y="35.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="40.05" y="35.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="41.05" y="35.05" width="0.9" height="0.9" rx="0.27"/>
@@ -565,9 +565,9 @@
     <rect x="28.05" y="36.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="31.05" y="36.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="32.05" y="36.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="34.05" y="36.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="36.05" y="36.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="38.05" y="36.05" width="0.9" height="0.9" rx="0.27"/>
+    <rect x="34" y="36" width="1" height="1" rx="0.3"/>
+    <rect x="36" y="36" width="1" height="1" rx="0.3"/>
+    <rect x="38" y="36" width="1" height="1" rx="0.3"/>
     <rect x="39.05" y="36.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="40.05" y="36.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="41.05" y="36.05" width="0.9" height="0.9" rx="0.27"/>
@@ -582,8 +582,8 @@
     <rect x="28.05" y="37.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="30.05" y="37.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="32.05" y="37.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="34.05" y="37.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="38.05" y="37.05" width="0.9" height="0.9" rx="0.27"/>
+    <rect x="34" y="37" width="1" height="1" rx="0.3"/>
+    <rect x="38" y="37" width="1" height="1" rx="0.3"/>
     <rect x="40.05" y="37.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="41.05" y="37.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="42.05" y="37.05" width="0.9" height="0.9" rx="0.27"/>
@@ -602,11 +602,11 @@
     <rect x="30.05" y="38.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="31.05" y="38.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="32.05" y="38.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="34.05" y="38.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="35.05" y="38.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="36.05" y="38.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="37.05" y="38.05" width="0.9" height="0.9" rx="0.27"/>
-    <rect x="38.05" y="38.05" width="0.9" height="0.9" rx="0.27"/>
+    <rect x="34" y="38" width="1" height="1" rx="0.3"/>
+    <rect x="35" y="38" width="1" height="1" rx="0.3"/>
+    <rect x="36" y="38" width="1" height="1" rx="0.3"/>
+    <rect x="37" y="38" width="1" height="1" rx="0.3"/>
+    <rect x="38" y="38" width="1" height="1" rx="0.3"/>
     <rect x="42.05" y="38.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="10.05" y="39.05" width="0.9" height="0.9" rx="0.27"/>
     <rect x="11.05" y="39.05" width="0.9" height="0.9" rx="0.27"/>
