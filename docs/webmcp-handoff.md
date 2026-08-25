@@ -477,13 +477,29 @@ registers fourteen of them.
 tool. They could show the deck's _actual_ registered tools, making the code on screen the code
 running the deck. That edits talk content, so it is the author's call rather than a refactor.
 
-**Deferred, unchanged:** items 4–7 in [deck-context-handoff.md](deck-context-handoff.md) §9. Item 4
-(step awareness — the roster lists four bullets while the audience sees two) now has a live trigger,
-because an agent can drive the deck through steps and read a slide that disagrees with the screen.
+**Deferred:** items 5–7 in [deck-context-handoff.md](deck-context-handoff.md) §9.
 
-**The bigger arc is unchanged too:** wiring the on-device model through the `remember` seam
-([chat-handoff.md](chat-handoff.md) §6). The whole point of building this layer first was to
-exercise addressing, resolution and mutation with something deterministic, so that when the 2B model
-arrives the only new variable is the model. That worked — six bugs surfaced here that would
-otherwise have surfaced with a model in the loop, where telling "the model got it wrong" from "the
-tools got it wrong" is much harder.
+**Item 4 (step awareness) is now scoped rather than merely deferred** — see "Steps: revealing
+content, and knowing what is revealed" at the end of
+[deck-context-handoff.md](deck-context-handoff.md) §9. The trigger stopped being hypothetical when
+the in-page model got the tools: "expand all the content on this slide" is a thing a person says to
+the chat, and it answers by calling `get_slide`, which returns every node whether or not it has
+faded in. Two findings from that investigation land on **this** layer:
+
+- **`skipTo` does not clamp `stepIndex`** — `{ stepIndex: 99 }` overflows into the _next slide_.
+  The same trap the bounds note in §9 records for `slideIndex`, one field over.
+- **The tool surface should be `reveal_all` / `reveal_none` on `go_to_slide`'s `move` enum**, not a
+  ninth tool, for the reason `chat/mcp/tools.js` opens with: every overlapping tool is a coin flip
+  a 2B model has to win.
+
+**~~The bigger arc:~~ done.** The on-device model now drives these tools —
+`chat/agent/act/` wraps the registry in a prompt catalog, parses a fenced tool call out of the
+model's reply, and renders the tool's own receipt as the answer. It did **not** land on the
+`remember` seam ([chat-handoff.md](chat-handoff.md) §6) that this section expected; it landed above
+`streamAnswer` instead, so the session layer kept the idle timeout and the readiness gate and
+learned nothing about tools.
+
+Building this layer first paid exactly as intended. Six bugs surfaced here against
+`window.deckMcp`, before a model was in the loop — and three more surfaced in the wiring itself,
+where telling "the model got it wrong" from "the tools got it wrong" was easy precisely because the
+tools had already been exercised without one.

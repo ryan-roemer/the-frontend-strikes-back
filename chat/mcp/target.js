@@ -103,3 +103,55 @@ export const resolveTarget = (target, { slide } = {}) => {
  * hides the one thing worth checking.
  */
 export const echo = (id) => describeNode(id) ?? id;
+
+/**
+ * The note `locate()` attaches when a phrase named a ROLE and nothing narrowed it.
+ *
+ * Matched rather than re-derived, because `locate()` is the only thing that knows
+ * which tier answered, and re-deriving it here from the nodes would be a second
+ * implementation of the same judgement that could disagree with the first.
+ */
+const ROLE_AMBIGUITY = "role matched, no position";
+
+/**
+ * A target -> the nodes it names, where NAMING SEVERAL CAN BE THE ANSWER.
+ *
+ * `resolveTarget` refuses every ambiguity, and for a tool that rewrites wording it is
+ * right to: "change the TODO" with three TODOs on the slide has no safe reading, and
+ * picking one is unrecoverable.
+ *
+ * BUT NOT EVERY AMBIGUITY IS A COIN FLIP. "Make this list yellow" names a group, and
+ * `locate()` already distinguishes the two cases -- it returns `ambiguous` with the note
+ * `"role matched, no position"` when a phrase named a role the slide has several of, and
+ * `"text matched"` when several nodes happened to contain the same words. The first is
+ * a set the user meant; the second is a question they have not answered yet.
+ *
+ * So this accepts the role case and still refuses the text case, which keeps the
+ * distinction `locate.js` was careful to draw instead of flattening it. Styling is the
+ * only caller, and deliberately: a style is uniform across a group and undoes in one
+ * call, so being wrong about the extent costs a keystroke. Rewriting is not, which is
+ * why `edit_text` keeps going through `resolveTarget`.
+ *
+ * Returns `{ ok: true, nodes }` or `{ ok: false, result }`, matching `resolveTarget` so
+ * callers stay linear.
+ */
+export const resolveGroup = (target, { slide } = {}) => {
+  const said = String(target ?? "").trim();
+
+  // An id names one node, and so does anything `resolveTarget` resolves cleanly. Only
+  // the ambiguous branch needs different treatment, so everything else goes through the
+  // existing contract rather than around it -- one code path for ids, misses, and
+  // out-of-range slides, with their messages unchanged.
+  if (ID.test(said) || !said) {
+    const found = resolveTarget(said, { slide });
+    return found.ok ? { ok: true, nodes: [found.node] } : found;
+  }
+
+  const found = locate(said, { slide });
+  if (found.match === "ambiguous" && found.note === ROLE_AMBIGUITY) {
+    return { ok: true, nodes: found.nodes };
+  }
+
+  const single = resolveTarget(said, { slide });
+  return single.ok ? { ok: true, nodes: [single.node] } : single;
+};

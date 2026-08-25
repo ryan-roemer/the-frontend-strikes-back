@@ -12,14 +12,8 @@ import { getModelContext, getTools, writesEnabled } from "../mcp/index.js";
 import { setOpen, initialTool } from "./state.js";
 import { useCopy } from "../ui/use-copy.js";
 import { useDismissKeys } from "../ui/use-dismiss-keys.js";
-import {
-  Fields,
-  fieldsOf,
-  initialArgs,
-  missing,
-  summarize,
-  toArgs,
-} from "./form.js";
+import { fieldsOf, summarize } from "../mcp/schema.js";
+import { Fields, initialArgs, missing, toArgs } from "./form.js";
 
 const html = htm.bind(createElement);
 

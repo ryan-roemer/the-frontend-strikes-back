@@ -59,7 +59,7 @@ import {
   replaceText,
   resetEdits,
   resetSlide,
-  setStyle,
+  setStyles,
   setText,
   setVariable,
   STYLE_PROPS,
@@ -68,7 +68,7 @@ import {
 import { summary, withEdits } from "../edit/patches.js";
 import { start as startWatchdog } from "../edit/watchdog.js";
 import { nav } from "../nav.js";
-import { echo, resolveTarget } from "./target.js";
+import { echo, resolveGroup, resolveTarget } from "./target.js";
 import { line, nodeData } from "./shape.js";
 
 /**
@@ -649,6 +649,11 @@ const EDIT_SCHEMA = {
   properties: {
     applied: { type: "boolean" },
     node: NODE_SCHEMA,
+    nodes: {
+      ...NODES_SCHEMA,
+      description:
+        "Present on a group style: every node it touched. `node` is the first of them.",
+    },
     candidates: CANDIDATES_SCHEMA,
     changed: {
       type: "array",
@@ -783,32 +788,49 @@ const EDIT_TOOLS = [
   },
   {
     name: "style_node",
-    description:
-      "Restyle one piece of text on a slide — its colour, size, weight, alignment and so on. Identify it by id or by describing it. Relative sizes like 'bigger' are resolved against the element's real size before being applied, and the receipt reports the value the slide actually got. To hide something, set `display` to 'none' or `visibility` to 'hidden' — nothing is ever removed, so undo_edits brings it straight back. A value the browser will not accept is refused rather than silently dropped.",
+    description: `Restyle text on a slide — its colour, size, weight, alignment and so on. Identify what to style by id (like 9.3) or by describing it ('the heading', 'the second bullet'). A description that names a group styles the whole group, so 'the bullets' or 'this list' restyles every bullet on the slide in one go. Give the styling as CSS declarations: "color: yellow", or "color: yellow; text-decoration: underline" to set several at once. You can set: ${STYLE_PROPS.join(", ")}. Relative sizes like 'bigger' are resolved against the element's real size, and the receipt reports the value the slide actually got. To hide something use "display: none" or "visibility: hidden" — nothing is ever removed, so undo_edits brings it straight back. A value the browser will not accept is refused rather than silently dropped.`,
     inputSchema: {
       type: "object",
       properties: {
         target: {
           type: "string",
           description:
-            "A node id like '9.3', or a description like 'the heading'.",
+            "A node id like '9.3', or a description like 'the heading' or 'the bullets'.",
         },
-        property: {
-          type: "string",
-          enum: STYLE_PROPS,
-          description: "Which CSS property to set.",
-        },
-        value: {
+        style: {
           type: "string",
           description:
-            "The value, e.g. 'red', '48px', 'bold', 'underline', 'none'. For font-size, 'bigger' and 'smaller' also work.",
+            "CSS declarations, e.g. 'color: yellow' or 'color: yellow; text-decoration: underline'. For font-size, 'bigger' and 'smaller' also work.",
         },
       },
-      required: ["target", "property", "value"],
+      required: ["target", "style"],
     },
     outputSchema: EDIT_SCHEMA,
-    execute: async ({ target, property, value }) =>
-      mutate(target, (node) => setStyle(node.id, property, value)),
+    // `resolveGroup`, not `mutate`. Everything else in this file styles or rewrites ONE
+    // node and shares `mutate`'s resolve-apply-receipt shape; this is the only tool where
+    // a phrase naming several things is an answer rather than a question, so it is also
+    // the only one that cannot use it. See `resolveGroup` in `target.js` for why styling
+    // gets that latitude and rewriting does not.
+    execute: async ({ target, style }) => {
+      const found = resolveGroup(target);
+      if (!found.ok) return found.result;
+
+      const result = setStyles(
+        found.nodes.map((node) => node.id),
+        style,
+      );
+      if (!result.ok) return fail(result.message, { applied: false });
+
+      return ok([result.label, result.note], {
+        applied: true,
+        // `node` stays the FIRST node rather than being dropped when several were
+        // styled, because `EDIT_SCHEMA` promises it and a caller chaining a second
+        // change to "the same thing" reads it. `nodes` carries the full extent.
+        node: nodeData(found.nodes[0]),
+        nodes: found.nodes.map(nodeData),
+        edits: summary(),
+      });
+    },
   },
   {
     name: "set_deck_variable",

@@ -5,7 +5,7 @@ import { useConversation } from "../use-conversation.js";
 import { useDeck } from "../use-deck.js";
 import { refresh, restart } from "../agent/model-state.js";
 import { STATES } from "../agent/states.js";
-import { streamAnswer } from "../agent/session.js";
+import { respond } from "../agent/act/respond.js";
 import { useDismissKeys } from "./use-dismiss-keys.js";
 import { useModelState } from "./use-model-state.js";
 import { usePanelGeometry } from "./geometry.js";
@@ -86,10 +86,12 @@ export const Panel = ({ enabled }) => {
   const model = useModelState();
   const panelRef = useRef(null);
   const { reset, dragHandlers, resizeHandlers } = usePanelGeometry(panelRef);
-  // `streamAnswer` already IS the `respond({ text, onChunk, signal })` contract, so there
-  // is no responder module between the two.
+  // `respond` IS the `respond({ text, onChunk, signal })` contract this hook drives, so
+  // there is no adapter between the two. It wraps `streamAnswer` rather than replacing it:
+  // a turn that calls no tool is the same single streamed call it always was, and one that
+  // does gets its receipt through the same `onChunk`. See `agent/act/respond.js`.
   const { entries, streaming, busy, error, send, stop, clear } =
-    useConversation(streamAnswer);
+    useConversation(respond);
 
   // Re-check whenever the panel is opened, so a model that finished downloading
   // mid-talk promotes itself without a reload. Cheap: a memoized GPU probe and a

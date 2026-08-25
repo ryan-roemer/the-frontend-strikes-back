@@ -356,16 +356,66 @@ export const replaceText = (
   };
 };
 
-export const setStyle = (id, property, value) => {
-  const prop = String(property ?? "").toLowerCase();
-  if (!STYLE_PROPS.includes(prop)) {
-    return fail(
-      `I can't set "${property}". I can set: ${STYLE_PROPS.join(", ")}.`,
-    );
+/**
+ * "color: yellow; text-decoration: underline" -> the pairs it names.
+ *
+ * A CSS DECLARATION LIST IS THE ARGUMENT because of who fills it in. The tool used
+ * to take `property` and `value` as two arguments, which cost a whole call per
+ * declaration -- so "make this yellow and underline it", one thing a person says,
+ * was two tool calls and two undos. A 2B model choosing and filling in one shot
+ * (`mcp/tools.js`) does not get a second shot.
+ *
+ * Losing the schema `enum` on `property` is the trade, and it is a smaller loss than
+ * it looks: `setStyles` still refuses an unknown property with the full list, so the
+ * constraint moved from the schema to the receipt rather than disappearing. What is
+ * gained is a syntax every model has seen a million times and cannot really get
+ * wrong, versus two co-dependent arguments it has to keep aligned.
+ *
+ * TOLERANT ABOUT SHAPE, STRICT ABOUT CONTENT. A trailing semicolon, a missing one,
+ * odd spacing and wrapping braces are all accepted, because none of them is
+ * ambiguous. Anything past the first colon is the value, so `background-image:
+ * url(a:b)` survives; a declaration with no colon at all is dropped here and
+ * counted, so the receipt can say what it ignored rather than silently doing less
+ * than it was asked.
+ */
+export const parseDeclarations = (style) => {
+  const pairs = [];
+  const dropped = [];
+
+  for (const chunk of String(style ?? "").split(";")) {
+    const part = chunk
+      .trim()
+      .replace(/^[{]+|[}]+$/g, "")
+      .trim();
+    if (!part) continue;
+
+    const colon = part.indexOf(":");
+    if (colon === -1) {
+      dropped.push(part);
+      continue;
+    }
+    const prop = part.slice(0, colon).trim().toLowerCase();
+    const value = part.slice(colon + 1).trim();
+    if (!prop || !value) {
+      dropped.push(part);
+      continue;
+    }
+    pairs.push({ prop, value });
   }
 
+  return { pairs, dropped };
+};
+
+/**
+ * One declaration against one node, validated and resolved but NOT applied.
+ *
+ * Split out of the old `setStyle` so that a multi-node, multi-declaration change can
+ * be checked in full before any of it lands. Returns the patch to push rather than
+ * pushing it, which is what lets `setStyles` put the whole change in one group.
+ */
+const planStyle = (id, prop, value) => {
   const found = target(id);
-  if (found.error) return found.error;
+  if (found.error) return { ok: false, message: found.error.message };
 
   const resolved = resolveSize(prop, value, found.el);
 
@@ -373,26 +423,112 @@ export const setStyle = (id, property, value) => {
   // "make it bigger" filled in `font-size: bigger` -- not a CSS value, so it was
   // dropped on parse, nothing moved, and the receipt still said "Done."
   if (!CSS.supports(prop, resolved)) {
-    return fail(`"${value}" isn't a value ${prop} accepts.`);
+    return { ok: false, message: `"${value}" isn't a value ${prop} accepts.` };
   }
 
-  const declarations =
-    prop === "color" ? colourDeclarations(resolved) : `${prop}: ${resolved}`;
+  return {
+    ok: true,
+    resolved,
+    gradient: prop === "color" && paintedByBackground(found.el),
+    patch: {
+      kind: "css",
+      id,
+      selector: `[data-deck-ref="${id}"]`,
+      declarations:
+        prop === "color"
+          ? colourDeclarations(resolved)
+          : `${prop}: ${resolved}`,
+      label: `${prop} ${id} → ${resolved}`,
+    },
+  };
+};
 
-  push({
-    kind: "css",
-    id,
-    selector: `[data-deck-ref="${id}"]`,
-    declarations,
-    label: `${prop} ${id} → ${resolved}`,
-  });
+/**
+ * Style one node or a whole group, with one or several declarations.
+ *
+ * ONE CALL IS ONE EDIT AND ONE UNDO, which is why this plans everything and then
+ * calls `pushAll` once. Styling four bullets yellow is one thing the presenter did,
+ * and making them press undo four times describes the implementation rather than the
+ * change -- the same rule `replaceText` already follows.
+ *
+ * A BAD PROPERTY REFUSES THE WHOLE CALL; a bad VALUE only skips its own declaration.
+ * The asymmetry is deliberate. An unrecognised property means the request was
+ * misunderstood, and half-applying a misunderstanding is how you get a receipt the
+ * presenter stops trusting. An unusable value on one node of four is a partial
+ * result worth keeping, provided the receipt says so -- which is what `skipped` is
+ * for.
+ */
+export const setStyles = (ids, style) => {
+  const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
+  if (!list.length) return fail("Nothing to style.");
 
-  return done(
-    `${prop} on ${describeNode(id) ?? id} → ${resolved}`,
-    prop === "color" && paintedByBackground(found.el)
-      ? "That heading was painted with a gradient; a flat colour replaces that treatment."
-      : null,
-  );
+  const { pairs, dropped } = parseDeclarations(style);
+  if (!pairs.length) {
+    return fail(
+      `I couldn't read "${style}" as a style. Give me declarations like "color: yellow; text-decoration: underline".`,
+    );
+  }
+
+  const unknown = pairs.find(({ prop }) => !STYLE_PROPS.includes(prop));
+  if (unknown) {
+    return fail(
+      `I can't set "${unknown.prop}". I can set: ${STYLE_PROPS.join(", ")}.`,
+    );
+  }
+
+  const patches = [];
+  const applied = [];
+  const skipped = [];
+  let gradient = false;
+
+  for (const id of list) {
+    for (const { prop, value } of pairs) {
+      const plan = planStyle(id, prop, value);
+      if (!plan.ok) {
+        skipped.push(plan.message);
+        continue;
+      }
+      patches.push(plan.patch);
+      applied.push({ id, property: prop, value: plan.resolved });
+      gradient = gradient || plan.gradient;
+    }
+  }
+
+  // EVERY declaration failing is a refusal, not a partial success. There is nothing
+  // on the slide to show for it, so reporting "done" would be the receipt lie this
+  // module exists to prevent.
+  if (!patches.length) {
+    return fail(skipped[0] ?? `Nothing on the deck took "${style}".`);
+  }
+
+  const said = applied
+    .map(({ property, value }) => `${property}: ${value}`)
+    // Four bullets turned yellow is "color: yellow", said once -- the per-node
+    // repetition is in `applied` for anything that wants it.
+    .filter((line, index, all) => all.indexOf(line) === index)
+    .join("; ");
+  const where =
+    list.length === 1
+      ? (describeNode(list[0]) ?? list[0])
+      : `${list.length} nodes`;
+
+  pushAll(patches, `style ${where} → ${said}`);
+
+  return {
+    ...done(
+      `${said} on ${where}`,
+      [
+        gradient
+          ? "That heading was painted with a gradient; a flat colour replaces that treatment."
+          : null,
+        dropped.length ? `Ignored: ${dropped.join(", ")}.` : null,
+        skipped.length ? `Skipped: ${skipped.join(" ")}` : null,
+      ]
+        .filter(Boolean)
+        .join(" ") || null,
+    ),
+    applied,
+  };
 };
 
 export const setVariable = (name, value, scope, chapter) => {
