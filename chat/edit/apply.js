@@ -21,13 +21,17 @@
  * Never throws. A bad op is a message, not a crash.
  */
 import { resolveNode } from "../harvest/index.js";
+import { normalize } from "../harvest/nodes.js";
 import { describeNode } from "../harvest/views.js";
 import {
   captureBaseline,
+  dropSlide,
   isMixed,
   mainTextValue,
   push,
+  pushAll,
   reset,
+  runsOf,
   undo,
 } from "./patches.js";
 
@@ -51,6 +55,15 @@ export const STYLE_PROPS = [
   "text-decoration",
   "opacity",
   "border-radius",
+  // "Hide that bullet" WITHOUT TOUCHING THE CHILD LIST, which is the only safe
+  // way to do it: removing a node React's fiber still references throws
+  // `NotFoundError` on the next commit and unmounts the deck. A CSS patch is
+  // reversible, survives a remount, and costs nothing structural.
+  //
+  // Both, because they are different answers: `visibility: hidden` keeps the
+  // space so the rest of the slide does not move, `display: none` reflows.
+  "display",
+  "visibility",
 ];
 
 /** Custom properties the deck itself defines, so an override has something to override. */
@@ -61,14 +74,6 @@ export const CSS_VARS = [
   "--surface-2",
   "--hairline",
   "--muted",
-];
-
-/** Classes with a defined meaning in `deck/styles.css`. */
-export const TOGGLE_CLASSES = [
-  "em",
-  "takeaway--compact",
-  "card--dense",
-  "heading--fixed",
 ];
 
 /**
@@ -169,7 +174,7 @@ export const setText = (id, text) => {
   const original = mainTextValue(found.el);
   if (!original) return fail(`${id} has no editable text run.`);
 
-  captureBaseline(id, "text", {
+  captureBaseline(id, `text:${original.index}`, {
     kind: "text",
     index: original.index,
     value: original.value,
@@ -178,23 +183,177 @@ export const setText = (id, text) => {
   push({
     kind: "text",
     id,
-    textIndex: original.index,
+    runIndex: original.index,
     text: value,
     label: `text ${id} → "${value}"`,
   });
 
+  // WHAT THE SLIDE NOW SAYS, read back off the element rather than echoed from
+  // the argument. On the third of this deck that carries inline markup the two
+  // are not the same string: setting 9.3 -- `#text "One API: "` plus
+  // `<code>document.modelContext</code>` -- to "New wording" leaves the slide
+  // reading "New wordingdocument.modelContext", and a receipt quoting the
+  // argument reports a change the deck did not make.
+  //
   // BOTH SIDES, and the new one last. `describeNode` reads the fiber tree, which
   // still holds the authored wording -- React never learns about a `nodeValue`
   // write, which is exactly what makes the edit durable. So a receipt built from
   // it alone quotes the text that was just replaced and reads as a no-op.
+  const now = normalize(found.el.textContent ?? "");
   return done(
-    `${describeNode(id) ?? `${id} — "${was}"`} → "${value}"`,
-    // Reported, never silently mangled: `nodeValue` on the longest text node
-    // covers the sentence but not an `em()` span or an `<Icon>` beside it.
+    `${describeNode(id) ?? `${id} — "${was}"`} → "${now}"`,
     isMixed(found.el)
-      ? `${id} contains inline markup, so only its main text run changed.`
+      ? `${id} has inline markup, so "${value}" replaced only its main text run. Use find to change part of it instead.`
       : null,
   );
+};
+
+/** `find`, as a regex matching it literally, every occurrence. */
+const literally = (find, matchCase) =>
+  new RegExp(
+    find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    matchCase ? "g" : "gi",
+  );
+
+/**
+ * What replacing `find` in one node would do -- computed, not applied.
+ *
+ * SEPARATE FROM APPLYING because a replace across a slide has to land as ONE
+ * undoable group, and it cannot know its own label until every node has been
+ * measured. Planning first also means a node that would overflow refuses before
+ * anything on screen has moved, rather than halfway through.
+ */
+const planReplace = (id, find, replacement, matchCase) => {
+  const found = target(id);
+  if (found.error) return { ok: false, message: found.error.message };
+
+  const runs = runsOf(found.el);
+  const next = new Map();
+  let hits = 0;
+
+  for (const run of runs) {
+    // A FRESH REGEX PER USE. A `/g` pattern carries `lastIndex` between calls,
+    // so reusing one makes `match` on the second run start from wherever the
+    // first one stopped -- occurrences silently skipped, at no fixed rate.
+    const matched = run.value.match(literally(find, matchCase));
+    if (!matched) continue;
+    hits += matched.length;
+    next.set(
+      run.index,
+      run.value.replace(literally(find, matchCase), replacement),
+    );
+  }
+
+  // Not an error: a node that does not contain the phrase is simply not one of
+  // the nodes this call is about.
+  if (!hits) return { ok: false, skipped: true };
+
+  const before = normalize(found.el.textContent ?? "");
+  const after = normalize(
+    runs.map((run) => next.get(run.index) ?? run.value).join(""),
+  );
+
+  // THE GUARD FIRES ON GROWTH THIS CALL CAUSED, not on absolute length. A code
+  // pane is already far past `MAX_TEXT`, and refusing to rename a symbol inside
+  // one because of a limit that was already exceeded before anybody asked would
+  // be a layout guard blocking an edit that cannot affect the layout.
+  if (after.length > MAX_TEXT && after.length > before.length) {
+    return {
+      ok: false,
+      message: `Replacing "${find}" in ${id} would make it ${after.length} characters; anything over ${MAX_TEXT} overflows the slide.`,
+    };
+  }
+
+  return {
+    ok: true,
+    id,
+    hits,
+    before,
+    after,
+    runs: [...next.keys()],
+    values: runs,
+    patches: [...next].map(([index, text]) => ({
+      kind: "text",
+      id,
+      runIndex: index,
+      text,
+      label: `replace in ${id}`,
+    })),
+  };
+};
+
+/**
+ * Replace a phrase wherever it appears across a set of nodes.
+ *
+ * SAFER THAN WHOLE-NODE REPLACEMENT ON MIXED NODES, which is the part worth
+ * knowing: this rewrites each text run in place, so a `<code>` or `<em>` beside
+ * the words being changed keeps both its markup and its text. `setText` can only
+ * write the longest run and has to report that it did.
+ *
+ * ONE GROUP for the whole call, so "change every WebMCP to web tools" is one
+ * press of undo rather than eleven.
+ */
+export const replaceText = (
+  ids,
+  find,
+  replacement,
+  { matchCase = false } = {},
+) => {
+  const needle = String(find ?? "");
+  if (!needle) return fail("Give me something to find.");
+  if (replacement === undefined || replacement === null) {
+    return fail("Give me the text to put in its place.");
+  }
+  const value = String(replacement);
+
+  const plans = [];
+  const refusals = [];
+  for (const id of ids) {
+    const plan = planReplace(id, needle, value, matchCase);
+    if (plan.ok) plans.push(plan);
+    else if (!plan.skipped) refusals.push(plan.message);
+  }
+
+  if (!plans.length) {
+    return fail(
+      refusals.length
+        ? refusals.join(" ")
+        : `Nothing in range contains "${needle}".`,
+    );
+  }
+
+  // BEFORE `pushAll`, which rebuilds. Capturing afterwards would record the
+  // replacement as the deck's original value, and reset would restore the edit.
+  for (const plan of plans) {
+    for (const index of plan.runs) {
+      captureBaseline(plan.id, `text:${index}`, {
+        kind: "text",
+        index,
+        value: plan.values.find((run) => run.index === index)?.value ?? "",
+      });
+    }
+  }
+
+  const hits = plans.reduce((total, plan) => total + plan.hits, 0);
+  const label = `"${needle}" → "${value}" in ${plans.length} node${plans.length === 1 ? "" : "s"}`;
+  pushAll(
+    plans.flatMap((plan) => plan.patches),
+    label,
+  );
+
+  return {
+    ...done(
+      `Replaced "${needle}" with "${value}" — ${hits} occurrence${hits === 1 ? "" : "s"} across ${plans.length} node${plans.length === 1 ? "" : "s"}.`,
+      refusals.length ? `Skipped: ${refusals.join(" ")}` : null,
+    ),
+    hits,
+    nodes: plans.map(({ id, hits: count, before, after }) => ({
+      id,
+      hits: count,
+      before,
+      after,
+    })),
+  };
 };
 
 export const setStyle = (id, property, value) => {
@@ -236,37 +395,6 @@ export const setStyle = (id, property, value) => {
   );
 };
 
-export const toggleClass = (id, className, on) => {
-  if (!TOGGLE_CLASSES.includes(className)) {
-    return fail(
-      `I can't toggle "${className}". I can toggle: ${TOGGLE_CLASSES.join(", ")}.`,
-    );
-  }
-  // NEVER `Boolean(value)`: `on: "false"` is truthy and would ADD the class the
-  // caller asked to remove.
-  const wanted = on === true || on === "true" || on === 1 || on === "1";
-
-  const found = target(id);
-  if (found.error) return found.error;
-
-  captureBaseline(id, `class:${className}`, {
-    kind: "class",
-    className,
-    value: found.el.classList.contains(className),
-  });
-  push({
-    kind: "class",
-    id,
-    className,
-    on: wanted,
-    label: `${wanted ? "add" : "remove"} .${className} ${id}`,
-  });
-
-  return done(
-    `${wanted ? "Added" : "Removed"} .${className} on ${describeNode(id) ?? id}`,
-  );
-};
-
 export const setVariable = (name, value, scope, chapter) => {
   if (!name) {
     // Named separately from the unknown-name case: a MISSING name usually means
@@ -302,8 +430,8 @@ export const setVariable = (name, value, scope, chapter) => {
 };
 
 export const undoEdit = () => {
-  const patch = undo();
-  return patch ? done(`Undid: ${patch.label}`) : fail("Nothing to undo.");
+  const undone = undo();
+  return undone ? done(`Undid: ${undone.label}`) : fail("Nothing to undo.");
 };
 
 export const resetEdits = () => {
@@ -313,4 +441,20 @@ export const resetEdits = () => {
       ? `Reset ${count} edit${count === 1 ? "" : "s"}. The deck is back as it shipped.`
       : "There was nothing to reset.",
   );
+};
+
+/**
+ * Put one slide back, leaving every other slide's edits alone.
+ *
+ * The common repair during a talk: something on the slide currently up is wrong,
+ * and undoing one step at a time would walk back changes on slides nobody is
+ * looking at.
+ */
+export const resetSlide = (slide) => {
+  const count = dropSlide(slide);
+  return count
+    ? done(
+        `Reset ${count} change${count === 1 ? "" : "s"} on slide ${slide}. The rest of the deck is untouched.`,
+      )
+    : fail(`Nothing has been changed on slide ${slide}.`);
 };

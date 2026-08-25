@@ -8,7 +8,7 @@ const html = htm.bind(createElement);
  *
  * The schema is already the documentation an agent gets -- names, types,
  * required-ness, enums, prose. Generating the human form from the same object
- * rather than hand-writing fourteen forms is not just less code: it means the
+ * rather than hand-writing one per tool is not just less code: it means the
  * form CANNOT drift from what the agent sees. If a field appears here that an
  * agent would not be told about, that is a bug in the schema, and this makes it
  * visible instead of hiding it.
@@ -17,7 +17,7 @@ const html = htm.bind(createElement);
 /**
  * The first sentence, plus a trailing parenthetical if there is one.
  *
- * Descriptions in `tools.js` are written for a model and run long -- `find_node`
+ * Descriptions in `tools.js` are written for a model and run long -- `find_nodes`
  * opens with three sentences of guidance. The full text still shows in the
  * schema table above the form; this is for the placeholder inside the field,
  * where anything past a line is noise.
@@ -44,9 +44,9 @@ export const summarize = (text) => {
  * `kind` collapses JSON Schema's type vocabulary onto the four controls that
  * exist. `enum` is checked BEFORE `type`, because a string with an enum is a
  * dropdown and a string without one is a text box, and that distinction matters
- * more here than the type does -- five of this deck's parameters are enums drawn
- * straight from `chat/edit/apply.js`, and typing `background-color` by hand at a
- * podium is how you find out you typed `background_color`.
+ * more here than the type does -- six of this deck's parameters are enums, three
+ * of them drawn straight from `chat/edit/apply.js`, and typing `background-color`
+ * by hand at a podium is how you find out you typed `background_color`.
  */
 export const fieldsOf = (schema) => {
   const properties = schema?.properties ?? {};
@@ -178,9 +178,9 @@ const Field = ({ field, value, onChange }) => {
 /**
  * The whole form, or nothing at all.
  *
- * Four of the fourteen tools take no arguments. Rendering an empty `<div>` with
- * padding for those leaves a gap above the button that reads as a missing
- * control rather than as a tool that needs nothing.
+ * `get_deck_outline` takes no arguments. Rendering an empty `<div>` with padding
+ * for it leaves a gap above the button that reads as a missing control rather
+ * than as a tool that needs nothing.
  */
 export const Fields = ({ fields, args, onChange }) => {
   if (fields.length === 0) return null;

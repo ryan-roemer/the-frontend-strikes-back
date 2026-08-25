@@ -23,6 +23,7 @@ const BROWSER = [
   "CSS",
   "DOMException",
   "MutationObserver",
+  "NodeFilter",
   "Response",
   "TransformStream",
   "URL",

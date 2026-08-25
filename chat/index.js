@@ -69,10 +69,11 @@ export const mountChat = () => {
   // that it goes up even when the model never does.
   const stopDump = installDump();
 
-  // The deck as a WebMCP server: `document.modelContext` tools for reading and
-  // navigating the deck, plus editing behind `?mcp`. Installed beside the
-  // harvest because it is the same seam -- it consumes `harvest/` and shares
-  // nothing with the panel -- and for the same "three edits" reason.
+  // The deck as a WebMCP server: `document.modelContext` tools for reading,
+  // navigating and editing the deck, all registered on a plain load. `?safe`
+  // drops the editing ones. Installed beside the harvest because it is the same
+  // seam -- it consumes `harvest/` and shares nothing with the panel -- and for
+  // the same "three edits" reason.
   const stopTools = installTools();
 
   // A FUNCTION, NOT A STRING, and that is now load-bearing rather than merely a

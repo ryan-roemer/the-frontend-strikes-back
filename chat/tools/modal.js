@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import htm from "htm";
-import { editingEnabled, getModelContext, getTools } from "../mcp/index.js";
+import { getModelContext, getTools, writesEnabled } from "../mcp/index.js";
 import { setOpen, initialTool } from "./state.js";
 import { useCopy } from "../ui/use-copy.js";
 import { useDismissKeys } from "../ui/use-dismiss-keys.js";
@@ -298,10 +298,15 @@ const ToolInspector = () => {
               className=${`chat-sheet__badge${getModelContext() ? " chat-sheet__badge--on" : ""}`}
               >${getModelContext() ? "host connected" : "no host"}</span
             >
-            ${editingEnabled() &&
-            html`<span className="chat-sheet__badge chat-sheet__badge--on"
-              >editing</span
-            >`}
+            ${
+              "" /* Only the EXCEPTION is worth a badge. Writing is on by default
+                    now, so a badge saying so would be lit on every normal load
+                    and carry no information; `?safe` is the state somebody needs
+                    telling about, because it is why the edit tools are missing
+                    from the list they are looking at. */
+            }
+            ${!writesEnabled() &&
+            html`<span className="chat-sheet__badge">read-only</span>`}
           </span>
           <button
             type="button"

@@ -47,17 +47,24 @@ reachable from `window.deckMcp`.
 | file                 | holds                                                                |
 | -------------------- | -------------------------------------------------------------------- |
 | `chat/mcp/index.js`  | `getModelContext()`, registration, the `?mcp` gate, `window.deckMcp` |
-| `chat/mcp/tools.js`  | the fourteen descriptors                                             |
+| `chat/mcp/tools.js`  | the eight descriptors                                                |
 | `chat/mcp/target.js` | `resolveTarget()` — the id-or-phrase contract                        |
 | `chat/nav.js`        | `next` / `prev` / `toSlide` / `first` / `last`                       |
 
-**Read and navigate are always registered. Editing appears only with `?mcp`** — the `?dump`
-precedent. An agent connected during the actual talk can follow along and move the deck, and cannot
-alter a slide. Measured: 8 tools and no stylesheet on a normal load, 14 with the flag.
+**Everything registers on a plain load; `?safe` drops the writing tools.** This is inverted from
+the original `?mcp` gate, and deliberately: the tools exist to be demonstrated, and a demo that
+needs a remembered query parameter before it does anything is a demo that fails in front of an
+audience. `?safe` remains as the kill switch, because the risk the old default guarded against is
+real — a stray tool call can rewrite a slide while it is on screen. Measured: 8 tools and a
+stylesheet on a normal load, 4 tools and no stylesheet under `?safe`.
 
-| always                                                                                                                         | `?mcp` only                                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `get_current_slide` `get_deck_outline` `find_node` `where_is_node` `search_deck` `get_speaker_notes` `go_to_slide` `move_deck` | `edit_node` `style_node` `toggle_node_class` `set_deck_variable` `undo_edit` `reset_edits` |
+Paged output never reaches any of this: `mountChat()` returns before `installTools()` when
+`paged-mode` or `print-mode` is set, so the PDF export and the print handout carry no tools at all
+regardless of any flag.
+
+| always                                                    | dropped by `?safe`                                        |
+| --------------------------------------------------------- | --------------------------------------------------------- |
+| `get_slide` `get_deck_outline` `find_nodes` `go_to_slide` | `edit_text` `style_node` `set_deck_variable` `undo_edits` |
 
 ### The `target` contract
 
@@ -74,17 +81,17 @@ downstream can recover from.
 
 `window.deckMcp` is installed whether or not a `modelContext` exists:
 
-|                    |                                                                                                                  |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `list()`           | every tool: `short` (a call signature like `find_node({ phrase, slide })`), `name`, `description`, `inputSchema` |
-| `call(name, args)` | run one. Throws only for an unknown tool name — everything else comes back as a result                           |
-| `schema(name)`     | the tool's declared `outputSchema`, for checking results against their own contract                              |
-| `editing`          | whether `?mcp` unlocked the writing tools                                                                        |
-| `host`             | whether a real `modelContext` was found                                                                          |
+|                    |                                                                                                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `list()`           | every tool: `short` (a call signature like `find_nodes({ query, slide, scope })`), `name`, `description`, `inputSchema` |
+| `call(name, args)` | run one. Throws only for an unknown tool name — everything else comes back as a result                                  |
+| `schema(name)`     | the tool's declared `outputSchema`, for checking results against their own contract                                     |
+| `writes`           | whether the writing tools are registered (false under `?safe`)                                                          |
+| `host`             | whether a real `modelContext` was found                                                                                 |
 
 ```js
 deckMcp.list().map((t) => t.short); // what can I call?
-await deckMcp.call("find_node", { phrase: "the second bullet" });
+await deckMcp.call("find_nodes", { query: "the second bullet" });
 await deckMcp.call("go_to_slide", { slide: 21 });
 ```
 
@@ -95,6 +102,13 @@ surface, not through a host.
 ---
 
 ## 3. Six things this got wrong, and what each one teaches
+
+**These use the tool names of the time**, before the fourteen were merged down to eight. The
+mapping, so the narratives below still read: `get_current_slide` and `get_speaker_notes` are now
+`get_slide`; `find_node` and `search_deck` are now `find_nodes`; `move_deck` folded into
+`go_to_slide`; `edit_node` became `edit_text`; `undo_edit` and `reset_edits` became `undo_edits`.
+`toggle_node_class` and `where_is_node` were dropped — `style_node` covers the first, and
+`deckDump.where()` still does the second from the console.
 
 Two were pre-existing bugs in the harvest; four were mistakes in this layer's own design. They are
 written up in full because **every one of them was a silent wrong answer rather than a crash** — the
@@ -348,23 +362,32 @@ Dev server `:3000`, Chrome CDP `:9222`. Every tool is scriptable through `deckMc
 | check                                                          | expected                                                                                                                         |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | **navigate, then re-measure the harvest**                      | still 35 slides / 162 nodes — the check that would have caught §3                                                                |
-| `deckMcp.list()` on a normal load                              | 8 tools, no mutators, no `#deck-edit-sheet`                                                                                      |
-| same with `?mcp`                                               | 14 tools, sheet present                                                                                                          |
-| `go_to_slide` then `get_current_slide`                         | the new slide — nav settles before returning                                                                                     |
+| `deckMcp.list()` on a normal load                              | 8 tools, `#deck-edit-sheet` present                                                                                              |
+| same with `?safe`                                              | 4 tools, no mutators, no sheet, no watchdog                                                                                      |
+| `go_to_slide` then `get_slide`                                 | the new slide — nav settles before returning                                                                                     |
 | `go_to_slide` past the end                                     | clamps, and says so                                                                                                              |
-| `move_deck` at either end                                      | "already at the end", not a claimed move                                                                                         |
+| `go_to_slide` `move` at either end                             | "already at the end", not a claimed move                                                                                         |
 | ambiguous phrase to any editing tool                           | `isError` plus candidates, slide unchanged                                                                                       |
-| `find_node` `"browser"` on slide 6                             | **all three** matches, as a result and **not** an error — never one picked by length                                             |
-| the same phrase to `edit_node` / `style_node`                  | refused, with the candidates. Writes must resolve to exactly one                                                                 |
-| `find_node` with a node's full text                            | resolves, even when other nodes on the slide contain the same word                                                               |
-| `find_node` with a phrase matching nothing                     | a result carrying the slide's roster, not an error                                                                               |
+| `find_nodes` `"browser"` on slide 6                            | **all three** matches, as a result and **not** an error — never one picked by length                                             |
+| the same phrase to `edit_text` / `style_node`                  | refused, with the candidates. Writes must resolve to exactly one                                                                 |
+| `find_nodes` with a node's full text                           | resolves, even when other nodes on the slide contain the same word                                                               |
+| `find_nodes` with a phrase matching nothing                    | a result carrying the slide's roster, not an error                                                                               |
 | **every tool's `structuredContent` vs its own `outputSchema`** | validates — required keys present, declared enums honoured. Catches schema/code drift, which is invisible from either side alone |
-| chaining `find_node` → `edit_node`                             | by `structuredContent.matches[n].id`, with **no string parsing**                                                                 |
+| chaining `find_nodes` → `edit_text`                            | by `structuredContent.matches[n].id`, with **no string parsing**                                                                 |
 | `slide: 0` / `99` / `-3` / `1.5` to a **read** tool            | refused, naming the range — never answered from a different slide                                                                |
 | the same values to `go_to_slide`                               | clamped, and the receipt says it clamped                                                                                         |
 | `style_node` `font-size: bigger`                               | resolved to px against the element's own size                                                                                    |
 | `style_node` `enormous` / `z-index`                            | refused by `CSS.supports` / by the allowlist                                                                                     |
-| edit, sweep all 35 slides, `reset_edits`                       | **live-DOM fingerprint identical to before**, 0 stray refs, 1 empty sheet, deck alive                                            |
+| **`edit_text` whole-node on a node with inline markup**        | the receipt quotes the slide's **resulting** text, not the argument — see §3's receipt-lies family                               |
+| **`edit_text` `find` on the same node**                        | only the matched words change; the `<code>` beside them keeps its markup **and** its text                                        |
+| `edit_text` `find` reaching inside a `<code>`                  | replaced — the walk is over descendants, not direct children                                                                     |
+| `edit_text` with `text` and neither `target` nor `find`        | refused. It would rewrite every node in the deck to one string                                                                   |
+| `edit_text` `slide: 6` while on slide 1                        | applies — all 35 slides are in the DOM, so cross-slide editing needs no navigation                                               |
+| `edit_text` deck-wide over `DECK_LIMIT`                        | refused, naming the count, nothing applied                                                                                       |
+| `edit_text` `find` that would overflow `MAX_TEXT`              | refused — but only when the change **caused** the overflow, so code panes stay editable                                          |
+| **multi-node replace, then `undo_edits` `last`**               | **one call puts back every node it touched** — the log counts edits, not patches                                                 |
+| `undo_edits` `slide` after a deck-wide replace                 | that slide reverts, the rest stands, and the split edit's label gains "(partly reset)"                                           |
+| edit, sweep all 35 slides, `undo_edits` `all`                  | **live-DOM fingerprint identical to before**, 0 stray refs, 1 empty sheet, deck alive                                            |
 | `?exportMode=true` / `?printMode=true`                         | `window.deckMcp` undefined                                                                                                       |
 
 **Fingerprint the live DOM, not the harvest.** A harvest-based fingerprint is identical before and
