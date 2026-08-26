@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "kind": "recorded",
+    "slide": 10,
+    "about": "Renaming a symbol inside a code pane. Both replies are Gemma's real output, in order: a phrase quoted out of the source as `target` (which nothing used to resolve) and a multi-token `find` (which nothing used to match).",
+    "recorded-outcome": "both attempts failed. `target` was a line of the code, and a code node's addressable text is its FILENAME, so locate() answered `none` against a roster of `10.1 subtitle` / `10.2 code: register-tool.js`. The model was being shown the full source in its pinned slide block and had nothing in it it could address.",
+    "guards": "reply 1 must be refused and reply 2 must run. Remove locate()'s `bySource` tier and reply 1 resolves to nothing again \u2014 reported as a call that never dispatched. Remove the spans-several-runs refusal's `retry` flag and the turn ends after reply 1, reported as an unused reply."
+  },
+  "turns": [
+    {
+      "ask": "Change the code example to call the tool name `search_hi` instead of `search_documents`",
+      "replies": [
+        "```tool edit_text\n{\"target\": \"document.modelContext.registerTool({\", \"find\": \"name: \\\"search_documents\\\"\", \"text\": \"name: \\\"search_hi\\\"\"}\n```",
+        "```tool edit_text\n{\"target\": \"document.modelContext.registerTool({\", \"find\": \"search_documents\", \"text\": \"search_hi\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "target": "document.modelContext.registerTool({",
+              "find": "name: \"search_documents\"",
+              "text": "name: \"search_hi\""
+            }
+          },
+          {
+            "name": "edit_text",
+            "args": {
+              "target": "document.modelContext.registerTool({",
+              "find": "search_documents",
+              "text": "search_hi"
+            }
+          }
+        ],
+        "slides": {
+          "10": ["...", "re:^code: .*name: \"search_hi\".*$", "..."]
+        }
+      }
+    }
+  ]
+}

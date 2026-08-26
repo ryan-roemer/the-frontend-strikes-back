@@ -366,9 +366,9 @@ export const READ_TOOLS = [
           // Mirrors `locate()`'s `match` values exactly, and must: a value the code can
           // produce and the schema does not list is one a strict host may reject.
           type: "string",
-          enum: ["text", "ordinal", "role", "ambiguous", "none"],
+          enum: ["text", "ordinal", "role", "source", "ambiguous", "none"],
           description:
-            "How it resolved. 'text' is strongest — the phrase is in the node's wording. 'ambiguous' means several matched equally; pick one by id.",
+            "How it resolved. 'text' is strongest — the phrase is in the node's wording. 'source' means it was found inside a code pane's source rather than in any node's own text. 'ambiguous' means several matched equally; pick one by id.",
         },
         total: {
           type: "integer",
@@ -682,6 +682,14 @@ const EDIT_SCHEMA = {
         "Present on a group style: every node it touched. `node` is the first of them.",
     },
     candidates: CANDIDATES_SCHEMA,
+    // Emitted only on a refusal, like `candidates`, and declared for the same reason:
+    // `required` below describes a SUCCESS, but a value the code produces that the schema
+    // omits is one a strict host may reject.
+    retry: {
+      type: "boolean",
+      description:
+        "Present only on a refusal that named a reliable fix, so calling again with a corrected argument is worth a try.",
+    },
     changed: {
       type: "array",
       description: "Present on a find-and-replace: every node it touched.",
@@ -811,7 +819,15 @@ const EDIT_TOOLS = [
       }
 
       const result = replaceText(ids, needle, value);
-      if (!result.ok) return fail(result.message);
+      // `retry` PASSED THROUGH, not re-derived. `apply.js` sets it on the one refusal it
+      // can offer a reliable fix for -- a phrase spanning several styled runs, where a
+      // single identifier does work -- and only that layer knows which refusal that is.
+      if (!result.ok) {
+        return fail(
+          result.message,
+          result.retry ? { applied: false, retry: true } : undefined,
+        );
+      }
 
       return ok([`${result.label} (${where})`, result.note], {
         applied: true,

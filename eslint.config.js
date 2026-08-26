@@ -87,6 +87,10 @@ export default [
         fetch: "readonly",
         process: "readonly",
         setTimeout: "readonly",
+        // Paired with `setTimeout`: every CDP call is bounded by a timer that has to be
+        // cleared on the winning path, or a successful run holds the event loop open for
+        // the remainder of each call's budget.
+        clearTimeout: "readonly",
       },
     },
   },

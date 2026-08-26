@@ -223,6 +223,56 @@ const byOrdinal = (nodes, words) => {
 };
 
 /**
+ * Tier 4 -- a phrase quoted out of a code pane's SOURCE.
+ *
+ * THE GAP THIS CLOSES was a mismatch between what the model is SHOWN and what it can
+ * ADDRESS. A code node's `text` is its filename -- `serialize.js` says so and is right to,
+ * because the source is hundreds of tokens and putting it in every roster line and
+ * echo-back would be unreadable. But `deck-context.js` pins the slide with the FULL SOURCE
+ * in a fenced block, so the model sees the code, is asked to rename a symbol in it, and
+ * quite reasonably targets a line of it:
+ *
+ *   edit_text({ target: "document.modelContext.registerTool({", find: "search_documents" })
+ *
+ * which resolved to nothing, twice in a row, against a roster offering only
+ * `10.2 — code: register-tool.js`. The `serialize.js` note assumed "nothing downstream is
+ * going to edit a line of it through a 2B model"; that stopped being true when the model
+ * got the tools, and `apply.js` `replaceText` already handles the edit -- it walks the
+ * pane's text runs and deliberately permits a rewrite inside text far over `MAX_TEXT` so
+ * long as it does not grow. The mechanism was there; only the addressing was missing.
+ *
+ * LAST TIER, AFTER EVERY AMBIGUITY IS ALREADY DECIDED, which is what makes it free of
+ * regressions. A pane's source is 600 characters of common words -- "name", "type",
+ * "query" -- so consulting it earlier would turn clean matches on real bullets into
+ * ambiguities. Reached only where the answer was otherwise "nothing matched".
+ *
+ * FORWARD CONTAINMENT ONLY, unlike `byText`, which also accepts `needle.includes(hay)`.
+ * That direction exists for a phrase that quotes a whole short node back; a 600-character
+ * source is never contained in anything a person types, and allowing it would let a
+ * one-word phrase match by accident.
+ */
+const bySource = (harvested, nodes, phrase) => {
+  const panes = harvested?.code ?? [];
+  if (!panes.length || phrase.length < 3) return [];
+
+  const needle = phrase.toLowerCase();
+  const hits = [];
+
+  for (const node of nodes) {
+    if (node.role !== "code") continue;
+    // Paired by the same expression `serialize.js` emits the node text from, so the two
+    // cannot drift: a pane contributes `{ file, language, source }` and its node's text is
+    // `file ?? language ?? "code"`.
+    const pane = panes.find(
+      (one) => (one.file ?? one.language ?? "code") === node.text,
+    );
+    if (pane?.source?.toLowerCase().includes(needle)) hits.push(node);
+  }
+
+  return hits;
+};
+
+/**
  * A phrase -> the node it names, on one slide.
  *
  * `slide` defaults to whatever is on screen, so "the second bullet" means what a
@@ -235,6 +285,8 @@ const byOrdinal = (nodes, words) => {
  *              answer, because it could not have been confidently wrong
  *   ordinal    role plus a position, counted per depth
  *   role       the phrase named a role the slide has exactly one of
+ *   source     the phrase is inside a code pane's source. A LAST RESORT, tried only when
+ *              nothing above matched -- see `bySource`
  *   ambiguous  several candidates, all in `nodes`. NEVER pick one here -- but
  *              what "ambiguous" should MEAN is the caller's to decide. A caller
  *              that acts on a node has to refuse; a caller that reports one can
@@ -295,5 +347,13 @@ export const locate = (phrase, { slide } = {}) => {
   if (ordinal?.pool?.length > 1) {
     return result("ambiguous", ordinal.pool, said, "role matched, no position");
   }
+
+  // Tier 4 -- inside a code pane's SOURCE, and last on purpose.
+  const source = bySource(harvested, nodes, said);
+  if (source.length === 1) return result("source", source, said);
+  if (source.length > 1) {
+    return result("ambiguous", source, said, "several code panes matched");
+  }
+
   return result("none", nodes, said);
 };

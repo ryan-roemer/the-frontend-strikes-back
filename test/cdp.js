@@ -30,7 +30,43 @@ const DECK = process.env.DECK_URL ?? "http://localhost:3000/";
 /** How long to give the deck to mount. It pulls React and Spectacle from a CDN. */
 const READY_MS = 20000;
 
+/**
+ * How long any single CDP call may take before it is treated as a dead target.
+ *
+ * EVERY CALL IS BOUNDED, and this is not belt-and-braces -- an unbounded one hung the whole
+ * suite. A tab can accept a WebSocket and then never answer `Runtime.evaluate`: two
+ * unrelated `localhost:4710` tabs running wasm models did exactly that, sitting sixth in
+ * `/json/list`, and the probe sweep awaited the first of them forever. `probe()` wraps its
+ * call in a try/catch, which cannot help, because a promise that never settles is not an
+ * exception -- it is silence, and silence has no handler.
+ *
+ * Generous, because the alternative failure is worse: too short and a busy but healthy deck
+ * gets skipped as dead. Nothing this file asks for legitimately takes seconds -- the long
+ * waits are all polling loops built out of many short calls.
+ */
+const CALL_MS = 5000;
+
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+/**
+ * Reject if a promise has not settled in time.
+ *
+ * The timer is cleared on the winning path, so a bounded call that succeeds does not hold
+ * the event loop open for the remainder of its budget -- which would add `CALL_MS` to the
+ * end of every run.
+ */
+const bounded = (promise, ms, what) => {
+  let timer = null;
+  return Promise.race([
+    promise.finally(() => clearTimeout(timer)),
+    new Promise((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`cdp: ${what} did not answer in ${ms}ms`)),
+        ms,
+      );
+    }),
+  ]);
+};
 
 /**
  * The deck URL with the harness turned on.
@@ -56,70 +92,104 @@ const deckUrl = () => {
  * enough that a library would hide it.
  */
 const attach = (url) =>
-  new Promise((resolve, reject) => {
-    const socket = new WebSocket(url);
-    const pending = new Map();
-    let id = 0;
+  bounded(
+    new Promise((resolve, reject) => {
+      const socket = new WebSocket(url);
+      const pending = new Map();
+      let id = 0;
 
-    socket.addEventListener("message", (event) => {
-      const message = JSON.parse(event.data);
-      const waiting = pending.get(message.id);
-      if (!waiting) return;
-      pending.delete(message.id);
-      if (message.error) waiting.reject(new Error(message.error.message));
-      else waiting.resolve(message.result);
-    });
-
-    socket.addEventListener("error", () =>
-      reject(new Error(`cdp: cannot open ${url}`)),
-    );
-
-    socket.addEventListener("open", () => {
-      const send = (method, params) =>
-        new Promise((ok, no) => {
-          id += 1;
-          pending.set(id, { resolve: ok, reject: no });
-          socket.send(JSON.stringify({ id, method, params }));
-        });
-
-      resolve({
-        send,
-        /**
-         * Evaluate an expression and get its VALUE back.
-         *
-         * `awaitPromise` because everything worth driving here is async, and
-         * `returnByValue` because the alternative is a remote object handle and a second
-         * round trip per field. A report is JSON already -- see `runner.js`, which returns
-         * data rather than throwing for exactly this reason.
-         */
-        eval: async (expression) => {
-          const result = await send("Runtime.evaluate", {
-            expression,
-            awaitPromise: true,
-            returnByValue: true,
-          });
-          // A thrown exception in the page is a harness failure, not a test failure, and it
-          // must not come back as `undefined` for a caller to misread as an empty report.
-          if (result.exceptionDetails) {
-            throw new Error(
-              `page threw: ${
-                result.exceptionDetails.exception?.description ??
-                result.exceptionDetails.text
-              }`,
-            );
-          }
-          return result.result.value;
-        },
-        close: () => socket.close(),
+      socket.addEventListener("message", (event) => {
+        const message = JSON.parse(event.data);
+        const waiting = pending.get(message.id);
+        if (!waiting) return;
+        pending.delete(message.id);
+        if (message.error) waiting.reject(new Error(message.error.message));
+        else waiting.resolve(message.result);
       });
-    });
-  });
 
-/** Every page target, or null when the endpoint is not there at all. */
+      socket.addEventListener("error", () =>
+        reject(new Error(`cdp: cannot open ${url}`)),
+      );
+
+      socket.addEventListener("open", () => {
+        // BOUNDED AT THE ONE PLACE EVERY CALL GOES THROUGH, so no caller has to remember.
+        // A timed-out entry is dropped from `pending`: a late reply then finds nothing
+        // waiting and is discarded, rather than resolving a promise nobody holds.
+        const send = (method, params) =>
+          bounded(
+            new Promise((ok, no) => {
+              id += 1;
+              pending.set(id, { resolve: ok, reject: no });
+              socket.send(JSON.stringify({ id, method, params }));
+            }),
+            CALL_MS,
+            method,
+          );
+
+        resolve({
+          send,
+          /**
+           * Evaluate an expression and get its VALUE back.
+           *
+           * `awaitPromise` because everything worth driving here is async, and
+           * `returnByValue` because the alternative is a remote object handle and a second
+           * round trip per field. A report is JSON already -- see `runner.js`, which returns
+           * data rather than throwing for exactly this reason.
+           */
+          eval: async (expression) => {
+            const result = await send("Runtime.evaluate", {
+              expression,
+              awaitPromise: true,
+              returnByValue: true,
+            });
+            // A thrown exception in the page is a harness failure, not a test failure, and it
+            // must not come back as `undefined` for a caller to misread as an empty report.
+            if (result.exceptionDetails) {
+              throw new Error(
+                `page threw: ${
+                  result.exceptionDetails.exception?.description ??
+                  result.exceptionDetails.text
+                }`,
+              );
+            }
+            return result.result.value;
+          },
+          close: () => socket.close(),
+        });
+      });
+    }),
+    CALL_MS,
+    `attach ${url}`,
+  );
+
+/**
+ * Every page target that could plausibly be the deck, or null when the endpoint is not
+ * there at all.
+ *
+ * FILTERED BY ORIGIN BEFORE ANYTHING IS ATTACHED. `probe()` below is still the authority on
+ * whether a tab is the deck -- its note explains why a URL match cannot be -- but that is an
+ * argument about not TRUSTING the URL, not about opening a socket to every tab in somebody's
+ * browser. A normal working profile had 22 page targets: mail, drive, two chat apps, three
+ * unrelated localhost ports. Probing all of them was ten pointless sockets on a good day and
+ * a hang on a bad one, because two of those unrelated tabs answered no CDP call at all.
+ *
+ * The origin comes from `DECK`, so pointing `DECK_URL` elsewhere moves this with it.
+ */
 const pages = async () => {
   try {
     const listed = await fetch(`${ENDPOINT}/json/list`);
-    return (await listed.json()).filter((t) => t.type === "page");
+    const origin = new URL(DECK).origin;
+    return (await listed.json()).filter(
+      (t) =>
+        t.type === "page" &&
+        typeof t.url === "string" &&
+        t.url.startsWith(origin) &&
+        // The PDF export mounts no chat and so registers no tools, and it is a tab people
+        // leave open. It would fail `probe()` anyway; skipping it saves a socket and keeps
+        // the reload in `findExisting` off a tab somebody is mid-export on.
+        !t.url.includes("exportMode") &&
+        t.webSocketDebuggerUrl,
+    );
   } catch {
     return null;
   }
@@ -162,9 +232,19 @@ const probe = async (session) => {
  */
 const findExisting = async (listed) => {
   for (const page of listed) {
-    const session = await attach(page.webSocketDebuggerUrl);
-    if (!(await probe(session))) {
-      session.close();
+    // A TAB THAT CANNOT BE REACHED IS SKIPPED, NOT FATAL. `attach` and every call under it
+    // are bounded now, so a wedged tab rejects rather than hanging -- but rejecting out of
+    // here would fail the whole suite over somebody's stuck background tab, which is
+    // exactly the wrong response. Keep looking.
+    let session = null;
+    try {
+      session = await attach(page.webSocketDebuggerUrl);
+      if (!(await probe(session))) {
+        session.close();
+        continue;
+      }
+    } catch {
+      session?.close();
       continue;
     }
 

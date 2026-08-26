@@ -322,11 +322,36 @@ export const replaceText = (
   }
 
   if (!plans.length) {
-    return fail(
-      refusals.length
-        ? refusals.join(" ")
-        : `Nothing in range contains "${needle}".`,
-    );
+    if (refusals.length) return fail(refusals.join(" "));
+
+    // IS IT THERE, JUST NOT IN ONE PIECE? `planReplace` matches within a single text run,
+    // and a syntax-highlighted code pane is one run per token -- `name`, `: `,
+    // `"search_documents"` are three. So `find: 'name: "search_documents"'` is plainly
+    // visible on the slide and matches nothing, and `Nothing in range contains …` reads as
+    // the deck being wrong about its own contents.
+    //
+    // Reported as ITS OWN REFUSAL, naming the fix, because the fix is reliable: a single
+    // identifier is a single token and does match. `retry: true` lets the model take that
+    // advice without the user retyping the request -- see `act/receipt.js` `retryable`.
+    const spanning = ids.find((id) => {
+      const found = target(id);
+      if (found.error) return false;
+      const whole = found.el.textContent ?? "";
+      return matchCase
+        ? whole.includes(needle)
+        : whole.toLowerCase().includes(needle.toLowerCase());
+    });
+    if (spanning) {
+      return {
+        ...fail(
+          `"${needle}" is on the slide but spans several separately-styled pieces of text, so it cannot be replaced in one go. ` +
+            `Try a single word or identifier from it — in a code sample, something like a name or a value on its own.`,
+        ),
+        retry: true,
+      };
+    }
+
+    return fail(`Nothing in range contains "${needle}".`);
   }
 
   // BEFORE `pushAll`, which rebuilds. Capturing afterwards would record the
