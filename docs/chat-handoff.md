@@ -501,6 +501,57 @@ this model because it is multi-query and shares KV across 20 of its 35 layers. T
 **decode throughput**, which is the number a presenter actually feels, not the GPU memory you
 would expect.
 
+### Re-measured 2026-08-26: 16,384 is free, and unreachable
+
+The sweep above predates the tool catalog, which put another ~626 tokens into the preface, so
+8,192 and 16,384 were run again against the live deck on the current build — ten turns each,
+same questions, HTTP cache off, the constant flipped between runs.
+
+| Quantity               | 8,192    | 16,384   |
+| ---------------------- | -------- | -------- |
+| Create                 | 1,999ms  | 1,538ms  |
+| Avg ttft               | 311ms    | 306ms    |
+| Avg turn               | 647ms    | 646ms    |
+| Decode                 | 69.9 tps | 69.0 tps |
+| Prefill                | 6,584    | 6,614    |
+| Context after 10 turns | 1,938    | 1,938    |
+| **Meter reads**        | **24%**  | **12%**  |
+
+Every answer came back the same length, turn for turn, under both windows. **Doubling the
+window costs nothing measurable.** Prefill has also moved a long way since the first sweep —
+6,584 tps against the 1,608 recorded above, same machine — so read the tps columns in that
+table as relative to each other, not as current numbers.
+
+What stops the doubling being worth doing is that nothing can spend the extra room. Two things
+bound context by construction:
+
+- `MAX_HISTORY_MESSAGES = 6` in `litert.js` — three question/answer pairs, hard-trimmed.
+- A slide's text is offered at most once per conversation (`deck-context.js`), so pinning grows
+  with distinct slides asked about and stops at the deck's 35.
+
+The ceiling is therefore a conversation that walks all 35 slides and asks a question on each,
+which no real talk produces:
+
+| Slide asked about | 1     | 10    | 20    | 35        |
+| ----------------- | ----- | ----- | ----- | --------- |
+| Context           | 1,936 | 2,882 | 4,065 | **5,239** |
+| Turn              | 518ms | 1.2s  | 825ms | 1.6s      |
+
+**Peak 5,239 of 8,192 — 64%**, against the five-to-a-dozen slides a talk actually asks about,
+which sits at 2,000–2,700. 8,192 already clears the worst case the deck can generate.
+
+**So 16,384 is an option, not a fix.** Flip `MAX_NUM_TOKENS` if a longer preface, a bigger
+catalog or a bigger deck ever needs it — it will not cost a presenter anything. The only reason
+not to flip it today is the meter, which is the one thing that changes: the worst case would
+read 32% instead of 64%, and the broom stops looking necessary.
+
+The other row in that table is the one worth carrying away. The turn grew from 518ms to 1.6s
+across the walk, because prefill is re-paid every turn against a preface that had reached 5,239
+tokens. **Context here is a latency budget rather than a capacity one** — and raising
+`MAX_HISTORY_MESSAGES` to make use of a bigger window would buy that latency along with worse
+answers, since [§6](#6-the-transcript-is-the-providers) has accumulating history taking five
+code questions from 5-of-5 usable to 2-of-5 at only 4,338 tokens.
+
 ---
 
 ## 9. Architecture, in one screen
