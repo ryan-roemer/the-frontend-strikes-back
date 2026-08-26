@@ -8,6 +8,7 @@ import {
   modelSize,
   refresh,
   stateMeta,
+  subscribe,
   touch,
 } from "./model-state.js";
 import { STATES } from "./states.js";
@@ -66,13 +67,65 @@ const withIdleTimeout = (signal) => {
 const aborted = () => new DOMException("Aborted", "AbortError");
 
 /**
+ * Say that a download started, and keep saying how it is going, in the answer bubble.
+ *
+ * WHAT MAKES AUTOLOADING HONEST. A question that silently begins a 2 GB fetch is a
+ * question that took a decision the person did not know they were making; a question that
+ * says "Downloading Gemma 4 E2B (2 GB)… 34%" and can be stopped is one that told them.
+ * The size comes from `modelSize()`, so a provider whose bytes are not ours -- Chrome --
+ * omits it rather than inventing one.
+ *
+ * IT WRITES WHERE THE ANSWER WILL BE, but NOT DOWN THE ANSWER'S CHANNEL. `onStatus` is a
+ * separate callback that the caller renders the same way, and the separation is
+ * load-bearing rather than tidy: `act/respond.js` decides from the FIRST chunk of an
+ * answer whether the reply is prose or a tool call and never revisits it, so a status line
+ * arriving on `onChunk` would be sniffed as prose and pin the whole turn -- a tool call
+ * would then stream its raw fence into the transcript instead of running.
+ *
+ * The caller paints it where the answer will go, so the first real token overwrites all of
+ * this. There is nothing to tear down and no way for a status line to survive into the
+ * transcript, including when the load throws.
+ *
+ * SUBSCRIBES RATHER THAN POLLS. `model-state.js` publishes on every progress event
+ * already, and a timer would repaint a frozen number on Chrome -- whose "downloading" is
+ * a report rather than a measurement -- making a stalled fetch look busy.
+ */
+const announce = (onStatus) => {
+  if (!onStatus) return () => {};
+
+  const size = modelSize();
+  const lead = `Downloading the model${size ? ` (${size})` : ""}`;
+  let done = false;
+
+  const paint = () => {
+    if (done) return;
+    const { progressText } = getState();
+    onStatus(`${lead}…${progressText ? ` ${progressText}` : ""}`);
+  };
+
+  paint();
+  const off = subscribe(paint);
+
+  return () => {
+    done = true;
+    off();
+  };
+};
+
+/**
  * Stream one answer from the durable session.
  *
  * Creates the session on demand: a question typed while the model is merely
  * ON_DISK should just work, and the keystroke that submitted it is a perfectly
  * good user activation.
  */
-export const streamAnswer = async ({ text, onChunk, signal, onPrompt }) => {
+export const streamAnswer = async ({
+  text,
+  onChunk,
+  onStatus,
+  signal,
+  onPrompt,
+}) => {
   if (!isReady()) {
     // RE-SAMPLE BEFORE REFUSING, but only where the status is not a fact. On LiteRT a
     // DOWNLOADING reading is authoritative and a re-check is pure latency; under the Prompt
@@ -98,34 +151,48 @@ export const streamAnswer = async ({ text, onChunk, signal, onPrompt }) => {
       );
     }
 
-    // DOWNLOADABLE must NOT be treated as "just load it", even though its state meta says
-    // the button would: on LiteRT that action is a 2 GB fetch, and starting one silently
-    // from a keystroke is not something typing should be able to do.
-    if (status === STATES.DOWNLOADABLE) {
-      const size = modelSize();
-      throw new Error(
-        `The model isn't downloaded yet${size ? ` (${size})` : ""}. Use the download ` +
-          "button in the panel header when you're on a connection you trust.",
-      );
-    }
-
-    // CREATING is different: it is seconds, and a question typed the moment the
-    // deck loads is the normal case. `load()` hands back the in-flight attempt, so
-    // this waits on that one rather than starting a second.
+    // DOWNLOADABLE LOADS, and this used to refuse. The old reasoning was that on LiteRT
+    // the action is a 2 GB fetch and "starting one silently from a keystroke is not
+    // something typing should be able to do" -- but the refusal it produced sent someone
+    // who had just asked a question to hunt for a button in the panel header, which is a
+    // worse first experience than the download it was protecting them from. Asking IS the
+    // intent to use the model.
+    //
+    // NOT SILENT, which is what makes it safe rather than merely convenient: `announce`
+    // below puts the size and live progress in the answer bubble, the header shows its own
+    // meter, and stop works throughout. The cost is stated before it is paid, and it is
+    // interruptible while it is being paid.
+    //
+    // CREATING falls through here too. It is seconds, and a question typed the moment the
+    // deck loads is the normal case; `load()` hands back the in-flight attempt, so this
+    // waits on that one rather than building a second.
     const creating = status === STATES.CREATING;
 
     // Otherwise only try when the state says a click would have worked;
     // UNSUPPORTED and UNAVAILABLE must surface as themselves rather than as a
     // failure to load.
-    if (!creating && meta?.action !== "load") {
+    if (
+      !creating &&
+      status !== STATES.DOWNLOADABLE &&
+      meta?.action !== "load"
+    ) {
       throw new Error(meta?.title ?? "The on-device model is not available");
     }
 
+    // Progress into the bubble, for as long as the load runs. A 2 GB wait belongs where
+    // the person is already looking, not only in a header meter above a panel they may
+    // have scrolled. `onStatus`, never `onChunk` -- see `announce`.
+    const stopAnnouncing =
+      status === STATES.DOWNLOADABLE ? announce(onStatus) : () => {};
     // UNBOUNDED, deliberately. `load()` already bounds the only phase that can hang, and a
     // second bound here would either fire first and mask it, or have to be minutes long --
     // a hang with extra steps. What guarantees the UI escapes is `use-conversation.js`
     // `stop()`, which clears `busy` without waiting for this to return.
-    await load();
+    try {
+      await load();
+    } finally {
+      stopAnnouncing();
+    }
 
     // Re-read after the await: a download may have started underneath us, in which
     // case `error` is null and the generic message below would be wrong.

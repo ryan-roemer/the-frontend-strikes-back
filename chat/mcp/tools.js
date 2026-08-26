@@ -504,6 +504,14 @@ const POSITION_SCHEMA = {
     title: { type: ["string", "null"] },
     moved: { type: "boolean", description: "False at either end of the deck." },
     clamped: { type: "boolean" },
+    // Declared for the same reason `CANDIDATES_SCHEMA` is: emitted only on a refusal, and
+    // a value the code produces that the schema does not list is one a strict host may
+    // reject. `required` above still describes a SUCCESS.
+    retry: {
+      type: "boolean",
+      description:
+        "Present only on a refusal that named the whole valid set, so calling again with a corrected argument is worth a try.",
+    },
   },
   required: ["slide", "from", "count", "moved"],
 };
@@ -605,7 +613,26 @@ export const NAV_TOOLS = [
       // `spec.fn` -- reported as a transport failure rather than as the
       // perfectly good "Can't move that" answer one line down.
       const spec = Object.hasOwn(MOVES, move) ? MOVES[move] : null;
-      if (!spec) return fail(`Can't move "${move}".`);
+      if (!spec) {
+        // THE REFUSAL CARRIES THE MENU, like every other refusal in this file --
+        // `setStyles` lists the properties, `setVariable` lists the variables,
+        // `target.js` lists the candidates. This one said only `Can't move "16".`,
+        // which is the whole valid set withheld at exactly the moment it is needed.
+        //
+        // AND IT NAMES THE OTHER ARGUMENT, because a value that is not a move is
+        // usually a slide number in the wrong field. That is the real failure this
+        // was found by: `{"move": "16"}` for "next slide".
+        const numeric = Number(move);
+        return fail(
+          [
+            `"${move}" is not a move. I can move: ${Object.keys(MOVES).join(", ")}.`,
+            Number.isInteger(numeric) && numeric > 0
+              ? `To go to slide ${numeric}, pass \`slide\` instead of \`move\`.`
+              : "To go to a specific slide, pass `slide` with a number.",
+          ].join(" "),
+          { retry: true },
+        );
+      }
 
       const result = await spec.fn();
       if (!result) return fail(NO_DECK);

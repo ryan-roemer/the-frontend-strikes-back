@@ -18,12 +18,14 @@
  * tools:
  *
  *   `JSON.stringify(registry, null, 2)`   9,188 chars   ~2,010 tok
- *   this                                  2,863 chars     ~626 tok
+ *   this                                  3,166 chars     ~693 tok
  *   this, under `?safe` (four tools)      1,438 chars     ~315 tok
  *
- * The full figure grew from ~540 when `edit_text` earned a third example and a first
- * sentence that names all three of its modes -- both bought by a bug, and both measured
- * with `window.deckReplay.prompt()` rather than estimated.
+ * The full figure grew from ~540 in two steps, and every one was bought by a bug rather
+ * than by tidying: `edit_text` earned a third example and a first sentence naming all
+ * three of its modes, then `go_to_slide` earned a second example and a second sentence
+ * (+303 chars, ~67 tok -- see `MIN_SUMMARY`). Measured with `window.deckReplay.prompt()`
+ * rather than estimated.
  *
  * Token figures are chars/4.57, the ratio implied by `prompt.js`'s own measured ~680 for
  * the pre-tools preface, rather than a tokenizer this page does not have when the prompt
@@ -54,18 +56,41 @@ const argText = (field) => {
 };
 
 /**
+ * The shortest summary worth keeping, in characters. A FLOOR, not a cap -- see
+ * `summarize` in `mcp/schema.js`.
+ *
+ * Set from measurement, not taste. First-sentence lengths across the eight registered
+ * tools run 191, 92, 61, **14**, 205, 72, 96, 270. The 14 is `go_to_slide`'s "Move the
+ * deck.", and it is the only one that fails to say what goes in an argument -- which is
+ * exactly the tool where that mattered, because it has three mutually exclusive ones.
+ *
+ * 60 is the only threshold that picks out that tool and no other: it costs +247 characters
+ * (~54 tokens) and rewrites one entry. Raising it to 80 pulls in three more tools and 274
+ * further characters for nothing anybody got wrong; 240 pulls in seven and nearly doubles
+ * the catalog.
+ *
+ * The margin to the next tool up is one character (`find_nodes` at 61), so a reword there
+ * would start growing it too. That is acceptable and arguably correct -- a first sentence
+ * under 60 characters is unlikely to say how to fill an argument -- but it is the reason
+ * this constant is measured rather than guessed, and worth re-running if descriptions
+ * change.
+ */
+const MIN_SUMMARY = 60;
+
+/**
  * The signature line, then the purpose.
  *
- * `summarize()` comes from `mcp/schema.js`, which the inspector reads too. It takes the
- * first sentence of a description written for a model, without cutting "a node id like
- * '9.3'" at the decimal point. Sharing it means the inspector and the in-page model
- * summarise the same text the same way, and there is one regex to get right rather than
- * two.
+ * `summarize()` comes from `mcp/schema.js`, which the inspector reads too. It keeps whole
+ * sentences without cutting "a node id like '9.3'" at the decimal point, and takes just
+ * the first unless that leaves less than `MIN_SUMMARY`. Sharing it means the inspector and
+ * the in-page model summarise the same text the same way, and there is one regex to get
+ * right rather than two -- the inspector passes no floor, so its placeholders are one
+ * sentence exactly as before.
  */
 const toolText = (tool) => {
   const fields = fieldsOf(tool.inputSchema);
   const args = fields.map(argText).join(", ");
-  return `${tool.name}(${args})\n  ${summarize(tool.description)}`;
+  return `${tool.name}(${args})\n  ${summarize(tool.description, { atLeast: MIN_SUMMARY })}`;
 };
 
 /**
@@ -83,8 +108,13 @@ const toolText = (tool) => {
  *     one request; showing the semicolon is what keeps it one call.
  *   - A target may be a phrase. The signature says `target` is a string and cannot say
  *     that "the second bullet" is a legal value for it.
- *   - `go_to_slide` has three mutually exclusive arguments, and `move` is the one a
- *     relative instruction needs.
+ *   - `go_to_slide` has three mutually exclusive arguments, and it is the only tool shown
+ *     TWICE -- once relative, once absolute. With one example its argument was always
+ *     `move`, and asked for "next slide" on slide 15 a model answered `{"move": "16"}`: it
+ *     had worked out the right destination and put it in the only argument it had ever
+ *     seen filled. The signature carried the enum the whole time, so this is not a case
+ *     more constraint would have fixed -- the evidence pointed one way and the constraint
+ *     lost.
  *   - REWRITING a whole piece of text is `target` + `text` with NO `find`, which is the
  *     FIRST mode `edit_text`'s description names and the one the model had never seen. The
  *     other two examples of that tool both pass `find`, so every piece of evidence it had
@@ -95,7 +125,7 @@ const toolText = (tool) => {
  *     below: read together, they are the presence and absence of `find` on the same
  *     `target`, which is the distinction neither one teaches alone.
  *   - REMOVING text is `edit_text` with an empty `text`, and nothing above can say so.
- *     `toolText` gives the model the FIRST SENTENCE of a description, so the sentence in
+ *     `toolText` summarises a description, so the sentence in
  *     `mcp/tools.js` that explains deletion never reaches it -- what it sees is
  *     `edit_text(target?, slide?, find?, text)` and "Change or remove wording on the
  *     deck." Asked to remove a phrase it would omit `text` (refused: "Give me the new
@@ -122,6 +152,11 @@ const toolText = (tool) => {
  */
 const EXAMPLES = [
   ["go to the last slide", "go_to_slide", '{"move": "last"}'],
+  // A SECOND `go_to_slide`, and the only tool here shown twice. With one example its
+  // argument was always `move`, and a model asked for "next slide" on slide 15 answered
+  // `{"move": "16"}` -- it had computed the right destination and put it in the only
+  // argument it had ever seen filled. Two examples make the choice between them visible.
+  ["go to slide 12", "go_to_slide", '{"slide": 12}'],
   [
     "replace every mention of WebMCP with AWESOME",
     "edit_text",

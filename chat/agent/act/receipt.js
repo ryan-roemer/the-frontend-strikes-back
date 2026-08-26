@@ -91,5 +91,15 @@ export const receiptText = (name, args, result) => {
  * exactly why `mcp/shape.js` exists, and the structured copy is the one that cannot be
  * mis-parsed.
  */
-export const retryable = (result) =>
-  !!result?.isError && !!result?.structuredContent?.candidates?.length;
+export const retryable = (result) => {
+  if (!result?.isError) return false;
+  const structured = result.structuredContent;
+  // Candidates, or a tool that said so itself. `retry: true` is the explicit opt-in --
+  // set by `go_to_slide` when a `move` was not one of its moves, because it can name the
+  // whole valid set and a model handed that set usually gets it right second time.
+  //
+  // DECLARED BY THE TOOL, NOT SNIFFED FROM THE MESSAGE. Guessing "does this refusal look
+  // recoverable?" from prose would make every message edit a silent behaviour change,
+  // and the tool is the only thing that knows whether it withheld something useful.
+  return !!structured?.candidates?.length || structured?.retry === true;
+};

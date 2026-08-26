@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "kind": "authored",
+    "slide": 15,
+    "about": "A `move` that is not a move: the refusal names the whole set, the model corrects itself, and the deck lands. Turn 2 reads the slide on screen to prove it actually moved.",
+    "recorded-outcome": "asked for \"next slide\" on slide 15, Gemma emitted go_to_slide({\"move\": \"16\"}) — the right destination in the wrong argument. The deck did not move and the turn was over: `Can't move \"16\".` named no alternative and carried no `retry`, so nothing asked the model again.",
+    "guards": "two replies for one ask. Drop `retry: true` from go_to_slide's refusal, or narrow `retryable()` back to candidates-only, and this turn consumes one reply — reported as an unused reply AND as one call where two were expected."
+  },
+  "turns": [
+    {
+      "ask": "next slide",
+      "replies": [
+        "```tool go_to_slide\n{\"move\": \"16\"}\n```",
+        "```tool go_to_slide\n{\"move\": \"next\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          { "name": "go_to_slide", "args": { "move": "16" } },
+          { "name": "go_to_slide", "args": { "move": "next" } }
+        ]
+      }
+    },
+    {
+      "ask": "what's on this slide?",
+      "replies": ["```tool get_slide\n{}\n```"],
+      "expect": {
+        "calls": [{ "name": "get_slide", "args": {} }],
+        "slides": {
+          "16": ["re:^<slide n=\"16\" .*>$", "..."]
+        }
+      }
+    }
+  ]
+}

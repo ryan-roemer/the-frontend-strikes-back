@@ -57,6 +57,13 @@ const ask = async ({ text, onChunk, signal, onPrompt }) => {
     text,
     signal,
     onPrompt,
+    // STATUS IS NOT AN ANSWER AND IS NEVER SNIFFED. `streamAnswer` reports a model
+    // download here while it waits, and putting that through `onChunk` would set `mode`
+    // to "answer" before the model had produced a single token -- pinning the turn as
+    // prose, so a tool call would stream its raw fence into the transcript rather than
+    // running. It goes straight through to the bubble, where the first real token
+    // overwrites it.
+    onStatus: (line) => onChunk?.(line),
     onChunk: (accumulated) => {
       if (mode === "unknown") mode = sniff(accumulated);
       // A tool call is not prose and must never be rendered as it decodes. The user sees
@@ -154,11 +161,16 @@ export const respond = async ({ text, onChunk, signal, onPrompt }) => {
 
   if (retryable(result) && !signal?.aborted) {
     const retry = await ask({
-      // The candidates come from the result's own text block, which `target.js` writes as
-      // "matches 3 nodes. Call again with one of these ids:" followed by the ids. Passing
-      // it verbatim is what makes this one round trip: the model reads the same refusal a
-      // host agent would.
-      text: `${receiptText(call.name, call.args, result)}\n\nPick one and call the tool again. The request was: ${text}`,
+      // THE REFUSAL GOES BACK VERBATIM, and that is what makes this one round trip: it
+      // already carries everything the model needs to fix the call. `target.js` writes
+      // "matches 3 nodes. Call again with one of these ids:" and lists them; `go_to_slide`
+      // lists its moves and points at `slide`. The model reads the same refusal a host
+      // agent would.
+      //
+      // WORDED FOR BOTH KINDS, because there are now two. "Pick one" is right for
+      // candidates and nonsense for a bad enum value, where nothing was offered to pick
+      // between -- it read as an instruction the refusal had not set up.
+      text: `${receiptText(call.name, call.args, result)}\n\nCall the tool again with that fixed. The request was: ${text}`,
       onChunk,
       signal,
       onPrompt,

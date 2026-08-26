@@ -17,15 +17,33 @@
  */
 
 /**
- * The first sentence, plus a trailing parenthetical if there is one.
+ * Whole sentences -- the first, and more only if that one is too short to be useful --
+ * plus a trailing parenthetical if there is one.
  *
  * Descriptions in `tools.js` are written for a model and run long -- `find_nodes` opens
- * with three sentences, `style_node` lists twelve CSS properties. Both consumers want the
+ * with three sentences, `style_node` lists fourteen CSS properties. Both consumers want the
  * short form: the inspector for a placeholder inside a field, where anything past a line
- * is noise, and the catalog because the full text of eight descriptions is ~1,400 tokens
+ * is noise, and the catalog because the full text of eight descriptions is ~2,010 tokens
  * re-prefilled on every turn.
+ *
+ * `atLeast` IS A FLOOR, NOT A CEILING, and the name is deliberate -- a "budget" would read
+ * as a cap and do the opposite. The first sentence is always kept whole however long it is,
+ * because half a sentence is worse than a long one; further sentences are added only while
+ * the result is still SHORTER than `atLeast`. So it does nothing at all to a description
+ * whose first sentence already says enough, and rescues the ones where it does not.
+ *
+ * A LENGTH FLOOR RATHER THAN A SENTENCE COUNT, because this cost a real failure. `summarize()`
+ * used to take exactly one sentence, which suits a description that front-loads its detail
+ * and betrays one that does not. `go_to_slide`'s first sentence is "Move the deck." -- a
+ * three-word topic label -- so the tool with THREE MUTUALLY EXCLUSIVE ARGUMENTS got the
+ * shortest entry in the catalog, and the sentence naming those arguments was the one
+ * dropped. Asked for "next slide" on slide 15, Gemma emitted
+ * `go_to_slide({"move": "16"})`: it had the enum in the signature, no statement that
+ * `slide` takes a number, and one worked example whose argument was `move`.
+ *
+ * One sentence is still the default, so the inspector's placeholders are unchanged.
  */
-export const summarize = (text) => {
+export const summarize = (text, { atLeast = 0 } = {}) => {
   if (!text) return "";
   const parenthetical = text.match(/\s+(\([^)]+\))\s*$/);
   const body = parenthetical ? text.slice(0, parenthetical.index) : text;
@@ -36,8 +54,19 @@ export const summarize = (text) => {
   // in this deck's schemas, and both of which read as a truncation bug rather
   // than as a summary. Requiring whitespace and then a capital or a bracket
   // costs one lookahead and gets decimals, ids and `e.g.` right.
-  const first = body.match(/^.*?[.!?](?=\s+[A-Z(]|\s*$)/s);
-  const head = (first ? first[0] : body).trim();
+  const SENTENCE = /^.*?[.!?](?=\s+[A-Z(]|\s*$)/s;
+
+  let head = "";
+  let rest = body.trim();
+  // At least once, so a description with no sentence break still yields its whole self.
+  do {
+    const match = SENTENCE.exec(rest);
+    const sentence = (match ? match[0] : rest).trim();
+    if (!sentence) break;
+    head = head ? `${head} ${sentence}` : sentence;
+    rest = rest.slice(match ? match[0].length : rest.length).trim();
+  } while (rest && head.length < atLeast);
+
   return parenthetical ? `${head} ${parenthetical[1]}` : head;
 };
 

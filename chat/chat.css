@@ -1289,11 +1289,37 @@
   padding-left: 12px;
 }
 
-/* The preface and the live question are the two a reader is looking for; the
- * turns between them are context in both senses. */
+/* The preface, this turn's question and this turn's answer are what a reader is looking
+ * for; the turns between them are context in both senses.
+ *
+ * `--live` RATHER THAN `:last-child`, which is what this used to be. The question was the
+ * last block in the sheet until the answer was appended below it, and a positional rule
+ * moved the emphasis to whatever happened to be last. */
 .chat-context__message--system,
-.chat-context__message--user:last-child {
+.chat-context__message--live {
   border-left-color: var(--chapter-accent, #78eec5);
+}
+
+/* What came back, and the line before it. Everything above the rule was sent; everything
+ * below it was generated, and that is the one boundary in this sheet worth drawing. */
+.chat-context__rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-context__rule::before,
+.chat-context__rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--hairline, rgba(255, 255, 255, 0.12));
 }
 
 /* Deck blocks are neither preface nor turn -- they were sent once and kept, and

@@ -143,12 +143,47 @@ const probe = async (session) => {
   }
 };
 
-/** An already-open deck tab, or null. */
+/**
+ * An already-open deck tab, RELOADED, or null.
+ *
+ * THE RELOAD IS THE WHOLE POINT OF THIS FUNCTION BEING MORE THAN A LOOP, and leaving it
+ * out made the suite lie. ES modules are cached per page, so a tab that has been open
+ * since before your edit is still running the code you just changed — and every fixture
+ * goes on passing against it. Caught by reverting a fix on purpose and watching its own
+ * regression test stay green; `docs/chat-handoff.md` §10 warns about exactly this, one
+ * layer up, for hand-driven CDP sessions.
+ *
+ * `ignoreCache: true` because the dev server is `npx serve`, which is happy to answer a
+ * conditional request with a 304 for a file that changed a second ago.
+ *
+ * The cost is a few seconds per run against a warm tab, which is the price of the result
+ * meaning anything. A tab we open ourselves (`openDeck`) is fresh by construction and
+ * needs none of this.
+ */
 const findExisting = async (listed) => {
   for (const page of listed) {
     const session = await attach(page.webSocketDebuggerUrl);
-    if (await probe(session)) return { session, opened: false };
+    if (!(await probe(session))) {
+      session.close();
+      continue;
+    }
+
+    await session.send("Page.enable");
+    await session.send("Page.reload", { ignoreCache: true });
+
+    // Re-probe on the SAME schedule `openDeck` uses. `Page.reload` resolves when the
+    // navigation is accepted, not when the deck has mounted, so without this the first
+    // fixture runs against a page with no `deckReplay` at all.
+    const deadline = Date.now() + READY_MS;
+    while (Date.now() < deadline) {
+      if (await probe(session)) return { session, opened: false };
+      await sleep(250);
+    }
+
     session.close();
+    return {
+      reason: `deck tab reloaded but never became ready within ${READY_MS}ms`,
+    };
   }
   return null;
 };
