@@ -73,4 +73,21 @@ export default [
       globals: { console: "readonly", process: "readonly" },
     },
   },
+  {
+    // `test/` runs under `node --test`. `URL` is the only platform name it needs, for
+    // resolving a fixture against `import.meta.url` -- there is no `__dirname` in ESM and
+    // no reason to add a path dependency for one join.
+    files: ["test/**/*.js"],
+    languageOptions: {
+      globals: {
+        URL: "readonly",
+        console: "readonly",
+        // `cdp.js` is two fetches and a socket, with no dependency to hide them behind.
+        WebSocket: "readonly",
+        fetch: "readonly",
+        process: "readonly",
+        setTimeout: "readonly",
+      },
+    },
+  },
 ];

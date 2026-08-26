@@ -159,7 +159,14 @@ const target = (id) => {
 
 export const setText = (id, text) => {
   const value = String(text ?? "");
-  if (!value.trim()) return fail("Give me some text.");
+  if (!value.trim()) {
+    // The refusal stands -- a node blanked by rewriting leaves an empty box where the
+    // deck expects words. But this is where "remove the heading" arrives, so it says
+    // which argument DOES delete rather than only that this one does not.
+    return fail(
+      "Give me some text. To delete words, pass `find` with an empty `text`; to hide the whole thing, style it `display: none`.",
+    );
+  }
   if (value.length > MAX_TEXT) {
     return fail(
       `That is ${value.length} characters; anything over ${MAX_TEXT} overflows the slide. Shorten it and try again.`,
@@ -335,7 +342,13 @@ export const replaceText = (
   }
 
   const hits = plans.reduce((total, plan) => total + plan.hits, 0);
-  const label = `"${needle}" → "${value}" in ${plans.length} node${plans.length === 1 ? "" : "s"}`;
+  const nodesText = `${plans.length} node${plans.length === 1 ? "" : "s"}`;
+  // AN EMPTY REPLACEMENT IS A REMOVAL, and it gets its own verb in both the undo label
+  // and the receipt. `"WebMCP" → "" in 1 node` is accurate and unreadable -- and this
+  // string is what a presenter skims mid-talk to check the deck did what they asked.
+  const label = value
+    ? `"${needle}" → "${value}" in ${nodesText}`
+    : `removed "${needle}" from ${nodesText}`;
   pushAll(
     plans.flatMap((plan) => plan.patches),
     label,
@@ -343,7 +356,9 @@ export const replaceText = (
 
   return {
     ...done(
-      `Replaced "${needle}" with "${value}" — ${hits} occurrence${hits === 1 ? "" : "s"} across ${plans.length} node${plans.length === 1 ? "" : "s"}.`,
+      `${
+        value ? `Replaced "${needle}" with "${value}"` : `Removed "${needle}"`
+      } — ${hits} occurrence${hits === 1 ? "" : "s"} across ${nodesText}.`,
       refusals.length ? `Skipped: ${refusals.join(" ")}` : null,
     ),
     hits,

@@ -1,5 +1,6 @@
 import { provider as litert } from "./litert.js";
 import { provider as chrome } from "./chrome.js";
+import { provider as replay } from "./replay.js";
 
 /**
  * The two on-device providers, and the contract they both satisfy.
@@ -77,8 +78,16 @@ import { provider as chrome } from "./chrome.js";
  * LiteRT's 1-3s create, a bail-out on Chrome's, which secretly blocks on a download.
  */
 
-/** Registration order is display order in the switcher. */
-const ALL = [chrome, litert];
+/**
+ * Registration order is display order in the switcher.
+ *
+ * `replay` is third and last for a reason beyond ordering: its `offered()` is false unless
+ * `?replay` is set, so on every ordinary load it is filtered out of the switcher, out of
+ * `pick()`, and out of reach of a stale stored id. It is a test harness that happens to
+ * satisfy the same interface -- see `replay.js` for why that is the seam rather than a
+ * mock.
+ */
+const ALL = [chrome, litert, replay];
 
 export const byId = (id) => ALL.find((p) => p.id === id) ?? null;
 
@@ -116,6 +125,12 @@ export const pick = () => {
   }
   const remembered = available.find((p) => p.id === stored);
   if (remembered) return remembered;
+
+  // REPLAY WINS WHENEVER IT IS OFFERED, which is only under `?replay`. Left to the
+  // preference below, a machine with the Prompt API would start a replay run on Chrome's
+  // model and the fixture would never be read.
+  const replaying = available.find((p) => p.id === "replay");
+  if (replaying) return replaying;
 
   return available.find((p) => p.id === "chrome") ?? available[0];
 };

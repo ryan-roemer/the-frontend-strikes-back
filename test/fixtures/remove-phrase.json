@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "kind": "authored",
+    "slide": 9,
+    "about": "Removing words -- `find` with an empty `text`, scoped to one node by `target`."
+  },
+  "turns": [
+    {
+      "ask": "Remove \"WebMCP\" from the heading",
+      "replies": [
+        "```tool edit_text\n{\"target\": \"the heading\", \"find\": \"WebMCP\", \"text\": \"\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "target": "the heading",
+              "find": "WebMCP",
+              "text": ""
+            }
+          }
+        ],
+        "slides": {
+          "9": [
+            "re:^<slide n=\"9\" .*title=\"How WebMCP works\">$",
+            "...",
+            "title: How works",
+            "..."
+          ]
+        }
+      }
+    },
+    {
+      "ask": "Did that work?",
+      "replies": [
+        "Yes — the heading now reads \"How works\". Nothing else on the slide changed."
+      ],
+      "expect": {
+        "calls": []
+      }
+    }
+  ]
+}

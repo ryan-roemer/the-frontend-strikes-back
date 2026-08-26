@@ -700,7 +700,14 @@ const EDIT_TOOLS = [
   {
     name: "edit_text",
     description:
-      "Change wording on the deck. Give `target` and `text` to rewrite one piece of text completely — identify it by id (like 9.3) or by describing it ('the second bullet', 'the heading'). Give `find` and `text` to replace a phrase wherever it appears instead: within one node if `target` is set, across one slide if `slide` is set, or across the whole deck if neither is. Replacing a phrase is the right choice when the text has inline code or emphasis in it, because it changes only the words matched and leaves the markup alone. Changes are live-only: they affect the running deck, not the source files, and undo_edits puts them back.",
+      // THE FIRST SENTENCE CARRIES ALL THREE MODES, and that is a hard requirement rather
+      // than a style choice: `agent/act/catalog.js` shows the in-page model
+      // `summarize(description)`, which is the first sentence and nothing else. Every mode
+      // named later in this string is invisible to it. Both bugs found so far are that
+      // same shape -- asked to remove a phrase it omitted `text`, and asked to replace a
+      // heading it reached for find-and-replace and decorated the old title, because
+      // `target` + `text` with no `find` had never been put in front of it.
+      "Change, replace or remove wording on the deck — `target` and `text` rewrite one piece of text completely, `find` and `text` replace a phrase wherever it appears, and `find` with an empty `text` deletes it. Identify a `target` by id (like 9.3) or by describing it ('the second bullet', 'the heading'). A `find` is scoped to one node when `target` is set, to one slide when `slide` is set, and to the whole deck when neither is. Replacing a phrase is the right choice when the text has inline code or emphasis in it, because it changes only the words matched and leaves the markup alone. Changes are live-only: they affect the running deck, not the source files, and undo_edits puts them back.",
     inputSchema: {
       type: "object",
       properties: {
@@ -722,7 +729,7 @@ const EDIT_TOOLS = [
         },
         text: {
           type: "string",
-          description: `The new wording — the whole text when there is no \`find\`, otherwise what to put in its place. Keep a piece of text under ${MAX_TEXT} characters or it overflows the slide.`,
+          description: `The new wording — the whole text when there is no \`find\`, otherwise what to put in its place. An empty string ("") alongside a \`find\` deletes the phrase. Keep a piece of text under ${MAX_TEXT} characters or it overflows the slide.`,
         },
       },
       required: ["text"],

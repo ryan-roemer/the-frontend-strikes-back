@@ -18,8 +18,12 @@
  * tools:
  *
  *   `JSON.stringify(registry, null, 2)`   9,188 chars   ~2,010 tok
- *   this                                  2,464 chars     ~540 tok
- *   this, under `?safe` (four tools)      1,439 chars     ~315 tok
+ *   this                                  2,863 chars     ~626 tok
+ *   this, under `?safe` (four tools)      1,438 chars     ~315 tok
+ *
+ * The full figure grew from ~540 when `edit_text` earned a third example and a first
+ * sentence that names all three of its modes -- both bought by a bug, and both measured
+ * with `window.deckReplay.prompt()` rather than estimated.
  *
  * Token figures are chars/4.57, the ratio implied by `prompt.js`'s own measured ~680 for
  * the pre-tools preface, rather than a tokenizer this page does not have when the prompt
@@ -81,10 +85,33 @@ const toolText = (tool) => {
  *     that "the second bullet" is a legal value for it.
  *   - `go_to_slide` has three mutually exclusive arguments, and `move` is the one a
  *     relative instruction needs.
+ *   - REWRITING a whole piece of text is `target` + `text` with NO `find`, which is the
+ *     FIRST mode `edit_text`'s description names and the one the model had never seen. The
+ *     other two examples of that tool both pass `find`, so every piece of evidence it had
+ *     said "this tool means find-and-replace". Asked to replace a heading it therefore
+ *     reached for `find`, quoted the whole existing title to have something to match, and
+ *     then wrote a replacement anchored on the phrase it had just quoted -- decorating the
+ *     old title instead of replacing it. Paired deliberately with the removal example
+ *     below: read together, they are the presence and absence of `find` on the same
+ *     `target`, which is the distinction neither one teaches alone.
+ *   - REMOVING text is `edit_text` with an empty `text`, and nothing above can say so.
+ *     `toolText` gives the model the FIRST SENTENCE of a description, so the sentence in
+ *     `mcp/tools.js` that explains deletion never reaches it -- what it sees is
+ *     `edit_text(target?, slide?, find?, text)` and "Change or remove wording on the
+ *     deck." Asked to remove a phrase it would omit `text` (refused: "Give me the new
+ *     text.") or replace the phrase with itself and report success. The example also
+ *     carries the other half of that request -- a `target` ALONGSIDE `find` scopes the
+ *     replace to one node, which is what "in just the heading" means and what the
+ *     deck-wide example above does not show.
  *
- * Kept to four, and each one line, because examples are the most expensive tokens in this
- * block: they are re-prefilled every turn like everything else, and a fifth would be
- * paying for a case that has not gone wrong yet.
+ * THREE OF THE SIX ARE `edit_text`, which looks unbalanced and is the honest allocation:
+ * it is the only tool here with four arguments and three distinct modes, and it is the tool
+ * every failure found so far has been in. The other five tools each have one obvious way to
+ * be called and need no example at all.
+ *
+ * Each is one line, because examples are the most expensive tokens in this block: they are
+ * re-prefilled every turn like everything else. The bar for a seventh is the bar the last
+ * two cleared -- a request that went wrong in front of somebody, not one that might.
  *
  * FILTERED AGAINST THE REGISTRY BELOW, and that is not defensive tidying -- it was a bug.
  * Three of these four call editing tools, which `?safe` does not register, so under that
@@ -104,6 +131,16 @@ const EXAMPLES = [
     "make this list yellow and underline it",
     "style_node",
     '{"target": "the bullets", "style": "color: yellow; text-decoration: underline"}',
+  ],
+  [
+    "replace the heading with 3 rocket emojis",
+    "edit_text",
+    '{"target": "the heading", "text": "🚀 🚀 🚀"}',
+  ],
+  [
+    "remove WebMCP from the heading",
+    "edit_text",
+    '{"target": "the heading", "find": "WebMCP", "text": ""}',
   ],
   ["undo that", "undo_edits", '{"scope": "last"}'],
 ];

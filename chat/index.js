@@ -11,6 +11,7 @@ import {
 import { systemPrompt } from "./agent/prompt.js";
 import { installDump } from "./harvest/dump.js";
 import { installTools } from "./mcp/index.js";
+import { installReplay } from "./replay/runner.js";
 
 const html = htm.bind(createElement);
 
@@ -33,7 +34,7 @@ const ROOT_ID = "chat-root";
  *
  * Returns a teardown function -- unused by the deck, but it makes the module
  * testable from the console and documents that mounting is reversible. It really
- * is: see the bottom of this function, where every one of the three installs
+ * is: see the bottom of this function, where every one of the four installs
  * hands back the thing that undoes it.
  */
 export const mountChat = () => {
@@ -76,6 +77,13 @@ export const mountChat = () => {
   // the same "three edits" reason.
   const stopTools = installTools();
 
+  // The replay harness: `window.deckReplay` for a CDP client to drive a recorded fixture
+  // against this deck. A NO-OP WITHOUT `?replay`, which is checked inside rather than here
+  // so the flag lives next to the thing it gates -- the same shape as `?safe` in
+  // `mcp/index.js`. Installed beside the other two for the same "three edits" reason, and
+  // last because it is the only one that reads the other two.
+  const stopReplay = installReplay();
+
   // A FUNCTION, NOT A STRING, and that is now load-bearing rather than merely a
   // seam left open: `systemPrompt()` reads a live harvest of the fiber tree for the
   // deck outline, so it cannot be evaluated until the deck has rendered. See the
@@ -100,13 +108,14 @@ export const mountChat = () => {
   // because nothing else is here to.
   if (isEnabled()) refresh().catch(() => {});
 
-  // EVERYTHING THIS FUNCTION STARTED, IT STOPS. The three installs above each own
-  // something outside React -- a console handle, a `window` global, a mutation
+  // EVERYTHING THIS FUNCTION STARTED, IT STOPS. The four installs above each own
+  // something outside React -- two `window` globals, a console handle, a mutation
   // observer -- and a teardown that unmounted the root while leaving those in place
   // was claiming a reversibility it did not have.
   return () => {
     reactRoot.unmount();
     host.remove();
+    stopReplay();
     stopTools();
     stopDump();
     setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
