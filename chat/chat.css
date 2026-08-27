@@ -96,6 +96,12 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* What the `@container` rules at the FOOT OF THIS FILE measure against. It has to be the
+   * panel and not the viewport: this is a window the user sizes by hand, so how much room
+   * the bar has is a fact about the window and has nothing to do with the screen. A media
+   * query would hide the provider pills on a small laptop and keep them in a panel dragged
+   * down to a sliver on a projector -- exactly backwards. */
+  container-type: inline-size;
   box-sizing: border-box;
   border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
   border-radius: 12px;
@@ -813,16 +819,92 @@
   color: var(--nf-feedback-error, #fc6986);
 }
 
-/* --- Resize grip --------------------------------------------------------- */
+/* --- Resize handles ------------------------------------------------------ */
 
-.chat-panel__grip {
+/*
+ * Eight of them: four edges and four corners, the way a window manager does it.
+ *
+ * ONLY THE BOTTOM-RIGHT ONE IS DRAWN, and the other seven are deliberately invisible. A
+ * floating window over a slide has to earn every pixel of chrome it shows, and the cursor
+ * changing as you approach an edge is the announcement every desktop already trained
+ * people to read. The one visible grip is what says the window is resizable at all.
+ *
+ * `touch-action: none` on all eight for the same reason as the drag bar: without it a
+ * trackpad gesture scrolls the page and the pointermove stream stops arriving mid-drag.
+ *
+ * EDGES ARE THIN AND CORNERS ARE FAT, and the edges stop short of the corners so the two
+ * never fight over the same pixel. 6px is about the width of the panel's own border plus
+ * the slop a hand actually has; more than that and the west edge starts stealing clicks
+ * from the transcript's scrollbar.
+ */
+.chat-panel__handle {
   position: absolute;
+  touch-action: none;
+}
+
+.chat-panel__handle--n,
+.chat-panel__handle--s {
+  left: 12px;
+  right: 12px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.chat-panel__handle--e,
+.chat-panel__handle--w {
+  top: 12px;
+  bottom: 12px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.chat-panel__handle--n {
+  top: 0;
+}
+.chat-panel__handle--s {
+  bottom: 0;
+}
+.chat-panel__handle--e {
+  right: 0;
+}
+.chat-panel__handle--w {
+  left: 0;
+}
+
+.chat-panel__handle--ne,
+.chat-panel__handle--nw,
+.chat-panel__handle--se,
+.chat-panel__handle--sw {
+  width: 14px;
+  height: 14px;
+}
+
+.chat-panel__handle--nw,
+.chat-panel__handle--se {
+  cursor: nwse-resize;
+}
+.chat-panel__handle--ne,
+.chat-panel__handle--sw {
+  cursor: nesw-resize;
+}
+
+.chat-panel__handle--nw {
+  top: 0;
+  left: 0;
+}
+.chat-panel__handle--ne {
+  top: 0;
+  right: 0;
+}
+.chat-panel__handle--sw {
+  bottom: 0;
+  left: 0;
+}
+.chat-panel__handle--se {
   right: 0;
   bottom: 0;
   width: 16px;
   height: 16px;
-  cursor: nwse-resize;
-  touch-action: none;
   /* Two hairlines suggesting a corner, rather than an icon to align. */
   background: linear-gradient(
     -45deg,
@@ -1289,11 +1371,37 @@
   padding-left: 12px;
 }
 
-/* The preface and the live question are the two a reader is looking for; the
- * turns between them are context in both senses. */
+/* The preface, this turn's question and this turn's answer are what a reader is looking
+ * for; the turns between them are context in both senses.
+ *
+ * `--live` RATHER THAN `:last-child`, which is what this used to be. The question was the
+ * last block in the sheet until the answer was appended below it, and a positional rule
+ * moved the emphasis to whatever happened to be last. */
 .chat-context__message--system,
-.chat-context__message--user:last-child {
+.chat-context__message--live {
   border-left-color: var(--chapter-accent, #78eec5);
+}
+
+/* What came back, and the line before it. Everything above the rule was sent; everything
+ * below it was generated, and that is the one boundary in this sheet worth drawing. */
+.chat-context__rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted, #97a1b8);
+}
+
+.chat-context__rule::before,
+.chat-context__rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--hairline, rgba(255, 255, 255, 0.12));
 }
 
 /* Deck blocks are neither preface nor turn -- they were sent once and kept, and
@@ -1360,5 +1468,58 @@
   #chat-root,
   .chat-toggle {
     display: none !important;
+  }
+}
+
+/* --- The bar sheds controls as the panel narrows -------------------------- */
+
+/*
+ * THE PANEL CAN NOW BE DRAGGED TO 180px WIDE, and the header is the only part of it that
+ * does not survive that on its own: the transcript reflows and the composer is a textarea,
+ * but a row of eight controls at a fixed size just overflows into `overflow: hidden` and
+ * gets sliced through the middle of an icon. The old 300px floor in `geometry.js` existed
+ * mostly to stop that, which meant the widest row in the window decided the smallest the
+ * window could be.
+ *
+ * ORDERED BY WHAT YOU LOSE, not by width. A panel gets dragged small to keep it out of the
+ * way of a slide while staying able to ask it something -- so the last things standing are
+ * the ones that keep it usable as a chat (the broom and the close button) and the first to
+ * go are the ones that are really about the demo (the provider pills) or about diagnosis
+ * (trash, info). Everything dropped here comes back by widening the panel, and none of it
+ * is the only way to reach anything.
+ *
+ * AT THE BOTTOM OF THE FILE, AND THAT IS NOT TIDINESS. A container query adds NO
+ * specificity -- `@container … { .chat-provider { display: none } }` is a plain `0-1-0`
+ * selector -- so sitting these next to `.chat-panel__actions`, where they read best, put
+ * them ahead of `.chat-provider`'s own `display: inline-flex` and every one of them lost
+ * on source order. The panel narrowed and nothing happened. Same trap the doubled
+ * `.chat-icon-button` selectors further up this file already carry a note about.
+ *
+ * `display: none` rather than shrinking them. Icons that scale down stop being legible
+ * from the back of a room well before they stop taking up space.
+ */
+@container (max-width: 340px) {
+  .chat-provider {
+    display: none;
+  }
+}
+
+@container (max-width: 300px) {
+  .chat-icon-button.chat-model__trash,
+  .chat-icon-button.chat-model__info {
+    display: none;
+  }
+}
+
+@container (max-width: 258px) {
+  .chat-model__progress,
+  .chat-icon-button.chat-panel__action--reset {
+    display: none;
+  }
+}
+
+@container (max-width: 216px) {
+  .chat-icon-button.chat-model__state {
+    display: none;
   }
 }

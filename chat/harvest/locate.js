@@ -208,18 +208,88 @@ const byOrdinal = (nodes, words) => {
   );
   if (!pool.length) return null;
 
-  const digits = words.match(/\b(\d{1,2})\b/);
-  const word = words.split(" ").find((w) => ORDINALS.has(w));
-  const wantsLast = words.split(" ").some((w) => LAST.has(w));
+  const digits = words.match(/\b(\d{1,2})\b/g) ?? [];
+  const spoken = words.split(" ");
+  const spelled = spoken
+    .filter((w) => ORDINALS.has(w))
+    .map((w) => ORDINALS.get(w));
+  const wantsLast = spoken.some((w) => LAST.has(w));
+
+  // SEVERAL POSITIONS IS A SET, NOT A TYPO. `digits` used to be a single match, so
+  // "takeaway 1, takeaway 2, takeaway 3, takeaway 4, takeaway 5, takeaway 6" -- a real
+  // reply, from a model asked to make the takeaways yellow -- read as position 1 and
+  // styled ONE node while reporting success. Silently acting on a sixth of what was named
+  // is the outcome this file's header calls the one nothing downstream can recover from.
+  //
+  // Reported as `ambiguous`, which is not a hedge: `target.js` already splits that word
+  // two ways, refusing for edits and accepting the whole set for styles, and this is the
+  // same distinction. So "make takeaways 1 and 3 yellow" styles both, while rewriting
+  // them gets the candidate roster it has always got.
+  const asked = [...new Set([...spelled, ...digits.map(Number)])];
+  if (asked.length > 1) {
+    const hits = asked
+      .map((index) => pool.find((node) => node.roleOrdinal === index))
+      .filter(Boolean);
+    if (hits.length > 1) return { pool, hit: null, hits, index: null };
+  }
 
   let index = null;
   if (wantsLast) index = pool.length;
-  else if (word) index = ORDINALS.get(word);
-  else if (digits) index = Number(digits[1]);
+  else if (asked.length) index = asked[0];
   if (index === null) return { pool, hit: null };
 
   const hit = pool.find((node) => node.roleOrdinal === index);
   return { pool, hit: hit ?? null, index };
+};
+
+/**
+ * Tier 4 -- a phrase quoted out of a code pane's SOURCE.
+ *
+ * THE GAP THIS CLOSES was a mismatch between what the model is SHOWN and what it can
+ * ADDRESS. A code node's `text` is its filename -- `serialize.js` says so and is right to,
+ * because the source is hundreds of tokens and putting it in every roster line and
+ * echo-back would be unreadable. But `deck-context.js` pins the slide with the FULL SOURCE
+ * in a fenced block, so the model sees the code, is asked to rename a symbol in it, and
+ * quite reasonably targets a line of it:
+ *
+ *   edit_text({ target: "document.modelContext.registerTool({", find: "search_documents" })
+ *
+ * which resolved to nothing, twice in a row, against a roster offering only
+ * `10.2 — code: register-tool.js`. The `serialize.js` note assumed "nothing downstream is
+ * going to edit a line of it through a 2B model"; that stopped being true when the model
+ * got the tools, and `apply.js` `replaceText` already handles the edit -- it walks the
+ * pane's text runs and deliberately permits a rewrite inside text far over `MAX_TEXT` so
+ * long as it does not grow. The mechanism was there; only the addressing was missing.
+ *
+ * LAST TIER, AFTER EVERY AMBIGUITY IS ALREADY DECIDED, which is what makes it free of
+ * regressions. A pane's source is 600 characters of common words -- "name", "type",
+ * "query" -- so consulting it earlier would turn clean matches on real bullets into
+ * ambiguities. Reached only where the answer was otherwise "nothing matched".
+ *
+ * FORWARD CONTAINMENT ONLY, unlike `byText`, which also accepts `needle.includes(hay)`.
+ * That direction exists for a phrase that quotes a whole short node back; a 600-character
+ * source is never contained in anything a person types, and allowing it would let a
+ * one-word phrase match by accident.
+ */
+const bySource = (harvested, nodes, phrase) => {
+  const panes = harvested?.code ?? [];
+  if (!panes.length || phrase.length < 3) return [];
+
+  const needle = phrase.toLowerCase();
+  const hits = [];
+
+  for (const node of nodes) {
+    if (node.role !== "code") continue;
+    // Paired by the same expression `serialize.js` emits the node text from, so the two
+    // cannot drift: a pane contributes `{ file, language, source }` and its node's text is
+    // `file ?? language ?? "code"`.
+    const pane = panes.find(
+      (one) => (one.file ?? one.language ?? "code") === node.text,
+    );
+    if (pane?.source?.toLowerCase().includes(needle)) hits.push(node);
+  }
+
+  return hits;
 };
 
 /**
@@ -235,6 +305,8 @@ const byOrdinal = (nodes, words) => {
  *              answer, because it could not have been confidently wrong
  *   ordinal    role plus a position, counted per depth
  *   role       the phrase named a role the slide has exactly one of
+ *   source     the phrase is inside a code pane's source. A LAST RESORT, tried only when
+ *              nothing above matched -- see `bySource`
  *   ambiguous  several candidates, all in `nodes`. NEVER pick one here -- but
  *              what "ambiguous" should MEAN is the caller's to decide. A caller
  *              that acts on a node has to refuse; a caller that reports one can
@@ -274,6 +346,13 @@ export const locate = (phrase, { slide } = {}) => {
   const ordinal = byOrdinal(nodes, said);
   if (ordinal?.hit) return result("ordinal", [ordinal.hit], said);
 
+  // Several positions named at once. Ahead of every tier below because it is a decided
+  // answer, not a leftover: the phrase said exactly which nodes it meant and they were
+  // all found. `target.js` reads the note to tell this from the coin-flip ambiguities.
+  if (ordinal?.hits) {
+    return result("ambiguous", ordinal.hits, said, "several positions named");
+  }
+
   // Tier 3: a role with exactly one instance needs no ordinal -- "the heading"
   // on a slide with one heading is unambiguous even though nothing counted.
   if (ordinal?.pool?.length === 1) return result("role", ordinal.pool, said);
@@ -295,5 +374,13 @@ export const locate = (phrase, { slide } = {}) => {
   if (ordinal?.pool?.length > 1) {
     return result("ambiguous", ordinal.pool, said, "role matched, no position");
   }
+
+  // Tier 4 -- inside a code pane's SOURCE, and last on purpose.
+  const source = bySource(harvested, nodes, said);
+  if (source.length === 1) return result("source", source, said);
+  if (source.length > 1) {
+    return result("ambiguous", source, said, "several code panes matched");
+  }
+
   return result("none", nodes, said);
 };

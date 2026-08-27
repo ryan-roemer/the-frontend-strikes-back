@@ -13,7 +13,7 @@
  *
  * `?tools` opens it. `?tool=` (singular) additionally names the tool to select,
  * which makes any single tool a link -- worth it for a talk, where "open the deck
- * on find_node" is a thing you want to do from a bookmark rather than from three
+ * on find_nodes" is a thing you want to do from a bookmark rather than from three
  * clicks on stage.
  */
 import { createStore } from "../store.js";

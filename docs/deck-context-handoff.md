@@ -626,12 +626,12 @@ is outstanding. What is left is the deferred list below, none of which blocks an
 
 **Deferred deliberately, and none of it is blocking:**
 
-| #   | gap                                                   | when it matters                                                                                                                                                                                                            |
-| --- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 4   | the slide view does not mark which nodes are REVEALED | `animateListItems` is on for markdown slides, so at `stepIndex: 1` the user sees two bullets and the roster lists four. "The last bullet" means different things to the two parties. `position()` already carries the step |
-| 5   | the alias table is minimal                            | when a real phrasing misses. Do not grow it speculatively                                                                                                                                                                  |
-| 6   | `roleOrdinal` does not know about list BOUNDARIES     | only on a slide with two or more separate lists at the same depth. None exist today                                                                                                                                        |
-| 7   | ids are stable across render modes, not across EDITS  | only if patches get persisted. This pass demonstrated it: `9.5` used to mean "Most of this lands on apps…" and now means "Claude Desktop, over a local relay"                                                              |
+| #   | gap                                                   | when it matters                                                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 4   | the slide view does not mark which nodes are REVEALED | `animateListItems` is on for markdown slides, so at `stepIndex: 1` the user sees two bullets and the roster lists four. "The last bullet" means different things to the two parties. `position()` already carries the step. **Scoped out below — the mechanism is now known and measured** |
+| 5   | the alias table is minimal                            | when a real phrasing misses. Do not grow it speculatively                                                                                                                                                                                                                                  |
+| 6   | `roleOrdinal` does not know about list BOUNDARIES     | only on a slide with two or more separate lists at the same depth. None exist today                                                                                                                                                                                                        |
+| 7   | ids are stable across render modes, not across EDITS  | only if patches get persisted. This pass demonstrated it: `9.5` used to mean "Most of this lands on apps…" and now means "Claude Desktop, over a local relay"                                                                                                                              |
 
 **~~Wire the views to the model.~~ Done**, and it did not land where this section expected. The
 stable half is `chat/agent/prompt.js`, as predicted — the outline and the argument, once, in the
@@ -655,10 +655,12 @@ than driving it with the on-device model, the whole surface went out as WebMCP t
 ([webmcp-handoff.md](webmcp-handoff.md)), so the pipeline is exercised by whatever agent connects
 while our side stays deterministic.
 
-Both halves now exist. `chat/nav.js` moves the deck; `chat/edit/` writes to it behind `?mcp`. The
+Both halves now exist. `chat/nav.js` moves the deck; `chat/edit/` writes to it, on a plain load. The
 asymmetry that motivated doing navigation first still holds and is now enforced in code — reads and
-navigation are always available, editing is opt-in, and an impossible slide number clamps for
-navigation but is refused for reads.
+navigation are always available, editing is dropped by `?safe`, and an impossible slide number
+clamps for navigation but is refused for reads. Note the gate inverted since this was written: `?mcp`
+used to be needed to unlock writing, and `?safe` is now needed to lock it, because a demo that needs
+a remembered query parameter before it does anything is a demo that fails in front of an audience.
 
 Two things were recovered from `git show ef4c47f^:chat/deck-adapter.js` rather than rewritten, and
 both are in `chat/nav.js` now:
@@ -681,3 +683,87 @@ There is also a `BroadcastChannel("spectacle_presenter_bus")` `{type:"SYNC"}` fa
 deleted file for when the bridge is unmounted. It was **not** reinstated: it did not work when tried
 from the same tab in presenter-mode testing, while `?slideIndex=N` on load did. Verify before
 relying on it.
+
+### Steps: revealing content, and knowing what is revealed — scoped, not built
+
+Item 4 above, scoped out after a live investigation. Nothing here is built. The trigger is real
+now rather than hypothetical: the in-page model drives the tools
+([chat-handoff.md](chat-handoff.md), `chat/agent/act/`), so **"expand all the content on this
+slide" is a thing a person says to the chat and it cannot do.** Today it answers by calling
+`get_slide`, which returns every node whether or not it has faded in — a correct answer to a
+different question.
+
+**The step count is readable, and nothing reads it.** Spectacle's `SlideContext` value carries
+`activationThresholds`: a plain object keyed by each animated element's React id, valued with its
+step threshold. Slide 16 reads `{_r_1i_: 1, _r_1j_: 2, _r_1k_: 3, _r_1l_: 4, _r_1m_: 5}`. So
+`Math.max(0, ...Object.values(thresholds))` is the slide's last step, and it is reachable by
+walking `fiber.return` from any node until a `memoizedProps.value` has the key — the same walk
+`harvest/` already does. It is **not** an array and not a Set; `Array.from` on it returns empty,
+which is how the first attempt at this failed.
+
+Measured against ground truth — pressing `stepForward` until it rolls to the next slide:
+
+| slide            | nodes | `activationThresholds` max | walked |
+| ---------------- | ----- | -------------------------- | ------ |
+| 9                | 8     | 7                          | —      |
+| 12               | 2     | 1                          | —      |
+| 16               | 6     | 5                          | 5 ✓    |
+| 31               | 4     | 3                          | —      |
+| 1, 6, 21, 26, 35 | —     | 0                          | —      |
+
+`bus.js` publishes `activeView.stepIndex` — where the deck **is** — and nothing anywhere knows
+where it **can go**. `position()` returns `step` and never `steps`.
+
+**`skipTo` does not clamp `stepIndex`.** `skipTo({ slideIndex: 15, stepIndex: 99 })` lands on
+**slide 17, step 0** — it overflows into the following slide rather than stopping at the last step.
+This is the same trap as the bounds note above, one field over, and it means "just pass a big
+number" is not available. Clamping against the measured max is mandatory.
+
+**Jumping straight to the last step does reveal everything, at once.** Verified by polling the
+`Appear` wrappers' computed opacity: at step 0 the five bullets read `0 0 0 0 0`, and within 200ms
+of `skipTo({ slideIndex: 15, stepIndex: 5 })` they read `1 1 1 1 1`. No per-step delay to wait out.
+Read the wrapper — the element **above** the `<li>` — not the `<li>`, which is always opacity 1; and
+re-resolve the node each time rather than holding an element across a navigation.
+
+`?animate=false` needs no special case. `Appear` becomes `Fragment`
+(`deck/components.js`), so `activationThresholds` is empty, the max reads 0 on every slide,
+everything is already at opacity 1, and a reveal-all becomes correctly inert. Verified.
+
+**What building it would take.** Four small pieces, and then the one that is actually the work:
+
+| #   | piece                                                                                                     | size                |
+| --- | --------------------------------------------------------------------------------------------------------- | ------------------- |
+| 1   | `steps` on the slide view, from the walk above. `harvest/` already emits per-slide facts                  | ~15 lines           |
+| 2   | clamp against it, because `skipTo` will not                                                               | in 3                |
+| 3   | `nav.toStep(n)` beside `toSlide`. `viewKey()` already includes `stepIndex`, so `settle()` needs no change | ~12 lines           |
+| 4   | `reveal_all` / `reveal_none` on `go_to_slide`'s `move` enum                                               | ~10 lines           |
+| 5   | **per-node revealed / pending, which is item 4 proper**                                                   | ~40 lines, unknowns |
+
+On (4): an enum value rather than a ninth tool, because `chat/mcp/tools.js` opens by arguing every
+overlapping tool is a coin flip a 2B model has to win, and this is the same "merge things that
+differ only in scope" move the other four merges made. Note `toSlide` always sends `stepIndex: 0`,
+so arriving at a slide always arrives unrevealed — "go to 16 fully expanded" is a second argument,
+not a consequence of (4).
+
+On (5), the mapping is derivable — `activationThresholds` is keyed by React id, `harvest/` walks
+the same fibers, so a node's `Appear` ancestor id gives its threshold and
+`revealed = threshold <= activeStepIndex`. Expect surprises there: `animateListItems` injects its
+own per-item `Appear` rather than one per list, and slide 9 reads max step 7 against 8 nodes —
+understand that off-by-one before trusting any per-node mapping.
+
+**Two comments in the source become false when (4) ships,** and both are load-bearing enough to
+have been written up rather than left as code:
+
+- `harvest/views.js` — "a slide's content is what it says, not what has faded in yet". Right while
+  the chat could only read. Once it can reveal, the model needs to know whether it has to.
+- `harvest/views.js` `positionText`, and `deck-context.js`'s `showStep: false` resting on it — "an
+  agent driving the deck needs the step because it can advance it; the chat cannot, so it does not
+  get it." The chat can now.
+
+Without (5), `reveal_all` works and "what can the audience see right now?" still has no answer.
+That is the honest split: (1)–(4) make the request work, (5) makes the model correct about it.
+
+Investigated with a CDP driver against the running deck; the driver is scratch and ephemeral, per
+[chat-handoff.md](chat-handoff.md) §10. Rebuilding it is ~60 lines — but poll for
+`window.deckMcp` rather than sleeping a fixed interval, since the deck mounts 35 portalled slides
+alongside the chat and a 5s wait was flaky run to run.

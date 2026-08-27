@@ -30,17 +30,27 @@ export const getModelContext = () =>
   document.modelContext ?? navigator.modelContext;
 
 /**
- * Whether the deck may be CHANGED, not whether tools exist.
+ * Whether the deck may be CHANGED. On by default; `?safe` turns it off.
  *
- * Reading and navigating are registered always: an agent connected during the
- * actual talk should be able to follow along and move the deck, and neither can
- * damage anything. Writing is opt-in, because the alternative is a stray tool
- * call rewriting a slide in front of an audience.
+ * INVERTED FROM `?mcp`, which used to have to be typed to unlock writing. That
+ * default was wrong for what this is now: the tools exist to be demonstrated,
+ * and a demo that needs a remembered query parameter before it does anything is
+ * a demo that fails in front of an audience. Everything registers on a plain
+ * load.
  *
- * Bare `?mcp` as well as `?mcp=true`, like every other flag the deck reads -- see
- * `chat/url.js`, which is the one place that acceptance list now lives.
+ * `?safe` REMAINS, because the risk the old default was guarding against is
+ * real: a stray tool call can rewrite a slide while it is on screen. It is a
+ * kill switch rather than a lock -- short enough to type at a podium, and the
+ * one thing to reach for if a host is connected and behaving unpredictably.
+ *
+ * Paged output never gets this far: `mountChat()` returns before `installTools()`
+ * when `paged-mode` or `print-mode` is set, so the PDF export and the print
+ * handout carry no tools at all regardless of any flag.
+ *
+ * Bare `?safe` as well as `?safe=true`, like every other flag the deck reads --
+ * see `chat/url.js`, which is the one place that acceptance list lives.
  */
-export const editingEnabled = () => flag("mcp");
+export const writesEnabled = () => !flag("safe");
 
 /**
  * Run one tool, turning anything it throws into an MCP error rather than a
@@ -78,7 +88,7 @@ let installed = false;
  *
  * `group` is inspector-only. The three arrays already mean something -- read,
  * move, change -- and that grouping is the first thing a person needs in a list
- * of fourteen names.
+ * of tool names.
  */
 let registry = [];
 
@@ -99,13 +109,15 @@ export const installTools = () => {
   installed = true;
 
   // `installEditTools()` also starts the watchdog, and hands back the `stop` that
-  // the teardown below owes it.
+  // the teardown below owes it. Under `?safe` neither is constructed: having
+  // nothing to register is a stronger guarantee than registering nothing, and it
+  // also means no `MutationObserver` on the slide portal.
   let stopWatchdog = () => {};
   const groups = [
     { group: "read", tools: READ_TOOLS },
     { group: "navigate", tools: NAV_TOOLS },
   ];
-  if (editingEnabled()) {
+  if (writesEnabled()) {
     const edit = installEditTools();
     stopWatchdog = edit.stop;
     groups.push({ group: "edit", tools: edit.tools });
@@ -160,7 +172,7 @@ export const installTools = () => {
     // the code emits and the schema does not list is a result a strict host is
     // entitled to reject, and that drift is invisible from either side alone.
     schema: (name) => tools.find((t) => t.name === name)?.outputSchema ?? null,
-    editing: editingEnabled(),
+    writes: writesEnabled(),
     host: !!getModelContext(),
   };
 
@@ -187,7 +199,7 @@ export const installTools = () => {
   }
 
   console.info(
-    `[mcp] registered ${tools.length} tools${editingEnabled() ? " (editing enabled)" : ""}`,
+    `[mcp] registered ${tools.length} tools${writesEnabled() ? "" : " (read-only: ?safe)"}`,
   );
 
   return teardown;

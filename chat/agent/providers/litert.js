@@ -71,8 +71,15 @@ const EXPECTED_BYTES = 2008432640;
  *         65,536      1002ms       108ms   1167 tps    60 tps
  *        131,072      1033ms       865ms     37 tps    59 tps
  *
- * 8,192 is chosen so the context meter stays meaningful -- at 16k it reads ~5% all night
- * and the broom never looks necessary. Below 8k the window starts changing answers.
+ * 8,192 is chosen so the context meter stays meaningful, and because nothing can spend more.
+ * `MAX_HISTORY_MESSAGES` caps the transcript at three exchanges and `deck-context.js` offers
+ * each slide once, so the ceiling is a conversation that asks about all 35 slides: measured
+ * at 5,239 tokens, 64% of this window. A real talk sits at 2,000-2,700.
+ *
+ * 16,384 IS AN OPTION, NOT A FIX. Re-measured against the live deck, it is free -- same ttft,
+ * same decode, same answers turn for turn -- so raise this if a longer preface or a bigger
+ * deck ever needs it. The only thing that changes today is the meter, which would read 12%
+ * instead of 24% and never make the broom look necessary. See `chat-handoff.md` §8.
  *
  * DO NOT TUNE THIS TO FIX A SESSION THAT HAS GONE SOFT: a long conversation does not
  * degrade. The same question at turns 1, 7, 12, 17 and 22 returns byte-identical output.

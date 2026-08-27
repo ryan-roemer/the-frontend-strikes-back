@@ -7,7 +7,12 @@ import { useDismissKeys } from "../ui/use-dismiss-keys.js";
 const html = htm.bind(createElement);
 
 /**
- * Everything that went into one answer.
+ * Everything that went into one answer, and the answer.
+ *
+ * THE REPLY IS HERE TOO, below a rule, because the question this sheet gets opened to
+ * settle is almost always "why did it say THAT" -- and the prompt alone cannot answer it.
+ * Attached by `ui/transcript.js`, which is the first place both halves of a turn exist at
+ * once; `onPrompt` fires before the first delta, so no provider capture can carry it.
  *
  * NOT THE STRING THE MODEL READ -- neither provider ever builds one in JS. Both hand a
  * message array to a runtime that applies the model's turn template across a wasm or
@@ -25,7 +30,13 @@ const html = htm.bind(createElement);
  * Lazily loaded; see `gate.js`. Default export because `lazy()` requires one.
  */
 
-const PROVIDERS = { litert: "LiteRT-LM", chrome: "Chrome Prompt API" };
+/** `replay` included so a fixture run is labelled as one rather than as a bare id --
+ *  a sheet that says "replay" is the fastest way to notice you are not testing a model. */
+const PROVIDERS = {
+  litert: "LiteRT-LM",
+  chrome: "Chrome Prompt API",
+  replay: "Replay (fixture)",
+};
 
 const ROLES = {
   system: "System",
@@ -45,6 +56,16 @@ const ROLES = {
  */
 const pinnedOf = (context) => context.pinned ?? [];
 
+/**
+ * The line between what went in and what came out, in a copied transcript.
+ *
+ * SPELLED OUT RATHER THAN A BARE RULE, because the destination is usually somebody else's
+ * chat window, where a row of dashes is just a row of dashes. Naming both sides means the
+ * paste explains its own shape with no covering note.
+ */
+const ANSWER_RULE =
+  "————— everything above was sent to the model; below is what it replied —————";
+
 /** Characters, not tokens. A token count would have to come from the runtime, and
  *  asking it now would answer for the context it holds NOW, not the one shown. */
 const size = (context) =>
@@ -57,9 +78,18 @@ const size = (context) =>
     .join("")
     .length.toLocaleString();
 
-/** One labelled block: who said it, and what they said. */
-const Message = ({ role, content, note }) => html`
-  <div className=${`chat-context__message chat-context__message--${role}`}>
+/**
+ * One labelled block: who said it, and what they said.
+ *
+ * `live` MARKS THE TWO BLOCKS A READER IS ACTUALLY LOOKING FOR -- this turn's question and
+ * its answer -- and it is a prop rather than a `:last-child` rule because it stopped being
+ * positional. The question used to be the last block in the sheet; appending the answer
+ * silently took its accent away, which is the failure mode of styling by position.
+ */
+const Message = ({ role, content, note, live }) => html`
+  <div
+    className=${`chat-context__message chat-context__message--${role}${live ? " chat-context__message--live" : ""}`}
+  >
     <div className="chat-context__role">
       ${ROLES[role] ?? role}
       ${note && html`<span className="chat-context__note">${note}</span>`}
@@ -80,7 +110,19 @@ const ContextModal = ({ context }) => {
   /** Escape closes, and arrows are kept off the deck -- see `use-dismiss-keys.js`. */
   const onKeyDown = useDismissKeys(hideContext);
 
-  /** The whole context as one pasteable transcript. */
+  /**
+   * The whole turn as one pasteable transcript.
+   *
+   * THE ANSWER IS PART OF IT, below a rule. Everything above the rule went INTO the model
+   * and everything below came OUT, and that boundary has to survive a copy-paste into a
+   * chat window or an issue -- without it, the answer reads as one more `[Assistant]` block
+   * in the history and the one thing being diagnosed is indistinguishable from context.
+   *
+   * `answer` is attached by `ui/transcript.js`, not by a provider: `onPrompt` fires before
+   * the first delta, so no capture can contain it. Optional for the same reason `pinned`
+   * is -- a context shown from anywhere else, or captured before this existed, still
+   * copies cleanly as just the prompt.
+   */
   const asText = useCallback(
     () =>
       [
@@ -90,6 +132,12 @@ const ContextModal = ({ context }) => {
           (m) => `[${ROLES[m.role] ?? m.role}]\n${m.content}`,
         ),
         `[${ROLES.user}]\n${context.message}`,
+        ...(context.answer
+          ? [
+              ANSWER_RULE,
+              `[${ROLES.assistant}]${context.stopped ? " (stopped early)" : ""}\n${context.answer}`,
+            ]
+          : []),
       ].join("\n\n"),
     [context],
   );
@@ -149,8 +197,8 @@ const ContextModal = ({ context }) => {
             type="button"
             className="chat-icon-button"
             onClick=${copy}
-            title=${copied ? "Copied" : "Copy the whole context"}
-            aria-label=${copied ? "Copied" : "Copy the whole context"}
+            title=${copied ? "Copied" : "Copy the whole turn"}
+            aria-label=${copied ? "Copied" : "Copy the whole turn"}
           >
             <i
               className=${`ph ph-${copied ? "check" : "copy"}`}
@@ -196,7 +244,27 @@ const ContextModal = ({ context }) => {
             role="user"
             content=${context.message}
             note="this question"
+            live
           />
+          ${
+            "" /* WHAT CAME BACK, below a rule that says so. The sheet is otherwise
+                  entirely inputs, and appending an output with no boundary would make
+                  the reply look like one more thing that was sent. Absent when the
+                  context was opened from somewhere with no answer to show. */
+          }
+          ${context.answer
+            ? html`
+                <div className="chat-context__rule" role="separator">
+                  <span>replied</span>
+                </div>
+                <${Message}
+                  role="assistant"
+                  content=${context.answer}
+                  note=${context.stopped ? "stopped early" : "this answer"}
+                  live
+                />
+              `
+            : null}
         </div>
 
         ${

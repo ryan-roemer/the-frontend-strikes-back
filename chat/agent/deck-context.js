@@ -17,6 +17,7 @@
  * leaves a dangling reference, which is the failure this module exists to prevent.
  */
 import { getState } from "./model-state.js";
+import { withEdits } from "../edit/patches.js";
 import {
   position,
   positionRef,
@@ -55,6 +56,54 @@ const syncEpoch = () => {
 };
 
 const NOTHING = { pin: "", note: "", commit: () => {} };
+
+/**
+ * Forget that a slide was ever shown, so the next question re-sends its text.
+ *
+ * THE EDIT PATH OWES THIS CALL. A slide pinned at turn 2 and changed at turn 5 leaves the
+ * model holding the wording the deck no longer has -- and being asked about it, it answers
+ * from the pin, confidently, about text the audience can see has changed. That is worse
+ * than the dangling reference this module's one rule exists to prevent, because a dangling
+ * reference at least reads as a gap.
+ *
+ * A DROP, NOT AN UPDATE. Re-pinning here would put a second copy of the slide in the
+ * preface immediately; dropping means the map no longer claims the model has it, and the
+ * next question that lands on that slide sends it once through the ordinary path. Slides
+ * nobody asks about again cost nothing.
+ *
+ * ON CHROME IT IS A PARTIAL FIX AND CANNOT BE MORE. That session owns its own history and
+ * has no un-send, so the stale block stays where it is and the fresh one arrives after it.
+ * Later text beats earlier text in practice, and the alternative -- a full `create()` at
+ * ~9.5s, mid-talk, discarding the transcript -- is not one. On LiteRT the preface is rebuilt
+ * from `pinned` every turn, so the drop is complete.
+ */
+export const forget = (slide) => {
+  syncEpoch();
+  pinned.delete(Number(slide));
+  // `lastAsked` too, when it was that slide: it exists to suppress a repeated position
+  // line, and after an edit the next turn should say where the deck is again.
+  if (lastAsked === Number(slide)) lastAsked = null;
+};
+
+/**
+ * Forget every slide, for a change whose extent is not knowable.
+ *
+ * `undo_edits` is the case, and the only one. Its receipt reports how many edits went back
+ * but not which slides they were on -- the labels are prose -- and recovering that by
+ * parsing them would be a regex standing between the model and the truth about what it
+ * holds. Dropping everything is exact where parsing would be approximate, and the cost is
+ * bounded by the same thing that bounds this module: re-pinning is at most one block per
+ * distinct slide asked about again, which in a real talk is a handful.
+ *
+ * NOT AN EPOCH BUMP, which would also be exact and would also wipe the transcript. The
+ * model is being corrected about the deck, not restarted, and the exchange above is still
+ * true.
+ */
+export const forgetAll = () => {
+  syncEpoch();
+  pinned.clear();
+  lastAsked = null;
+};
 
 /**
  * What this turn owes the model: `{ pin, note }`. Usually both "".
@@ -107,9 +156,26 @@ export const nextContext = () => {
   }
 
   const slide = slideView(n);
-  // `ids: false`: the chat has no tools, so a node id is ~15% of the block spent on
-  // something it cannot act on and might read out loud.
-  const body = slideText(slide, { ids: false });
+
+  // THROUGH THE EDIT OVERLAY, for the same reason `get_slide` does it: the harvest reads
+  // React's fibers and an edit writes the DOM, so a slide read straight from `slideView`
+  // reports the wording the deck SHIPPED WITH rather than the wording on screen.
+  //
+  // This is what makes `forget()` above worth anything. Dropping a pin so the next question
+  // re-sends the slide, and then re-sending the authored text, corrects the model with the
+  // same stale wording it already had -- the invalidation fires, the block is rebuilt, and
+  // nothing about it is new. Measured exactly that way before this line existed.
+  //
+  // It also covers the edit this module never hears about: a browser extension calling the
+  // same registered tools changes the DOM, and any slide pinned afterwards now picks that
+  // up even though `invalidate.js` never ran.
+  const nodes = withEdits(slide?.nodes ?? []);
+
+  // `ids: false`: a node id is ~15% of the block spent on something the model reads out
+  // loud more often than it uses. It CAN act on one now that the tools are wired, but it
+  // gets ids from `get_slide` and `find_nodes`, which return them for exactly that -- and
+  // those are one call away when a phrase is not enough.
+  const body = slideText({ ...slide, nodes }, { ids: false });
   if (!body) return NOTHING;
 
   // The position line rides along on a first sighting too: the `<slide n="12">` tag

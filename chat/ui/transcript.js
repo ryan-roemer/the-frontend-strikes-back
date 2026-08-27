@@ -27,7 +27,18 @@ const Bubble = ({ role, text, stopped, prompt }) => html`
       ? html`<button
           type="button"
           className="chat-bubble__context"
-          onClick=${() => showContext(prompt)}
+          ${
+            "" /* THE ANSWER RIDES ALONG WITH THE CONTEXT, added HERE rather than by either
+                  provider, because `onPrompt` fires before the first delta and there is no
+                  answer yet when the capture is made. This bubble is the first place both
+                  halves of a turn exist at once.
+
+                  It is what makes a copied transcript diagnosable on its own: "the model
+                  chose the wrong tool" cannot be judged from the prompt alone, and pairing
+                  the two by hand from a screenshot is where that goes wrong. `stopped` too
+                  -- a truncated answer pasted without it reads as a short one. */
+          }
+          onClick=${() => showContext({ ...prompt, answer: text, stopped })}
           title="Show the context sent to the model"
           aria-label="Show the context sent to the model"
         >

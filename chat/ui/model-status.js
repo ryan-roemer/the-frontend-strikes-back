@@ -234,7 +234,7 @@ export const ModelControls = () => {
         : null}
       <button
         type="button"
-        className="chat-icon-button"
+        className="chat-icon-button chat-model__info"
         onClick=${() => setShowInfo((open) => !open)}
         title="Model info"
         aria-label="Model info"

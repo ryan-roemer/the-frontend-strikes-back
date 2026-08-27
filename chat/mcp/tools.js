@@ -8,22 +8,43 @@
  * `{ isError: true, content: [...] }`. If those examples and this file ever
  * disagree, the examples are the contract and this is the bug.
  *
+ * EIGHT TOOLS, DOWN FROM FOURTEEN, and the count is the design rather than
+ * tidying. The consumer this has to work for is a 2B on-device model choosing a
+ * tool and filling its arguments in one shot, with no grammar-constrained
+ * decoding to keep it inside the lines (`docs/chat-handoff.md` §10). Every tool
+ * that overlaps another is a coin flip that model has to win. So the pairs that
+ * differed only in scope were merged into one tool with a scope argument:
+ *
+ *   get_current_slide + get_speaker_notes   -> get_slide({ slide, notes })
+ *   find_node + search_deck                 -> find_nodes({ query, slide, scope })
+ *   go_to_slide + move_deck                 -> go_to_slide({ slide, chapter, move })
+ *   undo_edit + reset_edits                 -> undo_edits({ scope, slide })
+ *
+ * `toggle_node_class` went away because `style_node` does its useful half, and
+ * `where_is_node` because pointing at source is a thing you do in an editor, not
+ * mid-talk -- it lives on as `deckDump.where()` for the console.
+ *
  * DESCRIPTIONS ARE PROMPT ENGINEERING, which is the deck's own line about this
  * exact API (slide 10's notes: "Descriptions are prompt engineering. The model
- * reads them to decide"). They are written for an agent choosing between
- * fourteen tools, not for a reader who already knows what the deck is.
+ * reads them to decide"). They are written for an agent choosing between eight
+ * tools, not for a reader who already knows what the deck is.
  *
  * ENUMS WHERE THE ANSWER IS CLOSED, which is the deck's other line ("`sortBy` is
  * an enum: constrain the agent, don't hope it guesses"). Directions, style
- * properties, class names and variable names are all allowlists, and the same
- * lists build the schema and the validator so the two cannot drift.
+ * properties, scopes and variable names are all allowlists, and the same lists
+ * build the schema and the validator so the two cannot drift.
+ *
+ * A PHRASE IS A FIRST-CLASS TARGET, and that is what keeps the common case to
+ * one call. "Make the second bullet yellow" does not need a find-then-edit round
+ * trip, because `resolveTarget` takes "the second bullet" directly -- see
+ * `target.js`. Chaining is available when a phrase is ambiguous; it is not the
+ * default path.
  *
  * Every tool reads deck state INSIDE `execute`. Registration happens before
  * React commits, so anything captured at install time is an empty deck.
  */
 import { harvestSlide } from "../harvest/index.js";
 import { locate } from "../harvest/locate.js";
-import { provenanceOf } from "../harvest/provenance.js";
 import {
   nodeIndex,
   outline,
@@ -35,19 +56,19 @@ import {
 import {
   CSS_VARS,
   MAX_TEXT,
-  setStyle,
+  replaceText,
+  resetEdits,
+  resetSlide,
+  setStyles,
   setText,
   setVariable,
   STYLE_PROPS,
-  TOGGLE_CLASSES,
-  toggleClass,
-  resetEdits,
   undoEdit,
 } from "../edit/apply.js";
 import { summary, withEdits } from "../edit/patches.js";
 import { start as startWatchdog } from "../edit/watchdog.js";
 import { nav } from "../nav.js";
-import { echo, resolveTarget } from "./target.js";
+import { echo, resolveGroup, resolveTarget } from "./target.js";
 import { line, nodeData } from "./shape.js";
 
 /**
@@ -56,7 +77,7 @@ import { line, nodeData } from "./shape.js";
  * A tool result has two readers with opposite needs: a model reads the text blocks and
  * wants prose, while whatever chains one call into the next needs the ids and should not
  * have to recover them with a regex from "6.9 — takeaway: A full agent workflow…". Without
- * `structuredContent` the seam between `find_node` and `edit_node` is a parsing problem,
+ * `structuredContent` the seam between `find_nodes` and `edit_text` is a parsing problem,
  * and a mis-parse is silent -- it edits the wrong node rather than failing.
  *
  * Hosts that ignore `structuredContent` still get readable prose with the ids in it.
@@ -135,6 +156,24 @@ const CANDIDATES_SCHEMA = {
     "Present only on a refusal: the nodes a description matched, to pick one id from.",
 };
 
+/** The edit log, reported everywhere it could be useful rather than by its own tool. */
+const EDITS_SCHEMA = {
+  type: "object",
+  description:
+    "The edit log. `count` is edits, not patches — one find-and-replace across a slide is one edit and one undo.",
+  properties: {
+    count: { type: "integer" },
+    canUndo: { type: "boolean" },
+    labels: { type: "array", items: { type: "string" } },
+    stale: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "Edits whose target stopped resolving, so they no longer show.",
+    },
+  },
+};
+
 const NO_DECK =
   "The deck is not reachable right now — it may be in overview or presenter mode. Try again, or press Escape.";
 
@@ -142,10 +181,10 @@ const NO_DECK =
  * The slide a READ should act on: the one asked for, or the one on screen.
  *
  * READS REFUSE AN IMPOSSIBLE SLIDE; NAVIGATION CLAMPS. The asymmetry is
- * deliberate and it is the same risk model as the `?mcp` gate: "go to slide 99"
- * plausibly means "go to the end" and costs a keypress to undo, while "find X on
- * slide 99" has no sensible reading and answering it from some other slide is a
- * confidently wrong answer nobody has a reason to double-check.
+ * deliberate: "go to slide 99" plausibly means "go to the end" and costs a
+ * keypress to undo, while "find X on slide 99" has no sensible reading and
+ * answering it from some other slide is a confidently wrong answer nobody has a
+ * reason to double-check.
  *
  * SLIDE 0 IS WORTH NAMING. `activeView.slideIndex` is 0-based inside Spectacle while
  * everything a person or agent says about this deck is 1-based, so passing 0 is a
@@ -177,7 +216,7 @@ const readSlide = (asked) => {
   return { ok: true, number: n };
 };
 
-/** `slide`, as every read tool declares it. */
+/** `slide`, as every tool that takes one declares it. */
 const SLIDE_PARAM = {
   type: "integer",
   minimum: 1,
@@ -185,14 +224,28 @@ const SLIDE_PARAM = {
     "Slide number, 1-based (the first slide is 1, not 0). Defaults to the slide on screen.",
 };
 
+/** `true` from a checkbox, a string, or a model that wrote it either way. */
+const truthy = (value) =>
+  value === true || value === "true" || value === 1 || value === "1";
+
 // --- Read --------------------------------------------------------------------
 
 export const READ_TOOLS = [
   {
-    name: "get_current_slide",
+    name: "get_slide",
     description:
-      "Read the slide currently on screen: its number, title, and every addressable piece of text on it with a short id (like 9.3), what kind of thing it is (title, bullet, sub-bullet, takeaway, code), and its wording. Use this first when asked to change, summarise, or describe 'this slide'. The ids it returns are what the editing tools take.",
-    inputSchema: { type: "object", properties: {} },
+      "Read one slide: its number, title, and every addressable piece of text on it with a short id (like 9.3), what kind of thing it is (title, bullet, sub-bullet, takeaway, code), and its wording. Defaults to the slide on screen. Use this first when asked to change, summarise, or describe 'this slide'. The ids it returns are what the editing tools take. Set notes to true to also read the presenter's private speaker notes, which are not shown to the audience.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slide: SLIDE_PARAM,
+        notes: {
+          type: "boolean",
+          description:
+            "Also return the presenter's private speaker notes. Most slides have them; the chapter dividers do not.",
+        },
+      },
+    },
     outputSchema: {
       type: "object",
       properties: {
@@ -201,29 +254,49 @@ export const READ_TOOLS = [
         title: { type: ["string", "null"] },
         chapter: { type: ["integer", "null"] },
         nodes: NODES_SCHEMA,
+        notes: {
+          type: ["string", "null"],
+          description:
+            "Null unless `notes` was requested, or the slide has none.",
+        },
+        edits: EDITS_SCHEMA,
       },
       required: ["slide", "count", "nodes"],
     },
-    execute: async () => {
-      const at = position();
-      if (!at.slide) return fail(NO_DECK);
-      const slide = slideView(at.slide);
-      if (!slide)
-        return fail(`Slide ${at.slide} has nothing addressable on it.`);
+    execute: async ({ slide, notes }) => {
+      const where = readSlide(slide);
+      if (!where.ok) return fail(where.message);
+
+      const view = slideView(where.number);
+      if (!view)
+        return fail(`Slide ${where.number} has nothing addressable on it.`);
 
       // Through the edit overlay, so a caller that just changed something sees
       // its own change. The harvest reads fibers and an edit writes the DOM, so
       // without this the slide reports its authored wording and the edit looks
       // like it did nothing.
-      const nodes = withEdits(slide.nodes);
+      const nodes = withEdits(view.nodes);
+      const wantNotes = truthy(notes);
+      const count = position().count ?? nav.count() ?? 0;
+
       return ok(
-        [`slide ${at.slide} of ${at.count}`, slideText({ ...slide, nodes })],
+        [
+          `slide ${where.number} of ${count}`,
+          slideText({ ...view, nodes }),
+          wantNotes
+            ? view.notes
+              ? `Speaker notes:\n${view.notes}`
+              : "This slide has no speaker notes."
+            : null,
+        ],
         {
-          slide: at.slide,
-          count: at.count,
-          title: slide.title ?? null,
-          chapter: slide.chapter ?? null,
+          slide: where.number,
+          count,
+          title: view.title ?? null,
+          chapter: view.chapter ?? null,
           nodes: nodes.map(nodeData),
+          notes: wantNotes ? (view.notes ?? null) : null,
+          edits: summary(),
         },
       );
     },
@@ -231,7 +304,7 @@ export const READ_TOOLS = [
   {
     name: "get_deck_outline",
     description:
-      "List every slide in the deck: number, title, chapter, and whether it carries a code example. Use this to find which slide covers a topic before navigating, or to answer questions about the deck's shape. It does not include slide body text — use search_deck for that.",
+      "List every slide in the deck: number, title, chapter, and whether it carries a code example. Use this to find which slide covers a topic before navigating, or to answer questions about the deck's shape. It does not include slide body text — use find_nodes with scope 'deck' for that.",
     inputSchema: { type: "object", properties: {} },
     outputSchema: {
       type: "object",
@@ -259,48 +332,64 @@ export const READ_TOOLS = [
     },
   },
   {
-    name: "find_node",
+    name: "find_nodes",
     description:
-      "Find what on a slide matches a description, and get the ids that name it. Accepts either wording from the slide ('the WebMCP bullet', 'One API') or a position ('the second bullet', 'the heading', 'the last sub-bullet'). Returns every match — one id when the description fits one thing, several when it fits several, and the slide's contents when it fits nothing. Use it to answer 'what on this slide mentions X' as well as to get an id before editing. Defaults to the slide on screen.",
+      "Find what matches a description and get the ids that name it. On one slide (the default) it accepts either wording from the slide ('the WebMCP bullet', 'One API') or a position ('the second bullet', 'the heading', 'the last sub-bullet'). With scope set to 'deck' it searches the text of every slide instead — use that for 'which slide covers X' or 'every slide that still says TODO'. Returns every match: one id when the description fits one thing, several when it fits several, and the slide's contents when it fits nothing.",
     inputSchema: {
       type: "object",
       properties: {
-        phrase: {
+        query: {
           type: "string",
           description:
-            "How a person would refer to it: quoted wording from the slide, or a position like 'the second bullet'.",
+            "How a person would refer to it: quoted wording, or a position like 'the second bullet' (positions only work on a single slide).",
         },
         slide: SLIDE_PARAM,
+        scope: {
+          type: "string",
+          enum: ["slide", "deck"],
+          description:
+            "'slide' searches one slide and understands positions. 'deck' searches every slide's text and ignores `slide`. Defaults to 'slide'.",
+        },
       },
-      required: ["phrase"],
+      required: ["query"],
     },
     outputSchema: {
       type: "object",
       properties: {
         matches: NODES_SCHEMA,
-        slide: { type: "integer" },
+        scope: { type: "string", enum: ["slide", "deck"] },
+        slide: {
+          type: ["integer", "null"],
+          description: "The slide searched. Null when the scope was the deck.",
+        },
         matched: {
-          type: "string",
           // Mirrors `locate()`'s `match` values exactly, and must: a value the code can
           // produce and the schema does not list is one a strict host may reject.
-          enum: ["text", "ordinal", "role", "ambiguous", "none"],
+          type: "string",
+          enum: ["text", "ordinal", "role", "source", "ambiguous", "none"],
           description:
-            "How it resolved. 'text' is strongest — the phrase is in the node's wording. 'ambiguous' means several matched equally; pick one by id.",
+            "How it resolved. 'text' is strongest — the phrase is in the node's wording. 'source' means it was found inside a code pane's source rather than in any node's own text. 'ambiguous' means several matched equally; pick one by id.",
         },
-        // Emitted on `matched: "none"` only, and the useful half of that answer -- the
-        // roster turns "no" into a menu.
+        total: {
+          type: "integer",
+          description:
+            "Matches found. May exceed `matches.length` — see `truncated`.",
+        },
+        truncated: { type: "boolean" },
+        // Emitted on `matched: "none"` at slide scope only, and the useful half of
+        // that answer -- the roster turns "no" into a menu.
         slideNodes: {
           ...NODES_SCHEMA,
           description:
-            "Present only when nothing matched: everything addressable on the slide, to pick from.",
+            "Present only when nothing matched on a slide: everything addressable there, to pick from.",
         },
       },
-      required: ["matches", "slide", "matched"],
+      required: ["matches", "scope", "slide", "matched", "total", "truncated"],
     },
     // FINDING SEVERAL THINGS IS A SUCCESSFUL FIND, and this deliberately does
     // NOT go through `resolveTarget` for that reason.
     //
-    // Ambiguity is only dangerous for a tool that ACTS: `edit_node` given three
+    // Ambiguity is only dangerous for a tool that ACTS: `edit_text` given three
     // candidates would change the wrong one, so it refuses. This one reports, and three
     // matches is the correct and complete answer rather than a failure -- returning
     // `isError` here leaves "what on this slide mentions the browser?" with no
@@ -308,29 +397,75 @@ export const READ_TOOLS = [
     //
     // `isError` here is reserved for what it means everywhere else: the request
     // could not be carried out. A bad slide number qualifies; finding nothing
-    // does not, and comes back as an empty result with the slide's roster, which
-    // is the useful reply to a miss.
-    execute: async ({ phrase, slide }) => {
+    // does not, and comes back as an empty result with the slide's roster.
+    execute: async ({ query, slide, scope }) => {
+      const said = String(query ?? "").trim();
+      if (said.length < 2) return fail("Give me at least two characters.");
+
+      if (scope === "deck") {
+        const needle = said.toLowerCase();
+        const hits = nodeIndex().filter((node) =>
+          node.text.toLowerCase().includes(needle),
+        );
+
+        if (!hits.length) {
+          return ok(`Nothing in the deck matches "${said}".`, {
+            matches: [],
+            scope: "deck",
+            slide: null,
+            matched: "none",
+            total: 0,
+            truncated: false,
+          });
+        }
+
+        // CAPPED, AND IT SAYS SO. A silent cut reads as "that is all of them",
+        // which is the whole deck's worth of TODOs looking like forty.
+        const shown = hits.slice(0, 40);
+        return ok(
+          [
+            `${hits.length} match${hits.length === 1 ? "" : "es"} for "${said}" across the deck:`,
+            ...shown.map(
+              (n) => `${n.id} (slide ${n.slide}, ${n.role}): ${n.text}`,
+            ),
+            hits.length > shown.length
+              ? `…and ${hits.length - shown.length} more.`
+              : null,
+          ],
+          {
+            matches: shown.map(nodeData),
+            scope: "deck",
+            slide: null,
+            matched: "text",
+            total: hits.length,
+            truncated: hits.length > shown.length,
+          },
+        );
+      }
+
       const where = readSlide(slide);
       if (!where.ok) return fail(where.message);
 
-      const found = locate(phrase, { slide: where.number });
+      const found = locate(said, { slide: where.number });
 
       if (found.match === "none") {
         const roster = found.nodes.slice(0, 12);
         return ok(
           [
             found.note
-              ? `Nothing matches "${phrase}" — ${found.note}.`
-              : `Nothing on slide ${where.number} matches "${phrase}". What is there:`,
+              ? `Nothing matches "${said}" — ${found.note}.`
+              : `Nothing on slide ${where.number} matches "${said}". What is there:`,
             ...roster.map(line),
           ],
           // `matches` is empty and the roster rides alongside it, so a caller can
           // tell "no result" from "here are twelve results" without counting.
           {
             matches: [],
+            scope: "slide",
             slide: where.number,
             matched: "none",
+            total: 0,
+            truncated: false,
             slideNodes: roster.map(nodeData),
           },
         );
@@ -340,196 +475,24 @@ export const READ_TOOLS = [
       return ok(
         many
           ? [
-              `${found.nodes.length} matches for "${phrase}" on slide ${where.number} — use an id to act on one:`,
+              `${found.nodes.length} matches for "${said}" on slide ${where.number} — use an id to act on one:`,
               ...found.nodes.map(line),
             ]
           : [found.nodes[0].id, echo(found.nodes[0].id)],
         {
           matches: found.nodes.map(nodeData),
+          scope: "slide",
           slide: where.number,
           matched: found.match,
-        },
-      );
-    },
-  },
-  {
-    name: "where_is_node",
-    description:
-      "Say where a piece of slide text comes from in the deck's source, so it can be edited permanently rather than only on screen. Returns an exact file and field when the text lives in a data module, a string to search the source for when it does not, or an honest 'composed at runtime' when the text exists as a literal nowhere. Use this when asked where something lives or how to change it for real.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        target: {
-          type: "string",
-          description:
-            "A node id like '9.3', or a description like 'the second bullet'.",
-        },
-      },
-      required: ["target"],
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        node: NODE_SCHEMA,
-        provenance: {
-          type: "object",
-          properties: {
-            match: {
-              type: "string",
-              enum: [
-                "data",
-                "exact",
-                "partial",
-                "ambiguous",
-                "file",
-                "too-short",
-                "not-found",
-                "unknown",
-              ],
-              description: "How confident the pointer is. Read this first.",
-            },
-            kind: { type: "string" },
-            pointer: {
-              type: ["string", "null"],
-              description: "An exact file and field, when there is one.",
-            },
-            search: {
-              type: ["string", "null"],
-              description: "What to grep for. Null when nothing will find it.",
-            },
-            file: { type: ["string", "null"] },
-            count: { type: ["integer", "null"] },
-          },
-          required: ["match", "kind"],
-        },
-        candidates: CANDIDATES_SCHEMA,
-      },
-      required: ["node", "provenance"],
-    },
-    execute: async ({ target }) => {
-      const found = resolveTarget(target);
-      if (!found.ok) return found.result;
-
-      const { node } = found;
-      const prov = await provenanceOf(node, harvestSlide(node.slide));
-      return ok(
-        [
-          echo(node.id),
-          prov.pointer
-            ? `source: ${prov.pointer}`
-            : prov.search
-              ? `search index.html for: ${prov.search}`
-              : "composed at runtime — this exact string is not in the source",
-          `confidence: ${prov.match}${prov.count > 1 ? ` (${prov.count} matches)` : ""}`,
-        ],
-        { node: nodeData(node), provenance: prov },
-      );
-    },
-  },
-  {
-    name: "search_deck",
-    description:
-      "Search the text of every slide in the deck and return the slides and node ids that match. Use this to find where a word or phrase appears across the whole talk — for example every slide mentioning WebMCP, or every remaining TODO.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Text to look for." },
-      },
-      required: ["query"],
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        matches: NODES_SCHEMA,
-        total: {
-          type: "integer",
-          description:
-            "Matches found. May exceed `matches.length` — see `truncated`.",
-        },
-        truncated: { type: "boolean" },
-      },
-      required: ["matches", "total", "truncated"],
-    },
-    execute: async ({ query }) => {
-      const needle = String(query ?? "")
-        .trim()
-        .toLowerCase();
-      if (needle.length < 2) return fail("Give me at least two characters.");
-
-      const hits = nodeIndex().filter((node) =>
-        node.text.toLowerCase().includes(needle),
-      );
-
-      if (!hits.length) {
-        return ok(`Nothing in the deck matches "${query}".`, {
-          matches: [],
-          total: 0,
+          total: found.nodes.length,
           truncated: false,
-        });
-      }
-
-      // CAPPED, AND IT SAYS SO. A silent cut reads as "that is all of them",
-      // which is the whole deck's worth of TODOs looking like forty.
-      const shown = hits.slice(0, 40);
-      return ok(
-        [
-          `${hits.length} match${hits.length === 1 ? "" : "es"} for "${query}":`,
-          ...shown.map(
-            (n) => `${n.id} (slide ${n.slide}, ${n.role}): ${n.text}`,
-          ),
-          hits.length > shown.length
-            ? `…and ${hits.length - shown.length} more.`
-            : null,
-        ],
-        {
-          matches: shown.map(nodeData),
-          total: hits.length,
-          truncated: hits.length > shown.length,
         },
       );
-    },
-  },
-  {
-    name: "get_speaker_notes",
-    description:
-      // NO COUNTS IN THIS STRING. It said "27 of the 35 slides have notes", which is a
-      // measurement of slide content sitting in text a model reads out loud -- wrong the
-      // first time anybody adds a slide, and wrong in the most quotable possible place.
-      // What is durable is the RULE: most slides have notes, dividers do not.
-      "Read the presenter's private notes for a slide — what they planned to say, plus timings and any TODOs. These are not shown to the audience. Defaults to the slide on screen. Most slides have notes; the chapter dividers do not, and get an empty result.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        slide: SLIDE_PARAM,
-      },
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        slide: { type: "integer" },
-        notes: { type: ["string", "null"] },
-      },
-      required: ["slide", "notes"],
-    },
-    execute: async ({ slide }) => {
-      const where = readSlide(slide);
-      if (!where.ok) return fail(where.message);
-
-      const harvested = harvestSlide(where.number);
-      if (!harvested) return fail(`There is no slide ${where.number}.`);
-
-      return harvested.notes
-        ? ok([`Speaker notes, slide ${where.number}:`, harvested.notes], {
-            slide: where.number,
-            notes: harvested.notes,
-          })
-        : ok(`Slide ${where.number} has no speaker notes.`, {
-            slide: where.number,
-            notes: null,
-          });
     },
   },
 ];
+
+// --- Navigate ----------------------------------------------------------------
 
 /** What every navigation reports: where it went, measured after it landed. */
 const POSITION_SCHEMA = {
@@ -541,13 +504,19 @@ const POSITION_SCHEMA = {
     title: { type: ["string", "null"] },
     moved: { type: "boolean", description: "False at either end of the deck." },
     clamped: { type: "boolean" },
+    // Declared for the same reason `CANDIDATES_SCHEMA` is: emitted only on a refusal, and
+    // a value the code produces that the schema does not list is one a strict host may
+    // reject. `required` above still describes a SUCCESS.
+    retry: {
+      type: "boolean",
+      description:
+        "Present only on a refusal that named the whole valid set, so calling again with a corrected argument is worth a try.",
+    },
   },
   required: ["slide", "from", "count", "moved"],
 };
 
-// --- Navigate ----------------------------------------------------------------
-
-/** Where `move_deck` can go, and what each one calls. */
+/** Where a relative `move` can go, and what each one calls. */
 const MOVES = {
   next_step: { fn: () => nav.next(), says: "forward one step" },
   previous_step: { fn: () => nav.prev(), says: "back one step" },
@@ -557,13 +526,46 @@ const MOVES = {
   last: { fn: () => nav.last(), says: "to the last slide" },
 };
 
+/** The receipt every navigation shares, read back from the deck rather than the argument. */
+const landed = (result, said, clamped) => {
+  const slideAt = harvestSlide(result.to);
+  const at = {
+    slide: result.to,
+    from: result.from,
+    count: nav.count(),
+    title: slideAt?.title ?? null,
+    moved: result.moved,
+    clamped: !!clamped,
+  };
+
+  // A no-op at either end is a real answer, not a failure: Spectacle clamps, so
+  // "next" on the last slide legitimately does nothing and saying so is more use
+  // to the caller than either "done" or "couldn't".
+  if (!result.moved && !clamped) {
+    return ok(
+      `Already at the end of the deck that way — still on slide ${result.to} of ${at.count}.`,
+      at,
+    );
+  }
+
+  return ok(
+    [
+      `${said}: slide ${result.to} of ${at.count}${slideAt?.title ? ` — ${slideAt.title}` : ""}`,
+      clamped
+        ? `(${clamped} is out of range, so this is as far as it goes.)`
+        : null,
+    ],
+    at,
+  );
+};
+
 export const NAV_TOOLS = [
   {
     name: "go_to_slide",
     description:
-      // Likewise no slide count here. `get_current_slide` and `get_deck_outline` both
-      // report the real one, live, which is where an agent should be reading it from.
-      "Jump to a specific slide by its number, or to the first slide of a chapter. Slide numbers are 1-based; call get_current_slide or get_deck_outline for how many there are. Out-of-range numbers are clamped rather than refused. To move relative to where the deck is now — next, previous, last — use move_deck instead.",
+      // No slide count in this string. `get_slide` and `get_deck_outline` both
+      // report the real one, live, which is where an agent should read it from.
+      "Move the deck. Give `slide` to jump to a slide number (1-based), `chapter` to jump to a chapter's first slide, or `move` to go somewhere relative to where the deck is now — next, previous, first, last, or one reveal forward or back within a slide that has them. Out-of-range slide numbers are clamped rather than refused, and at either end of the deck a relative move stays put.",
     inputSchema: {
       type: "object",
       properties: {
@@ -571,12 +573,21 @@ export const NAV_TOOLS = [
         chapter: {
           type: "integer",
           description:
-            "Chapter number. Goes to that chapter's first slide. Ignored when 'slide' is given.",
+            "Chapter number. Goes to that chapter's first slide. Ignored when `slide` is given.",
+        },
+        move: {
+          type: "string",
+          enum: Object.keys(MOVES),
+          description:
+            "Where to move, relative to now. Ignored when `slide` or `chapter` is given.",
         },
       },
     },
     outputSchema: POSITION_SCHEMA,
-    execute: async ({ slide, chapter }) => {
+    // PRECEDENCE IS DECLARED, NOT DISCOVERED: slide, then chapter, then move.
+    // A model that fills in two of the three gets a defined answer rather than
+    // whichever branch happened to be written first.
+    execute: async ({ slide, chapter, move }) => {
       let wanted = slide;
 
       if (wanted == null && chapter != null) {
@@ -586,85 +597,46 @@ export const NAV_TOOLS = [
         if (!first) return fail(`There is no chapter ${chapter}.`);
         wanted = first.number;
       }
-      if (wanted == null) return fail("Give me a slide number or a chapter.");
 
-      const move = await nav.toSlide(wanted);
-      if (!move) return fail(NO_DECK);
+      if (wanted != null) {
+        const result = await nav.toSlide(wanted);
+        if (!result) return fail(NO_DECK);
+        return landed(result, "Moved", result.clamped ? wanted : null);
+      }
 
-      // Read back from the deck, never from the argument: `to` is where it
-      // actually is now, which is the only number worth putting in a receipt.
-      const slideAt = harvestSlide(move.to);
-      return ok(
-        [
-          `Slide ${move.to} of ${nav.count()}${slideAt?.title ? ` — ${slideAt.title}` : ""}`,
-          move.clamped
-            ? `(${wanted} is out of range, so this is as far as it goes.)`
-            : null,
-        ],
-        {
-          slide: move.to,
-          from: move.from,
-          count: nav.count(),
-          title: slideAt?.title ?? null,
-          moved: move.moved,
-          clamped: move.clamped,
-        },
-      );
-    },
-  },
-  {
-    name: "move_deck",
-    description:
-      "Move the deck relative to where it is now. 'next' and 'previous' change slide; 'next_step' and 'previous_step' advance one reveal within a slide that has them, moving to the neighbouring slide when there are none left. At either end the deck stays put.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        where: {
-          type: "string",
-          enum: Object.keys(MOVES),
-          description: "Which way to move.",
-        },
-      },
-      required: ["where"],
-    },
-    outputSchema: POSITION_SCHEMA,
-    execute: async ({ where }) => {
+      if (!move) {
+        return fail("Give me a slide number, a chapter, or a move.");
+      }
+
       // `hasOwn`, not a truthiness check on the lookup. `MOVES["constructor"]`
-      // finds Object.prototype's and passes `if (!move)`, then throws on
-      // `move.fn` -- reported as a transport failure rather than as the
+      // finds Object.prototype's and passes `if (!spec)`, then throws on
+      // `spec.fn` -- reported as a transport failure rather than as the
       // perfectly good "Can't move that" answer one line down.
-      const move = Object.hasOwn(MOVES, where) ? MOVES[where] : null;
-      if (!move) return fail(`Can't move "${where}".`);
-
-      const result = await move.fn();
-      if (!result) return fail(NO_DECK);
-
-      const slideAt = harvestSlide(result.to);
-      const at = {
-        slide: result.to,
-        from: result.from,
-        count: nav.count(),
-        title: slideAt?.title ?? null,
-        moved: result.moved,
-        clamped: false,
-      };
-
-      // A no-op at either end is a real answer, not a failure: Spectacle clamps,
-      // so "next" on slide 35 legitimately does nothing and saying so is more
-      // use to the caller than either "done" or "couldn't".
-      if (!result.moved) {
-        return ok(
-          `Already at the end of the deck that way — still on slide ${result.to} of ${nav.count()}.`,
-          at,
+      const spec = Object.hasOwn(MOVES, move) ? MOVES[move] : null;
+      if (!spec) {
+        // THE REFUSAL CARRIES THE MENU, like every other refusal in this file --
+        // `setStyles` lists the properties, `setVariable` lists the variables,
+        // `target.js` lists the candidates. This one said only `Can't move "16".`,
+        // which is the whole valid set withheld at exactly the moment it is needed.
+        //
+        // AND IT NAMES THE OTHER ARGUMENT, because a value that is not a move is
+        // usually a slide number in the wrong field. That is the real failure this
+        // was found by: `{"move": "16"}` for "next slide".
+        const numeric = Number(move);
+        return fail(
+          [
+            `"${move}" is not a move. I can move: ${Object.keys(MOVES).join(", ")}.`,
+            Number.isInteger(numeric) && numeric > 0
+              ? `To go to slide ${numeric}, pass \`slide\` instead of \`move\`.`
+              : "To go to a specific slide, pass `slide` with a number.",
+          ].join(" "),
+          { retry: true },
         );
       }
 
-      return ok(
-        `Moved ${move.says}: slide ${result.from} → ${result.to} of ${nav.count()}${
-          slideAt?.title ? ` — ${slideAt.title}` : ""
-        }`,
-        at,
-      );
+      const result = await spec.fn();
+      if (!result) return fail(NO_DECK);
+      return landed(result, `Moved ${spec.says}`, null);
     },
   },
 ];
@@ -686,7 +658,16 @@ const mutate = (target, run) => {
   if (!found.ok) return found.result;
 
   const result = run(found.node);
-  if (!result.ok) return fail(result.message);
+  // `retry` PASSED THROUGH, the same way `edit_text` passes it through from `replaceText`.
+  // Dropping it here silently downgraded every recoverable refusal reached via a target to
+  // a terminal one -- `setText`'s empty-text message names two working alternatives and
+  // nothing ever asked the model to take either.
+  if (!result.ok) {
+    return fail(
+      result.message,
+      result.retry ? { applied: false, retry: true } : undefined,
+    );
+  }
 
   // The node it landed on, so a caller can chain another change to the same
   // thing without re-resolving the phrase -- and so "which one did it pick?" has
@@ -704,121 +685,343 @@ const EDIT_SCHEMA = {
   properties: {
     applied: { type: "boolean" },
     node: NODE_SCHEMA,
+    nodes: {
+      ...NODES_SCHEMA,
+      description:
+        "Present on a group style: every node it touched. `node` is the first of them.",
+    },
     candidates: CANDIDATES_SCHEMA,
-    edits: {
-      type: "object",
-      description: "The edit log after this change.",
-      properties: {
-        count: { type: "integer" },
-        canUndo: { type: "boolean" },
-        labels: { type: "array", items: { type: "string" } },
-        stale: { type: "array", items: { type: "string" } },
+    // Emitted only on a refusal, like `candidates`, and declared for the same reason:
+    // `required` below describes a SUCCESS, but a value the code produces that the schema
+    // omits is one a strict host may reject.
+    retry: {
+      type: "boolean",
+      description:
+        "Present only on a refusal that named a reliable fix, so calling again with a corrected argument is worth a try.",
+    },
+    changed: {
+      type: "array",
+      description: "Present on a find-and-replace: every node it touched.",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          hits: { type: "integer" },
+          before: { type: "string" },
+          after: { type: "string" },
+        },
+        required: ["id", "hits", "before", "after"],
       },
     },
+    edits: EDITS_SCHEMA,
   },
   required: ["applied"],
 };
 
 /**
- * The editing tools, only built when `?mcp` says so.
+ * How many nodes a single deck-wide replace may touch.
  *
- * A function rather than a constant because the edit layer should not even be
- * constructed on a normal load: having nothing to register is a stronger
- * guarantee than registering nothing.
+ * Deck scope is the one call in this file whose blast radius is the entire talk,
+ * and the failure is not that it breaks -- undo puts it back in one call -- but
+ * that it is unreviewable. Forty changed nodes reported as "done" is not
+ * something a presenter can check before walking on stage. Above the cap it
+ * refuses and says how many, which turns an unreviewable edit into a decision.
+ */
+const DECK_LIMIT = 25;
+
+/**
+ * The editing tools, and the watchdog they need.
  *
  * RETURNS THE WATCHDOG'S `stop` ALONGSIDE THE TOOLS, so `installTools()`'s teardown can
  * actually stop the `MutationObserver` and the bus subscription it starts.
  */
 export const installEditTools = () => {
-  // Only once anything can actually edit: an observer on the slide portal costs
-  // nothing on a read-only load, and starting it there would be a moving part
-  // with no job.
   const stop = startWatchdog();
-
   return { tools: EDIT_TOOLS, stop };
 };
 
 const EDIT_TOOLS = [
   {
-    name: "edit_node",
+    name: "edit_text",
     description:
-      "Change the wording of one piece of text on a slide. Identify it either by id (from get_current_slide or find_node) or by describing it — 'the second bullet', 'the heading'. If the description matches more than one thing this refuses and lists the candidates rather than guessing. Changes are live-only: they affect the running deck, not the source files. Use where_is_node to find the source, and undo_edit or reset_edits to put it back.",
+      // THE FIRST SENTENCE CARRIES ALL THREE MODES, and that is a hard requirement rather
+      // than a style choice: `agent/act/catalog.js` shows the in-page model
+      // `summarize(description)`, which is the first sentence and nothing else. Every mode
+      // named later in this string is invisible to it. Both bugs found so far are that
+      // same shape -- asked to remove a phrase it omitted `text`, and asked to replace a
+      // heading it reached for find-and-replace and decorated the old title, because
+      // `target` + `text` with no `find` had never been put in front of it.
+      "Change, replace or remove wording on the deck — `target` and `text` rewrite one piece of text completely, `find` and `text` replace a phrase wherever it appears, and `find` with an empty `text` deletes it. Identify a `target` by id (like 9.3) or by describing it ('the second bullet', 'the heading'). A `find` is scoped to one node when `target` is set, to one slide when `slide` is set, and to the whole deck when neither is. Replacing a phrase is the right choice when the text has inline code or emphasis in it, because it changes only the words matched and leaves the markup alone. Changes are live-only: they affect the running deck, not the source files, and undo_edits puts them back.",
     inputSchema: {
       type: "object",
       properties: {
         target: {
           type: "string",
           description:
-            "A node id like '9.3', or a description like 'the second bullet'.",
+            "A node id like '9.3', or a description like 'the second bullet'. Omit to act on a whole slide or the whole deck.",
+        },
+        slide: {
+          type: "integer",
+          minimum: 1,
+          description:
+            "Restrict a find-and-replace to this slide, 1-based. You do not have to be on it. Ignored when `target` is given.",
+        },
+        find: {
+          type: "string",
+          description:
+            "The phrase to replace, matched anywhere it appears and case-insensitively. Omit to replace a target's whole wording instead.",
         },
         text: {
           type: "string",
-          description: `The new wording. Keep it under ${MAX_TEXT} characters or it overflows the slide.`,
+          description: `The new wording — the whole text when there is no \`find\`, otherwise what to put in its place. An empty string ("") alongside a \`find\` deletes the phrase. Keep a piece of text under ${MAX_TEXT} characters or it overflows the slide.`,
         },
       },
-      required: ["target", "text"],
+      required: ["text"],
     },
     outputSchema: EDIT_SCHEMA,
-    execute: async ({ target, text: value }) =>
-      mutate(target, (node) => setText(node.id, value)),
+    execute: async ({ target, slide, find, text: value, style }) => {
+      if (value === undefined || value === null) {
+        // A `style` ARGUMENT IS A TOOL MIX-UP, NOT A MISSING ONE, and it is the whole
+        // diagnosis. Asked to hide the last bullet, the model emitted
+        // `edit_text({ target: "bullet 4", style: "display: none" })` -- the right target
+        // and the right declaration, handed to the tool next to the one that takes them.
+        // `Give me the new text.` answered a question nobody asked and ended the turn.
+        //
+        // `style` is not in this schema, so its presence cannot be anything else, which is
+        // what makes the correction reliable enough for `retry: true`. The retry may name
+        // a different tool -- `respond.js` re-resolves it -- so this is advice the model
+        // can act on rather than a note for a human reading the transcript afterwards.
+        if (style !== undefined && style !== null) {
+          return fail(
+            `\`style\` belongs to style_node, not edit_text. To restyle${target ? ` ${String(target)}` : " something"}, call style_node with that \`target\` and \`style\`. To change wording, call edit_text again with \`text\`.`,
+            { applied: false, retry: true },
+          );
+        }
+        return fail("Give me the new text.");
+      }
+      const needle = String(find ?? "").trim();
+
+      // Whole-node rewrite: a target, and nothing named to change inside it.
+      if (target && !needle) {
+        return mutate(target, (node) => setText(node.id, value));
+      }
+
+      if (!needle) {
+        // THE ONE COMBINATION THAT MUST NEVER RUN. No target, no find, just
+        // text: read literally that is "rewrite every node in the deck to this
+        // same string", which nobody has ever meant and undo is a poor answer to.
+        return fail(
+          "Give me either a `target` to rewrite, or a `find` phrase to replace. With neither, this would rewrite every node in the deck to the same text.",
+        );
+      }
+
+      let ids;
+      let where;
+
+      if (target) {
+        const found = resolveTarget(target);
+        if (!found.ok) {
+          // A `target` THAT DOES NOT RESOLVE, NEXT TO A `find` THAT WOULD.
+          //
+          // "Replace JavaScript with BooyaScript" on slide 11 works first time in a fresh
+          // conversation -- `{ find, text }`, no target. Three turns after two successful
+          // `style_node({ target: "the bullets" })` calls it becomes
+          // `{ target: "the JavaScript", find: "JavaScript", text: ... }`: the model
+          // pattern-matched its own recent history and dressed the search phrase up as an
+          // address. The roster `resolveTarget` hands back is honest but answers a
+          // different question -- it says "pick 11.1 or 11.2", when the fix is to pass no
+          // target at all and let the replace run where the phrase actually is.
+          //
+          // Checked against the real index rather than assumed, so this never sends the
+          // model to a second dead end: if the phrase is nowhere either, the roster stands
+          // on its own and the terminal refusal is the honest answer.
+          const needful = needle.toLowerCase();
+          const hits = nodeIndex().filter((node) =>
+            node.text.toLowerCase().includes(needful),
+          );
+          if (hits.length) {
+            const roster = (found.result.content ?? [])
+              .map((block) => block.text)
+              .join("\n");
+            return fail(
+              `${roster}\n\nBut you also gave \`find\`, so you do not need a \`target\` here — call edit_text again with just \`find\` and \`text\` to replace "${needle}" wherever it appears (${hits.length} ${hits.length === 1 ? "place" : "places"}).`,
+              {
+                applied: false,
+                candidates:
+                  found.result.structuredContent?.candidates ?? undefined,
+                retry: true,
+              },
+            );
+          }
+          return found.result;
+        }
+        ids = [found.node.id];
+        where = echo(found.node.id);
+      } else if (slide !== undefined && slide !== null && slide !== "") {
+        const at = readSlide(slide);
+        if (!at.ok) return fail(at.message);
+        ids = (slideView(at.number)?.nodes ?? []).map((node) => node.id);
+        where = `slide ${at.number}`;
+      } else {
+        const all = nodeIndex();
+        const needful = needle.toLowerCase();
+        const hits = all.filter((node) =>
+          node.text.toLowerCase().includes(needful),
+        );
+        if (hits.length > DECK_LIMIT) {
+          return fail(
+            `"${needle}" appears in ${hits.length} places across the deck, which is more than I will change in one go. Narrow it with a slide number, or a target.`,
+          );
+        }
+        ids = all.map((node) => node.id);
+        where = "the whole deck";
+      }
+
+      const result = replaceText(ids, needle, value);
+      // `retry` PASSED THROUGH, not re-derived. `apply.js` sets it on the one refusal it
+      // can offer a reliable fix for -- a phrase spanning several styled runs, where a
+      // single identifier does work -- and only that layer knows which refusal that is.
+      if (!result.ok) {
+        // BOTH DIAGNOSES BELOW ASSUME THE PHRASE WAS NOT FOUND, so neither may run when
+        // `replaceText` found it and refused the replacement -- a too-long result, or one
+        // spanning several styled runs. Telling the model `"One API" is not in slide 9,
+        // bullet 2` about the node that plainly contains it is the same confidently-false
+        // shape as the address-as-`find` misfire below, arrived at from the other side.
+        if (result.reason !== "none") {
+          return fail(
+            result.message,
+            result.retry ? { applied: false, retry: true } : undefined,
+          );
+        }
+
+        // WHERE ELSE IS THE PHRASE? Asked first, because it decides between the two
+        // diagnoses below and getting that order wrong produces a confidently false one.
+        const elsewhere = nodeIndex().filter((node) =>
+          node.text.toLowerCase().includes(needle.toLowerCase()),
+        );
+
+        // SCOPED TOO NARROWLY. The phrase is on the deck, just not inside the node the
+        // call named. `edit_text({ target: "code", find: "JavaScript" })` on slide 11 is
+        // the recorded case: `target` resolved -- to the code pane, whose node text is the
+        // FILENAME -- so the replace ran against "declarative-tool.html" and found
+        // nothing, while "JavaScript" sat in the subtitle one line above. The fix is to
+        // drop the scope, and it is reliable because the hits are counted, not guessed.
+        if (elsewhere.length && target) {
+          return fail(
+            `"${needle}" is not in ${where}, but it is on the deck — ${elsewhere.length} ${elsewhere.length === 1 ? "place" : "places"}. Drop \`target\` and call edit_text again with just \`find\` and \`text\` to replace it wherever it appears.`,
+            { applied: false, retry: true },
+          );
+        }
+
+        // A `find` THAT NAMES A NODE INSTEAD OF QUOTING ONE. The slide readout the model
+        // works from is a list of labelled lines -- `22.5 bullet 4: TODO: MORE POINTS` --
+        // and asked to delete that bullet it sent `find: "bullet 4"`, which searches
+        // wording and matches nothing. Twice, on two different slides, once with the same
+        // string in `target` as well.
+        //
+        // ONLY WHEN THE PHRASE IS NOWHERE AS TEXT, which is the guard this shipped
+        // without and needed. `locate()` matches by TEXT before it matches by address, so
+        // `resolveTarget("JavaScript")` resolves happily to the subtitle containing it --
+        // and the message then told the model that a word plainly on the slide was "an
+        // address, not wording on the slide". A refusal that is confidently wrong is worse
+        // than the terminal one it replaced. `elsewhere` being empty is what makes the
+        // address reading the only one left.
+        if (!elsewhere.length) {
+          const named = resolveTarget(needle, { slide });
+          if (named.ok) {
+            return fail(
+              `"${needle}" names ${echo(named.node.id)} — that is an address, not wording on the slide, so there is nothing to find. To change what it says, pass it as \`target\` with the new \`text\`. To take it off the slide, style it \`display: none\`.`,
+              { applied: false, retry: true },
+            );
+          }
+        }
+        return fail(
+          result.message,
+          result.retry ? { applied: false, retry: true } : undefined,
+        );
+      }
+
+      return ok([`${result.label} (${where})`, result.note], {
+        applied: true,
+        changed: result.nodes,
+        edits: summary(),
+      });
+    },
   },
   {
     name: "style_node",
-    description:
-      "Restyle one piece of text on a slide — its colour, size, weight, alignment and so on. Relative sizes like 'bigger' are resolved against the element's real size before being applied, and the receipt reports the value the slide actually got. A value the browser will not accept is refused rather than silently dropped.",
+    // THE GROUP CLAUSE IS IN THE FIRST SENTENCE, and it has to be: `act/catalog.js` shows
+    // the in-page model `summarize(description)`, and this description's first sentence is
+    // 73 characters -- over `MIN_SUMMARY`, so summarising stops there and sentence three,
+    // which is where group targeting used to be explained, never reached the model at all.
+    // Across two live runs, asked to make the takeaways yellow, it enumerated
+    // "takeaway 1, takeaway 2, ... takeaway 6" once and sent a bare "takeaway 1" the other
+    // time. It has never once reached for "the takeaways", because as far as it could see
+    // that was not a thing this tool accepted. Measured at +97 chars (~21 tok).
+    description: `Restyle text on a slide — its colour, size, weight, alignment and so on — and a plural target like 'the bullets' or 'the takeaways' restyles the whole group in one call. Identify what to style by id (like 9.3) or by describing it ('the heading', 'the second bullet'). A description that names a group styles the whole group, so 'the bullets' or 'this list' restyles every bullet on the slide in one go. Give the styling as CSS declarations: "color: yellow", or "color: yellow; text-decoration: underline" to set several at once. You can set: ${STYLE_PROPS.join(", ")}. Relative sizes like 'bigger' are resolved against the element's real size, and the receipt reports the value the slide actually got. To hide something use "display: none" or "visibility: hidden" — nothing is ever removed, so undo_edits brings it straight back. A value the browser will not accept is refused rather than silently dropped.`,
     inputSchema: {
       type: "object",
       properties: {
         target: {
           type: "string",
           description:
-            "A node id like '9.3', or a description like 'the heading'.",
+            "A node id like '9.3', or a description like 'the heading' or 'the bullets'.",
         },
-        property: {
-          type: "string",
-          enum: STYLE_PROPS,
-          description: "Which CSS property to set.",
-        },
-        value: {
+        style: {
           type: "string",
           description:
-            "The value, e.g. 'red', '48px', 'bold'. For font-size, 'bigger' and 'smaller' also work.",
+            "CSS declarations, e.g. 'color: yellow' or 'color: yellow; text-decoration: underline'. For font-size, 'bigger' and 'smaller' also work.",
         },
       },
-      required: ["target", "property", "value"],
+      required: ["target", "style"],
     },
     outputSchema: EDIT_SCHEMA,
-    execute: async ({ target, property, value }) =>
-      mutate(target, (node) => setStyle(node.id, property, value)),
-  },
-  {
-    name: "toggle_node_class",
-    description:
-      "Add or remove one of the deck's own styling classes on a piece of text — emphasis, compact takeaways, dense cards, or fixing a heading's colour against the chapter treatment.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        target: { type: "string", description: "A node id, or a description." },
-        class_name: {
-          type: "string",
-          enum: TOGGLE_CLASSES,
-          description: "Which class.",
-        },
-        on: {
-          type: "boolean",
-          description: "True to add it, false to remove it.",
-        },
-      },
-      required: ["target", "class_name", "on"],
+    // `resolveGroup`, not `mutate`. Everything else in this file styles or rewrites ONE
+    // node and shares `mutate`'s resolve-apply-receipt shape; this is the only tool where
+    // a phrase naming several things is an answer rather than a question, so it is also
+    // the only one that cannot use it. See `resolveGroup` in `target.js` for why styling
+    // gets that latitude and rewriting does not.
+    execute: async ({ target, style }) => {
+      const found = resolveGroup(target);
+      if (!found.ok) return found.result;
+
+      const result = setStyles(
+        found.nodes.map((node) => node.id),
+        style,
+      );
+      // `retry` PASSED THROUGH, as in `mutate` and `edit_text`. This is the third place
+      // that had to be taught the same thing, which is the argument for the flag riding on
+      // the result rather than being decided per call site.
+      if (!result.ok) {
+        return fail(result.message, {
+          applied: false,
+          ...(result.retry ? { retry: true } : {}),
+        });
+      }
+
+      return ok([result.label, result.note], {
+        applied: true,
+        // `node` stays the FIRST node rather than being dropped when several were
+        // styled, because `EDIT_SCHEMA` promises it and a caller chaining a second
+        // change to "the same thing" reads it. `nodes` carries the full extent.
+        node: nodeData(found.nodes[0]),
+        nodes: found.nodes.map(nodeData),
+        edits: summary(),
+      });
     },
-    outputSchema: EDIT_SCHEMA,
-    execute: async ({ target, class_name, on }) =>
-      mutate(target, (node) => toggleClass(node.id, class_name, on)),
   },
   {
     name: "set_deck_variable",
     description:
-      "Change one of the deck's theme colours, either for the current chapter or across the whole deck. These drive the accent colour, surfaces and hairlines that every slide is built from, so one change is visible everywhere.",
+      // `--chapter-accent` NAMED IN THE FIRST SENTENCE, which is the only part
+      // `agent/act/catalog.js` shows the in-page model. The signature carries all six
+      // names as an enum and carries no way to tell them apart, so asked to make the deck
+      // orange the model picked `--chapter-accent-base` -- legal, applied, and nearly
+      // invisible, because `-base` only drives underlines and gradient stops while
+      // `--chapter-accent` is what headings, rules and eyebrows actually read. A succeeded
+      // call has no refusal to carry the fix, so this is the one place it can go. Measured
+      // at +36 chars (~8 tok) on every turn; see the budget table in `prompt.js`.
+      "Change one of the deck's theme colours, either for the current chapter or across the whole deck — `--chapter-accent` is the main one. These drive the accent colour, surfaces and hairlines that every slide is built from, so one change is visible everywhere.",
     inputSchema: {
       type: "object",
       properties: {
@@ -846,33 +1049,51 @@ const EDIT_TOOLS = [
       const chapter = at.slide ? harvestSlide(at.slide)?.chapter : null;
       const result = setVariable(name, value, scope, chapter);
       return result.ok
-        ? ok([result.label, result.note], {
-            applied: true,
-            edits: summary(),
-          })
+        ? ok([result.label, result.note], { applied: true, edits: summary() })
         : fail(result.message);
     },
   },
   {
-    name: "undo_edit",
+    name: "undo_edits",
     description:
-      "Undo the most recent change to the deck, one at a time. Only undoes edits — navigation is not an edit, so this never moves the deck.",
-    inputSchema: { type: "object", properties: {} },
+      "Put changes back. 'last' undoes the most recent change — a find-and-replace counts as one change however many places it touched. 'slide' undoes everything changed on one slide and leaves the rest of the deck alone. 'all' returns the whole deck to exactly how it shipped. Navigation is not a change, so this never moves the deck.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scope: {
+          type: "string",
+          enum: ["last", "slide", "all"],
+          description: "How much to put back. Defaults to 'last'.",
+        },
+        slide: {
+          type: "integer",
+          minimum: 1,
+          description:
+            "Which slide to revert, 1-based. Only read when scope is 'slide'; defaults to the slide on screen.",
+        },
+      },
+    },
     outputSchema: EDIT_SCHEMA,
-    execute: async () => {
+    execute: async ({ scope, slide }) => {
+      const how = scope || "last";
+
+      if (how === "all") {
+        return ok(resetEdits().label, { applied: true, edits: summary() });
+      }
+
+      if (how === "slide") {
+        const where = readSlide(slide);
+        if (!where.ok) return fail(where.message);
+        const result = resetSlide(where.number);
+        return result.ok
+          ? ok(result.label, { applied: true, edits: summary() })
+          : fail(result.message, { applied: false, edits: summary() });
+      }
+
       const result = undoEdit();
       return result.ok
         ? ok(result.label, { applied: true, edits: summary() })
         : fail(result.message, { applied: false, edits: summary() });
     },
-  },
-  {
-    name: "reset_edits",
-    description:
-      "Undo every change at once and return the deck to exactly how it shipped. Use this to clean up after experimenting.",
-    inputSchema: { type: "object", properties: {} },
-    outputSchema: EDIT_SCHEMA,
-    execute: async () =>
-      ok(resetEdits().label, { applied: true, edits: summary() }),
   },
 ];

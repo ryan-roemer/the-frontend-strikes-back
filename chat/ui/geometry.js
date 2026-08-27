@@ -19,8 +19,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const KEY = "chat:geometry";
 
 const MARGIN = 24;
-const MIN_W = 300;
-const MIN_H = 260;
+
+/**
+ * How small the panel may be dragged.
+ *
+ * DELIBERATELY SMALLER THAN THE HEADER'S NATURAL WIDTH. These were 300x260, which is
+ * roughly what the bar needs to lay all its controls out, so the floor was set by the
+ * widest row rather than by anything anybody wanted -- and the panel could not be tucked
+ * into a corner during a demo without covering a third of a slide. The bar now sheds
+ * controls as it narrows (a container query in `chat.css`), so the width the header
+ * happens to need is no longer the thing that decides this.
+ *
+ * What is left is a floor that keeps the panel a window rather than a sliver: below this
+ * the composer stops being typeable and the transcript stops showing a whole line.
+ */
+const MIN_W = 180;
+const MIN_H = 140;
 
 /** Intelligent default: a comfortable reading column, never more than a quarter
  *  of the canvas, never taller than the viewport can hold. */
@@ -65,6 +79,47 @@ const clamp = (geo) => {
       Math.max(0, window.innerHeight - height),
     ),
   };
+};
+
+/**
+ * Apply a drag of (dx, dy) to whichever edges the grabbed handle owns.
+ *
+ * THE WEST AND NORTH EDGES MOVE THE ANCHOR, and that is the whole reason this is a
+ * function rather than two lines inside `move`. The panel's default home is the
+ * bottom-right corner of the viewport, so those are the two edges anybody actually reaches
+ * for -- and resizing from them means holding the OPPOSITE edge still while `left`/`top`
+ * follow the size. Get that wrong and shrinking from the left drags the whole window
+ * across the screen.
+ *
+ * The size is clamped BEFORE the anchor is derived from it, for the same reason. Clamping
+ * afterwards lets `left` keep travelling with the pointer once the width has already hit
+ * `MIN_W`, so the panel slides sideways while refusing to get any smaller -- which reads
+ * as the window running away from the cursor.
+ *
+ * @param {object} from  The rect the gesture started from.
+ * @param {string} dir   Some of `n`, `s`, `e`, `w` -- `"nw"` is the top-left corner.
+ */
+const resize = (from, dir, dx, dy) => {
+  const maxW = Math.max(MIN_W, window.innerWidth - MARGIN * 2);
+  const maxH = Math.max(MIN_H, window.innerHeight - MARGIN * 2);
+  const fit = (value, min, max) => Math.min(Math.max(value, min), max);
+
+  const next = { ...from };
+  const right = from.left + from.width;
+  const bottom = from.top + from.height;
+
+  if (dir.includes("e")) next.width = fit(from.width + dx, MIN_W, maxW);
+  if (dir.includes("w")) {
+    next.width = fit(from.width - dx, MIN_W, maxW);
+    next.left = right - next.width;
+  }
+  if (dir.includes("s")) next.height = fit(from.height + dy, MIN_H, maxH);
+  if (dir.includes("n")) {
+    next.height = fit(from.height - dy, MIN_H, maxH);
+    next.top = bottom - next.height;
+  }
+
+  return next;
 };
 
 const load = () => {
@@ -156,7 +211,7 @@ export const usePanelGeometry = (nodeRef) => {
       const next =
         g.mode === "move"
           ? { ...g.from, left: g.from.left + dx, top: g.from.top + dy }
-          : { ...g.from, width: g.from.width + dx, height: g.from.height + dy };
+          : resize(g.from, g.mode, dx, dy);
 
       const fitted = clamp(next);
       node.style.left = `${fitted.left}px`;
@@ -204,11 +259,12 @@ export const usePanelGeometry = (nodeRef) => {
       onPointerUp: end,
       onPointerCancel: end,
     },
-    resizeHandlers: {
-      onPointerDown: begin("resize"),
+    /** One call per handle. `dir` is any of `n`, `s`, `e`, `w`, `ne`, `nw`, `se`, `sw`. */
+    resizeHandlers: (dir) => ({
+      onPointerDown: begin(dir),
       onPointerMove: move,
       onPointerUp: end,
       onPointerCancel: end,
-    },
+    }),
   };
 };

@@ -5,7 +5,7 @@ import { useConversation } from "../use-conversation.js";
 import { useDeck } from "../use-deck.js";
 import { refresh, restart } from "../agent/model-state.js";
 import { STATES } from "../agent/states.js";
-import { streamAnswer } from "../agent/session.js";
+import { respond } from "../agent/act/respond.js";
 import { useDismissKeys } from "./use-dismiss-keys.js";
 import { useModelState } from "./use-model-state.js";
 import { usePanelGeometry } from "./geometry.js";
@@ -33,6 +33,20 @@ const html = htm.bind(createElement);
  * the bridge is down (overview and presenter mode unmount it) rather than showing a
  * confident wrong slide number.
  */
+/** Edges before corners, so a corner handle stacks on top of the two edges it meets. */
+const RESIZE_DIRECTIONS = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
+
+const RESIZE_LABELS = {
+  n: "Resize from top",
+  s: "Resize from bottom",
+  e: "Resize from right",
+  w: "Resize from left",
+  ne: "Resize from top-right",
+  nw: "Resize from top-left",
+  se: "Resize from bottom-right",
+  sw: "Resize from bottom-left",
+};
+
 const SUGGESTIONS = (slide) => [
   "What is this talk about?",
   slide ? `Summarize slide ${slide}` : "Summarize this slide",
@@ -86,10 +100,13 @@ export const Panel = ({ enabled }) => {
   const model = useModelState();
   const panelRef = useRef(null);
   const { reset, dragHandlers, resizeHandlers } = usePanelGeometry(panelRef);
-  // `streamAnswer` already IS the `respond({ text, onChunk, signal })` contract, so there
-  // is no responder module between the two.
-  const { entries, streaming, busy, error, send, stop, clear } =
-    useConversation(streamAnswer);
+  // `respond` IS the `respond({ text, onChunk, signal })` contract this hook drives, so
+  // there is no adapter between the two. It wraps `streamAnswer` rather than replacing it:
+  // a turn that calls no tool is the same single streamed call it always was, and one that
+  // does gets its receipt through the same `onChunk`. See `agent/act/respond.js`.
+  const { entries, history, streaming, busy, error, send, stop, clear } =
+    useConversation(respond);
+  const inputRef = useRef(null);
 
   // Re-check whenever the panel is opened, so a model that finished downloading
   // mid-talk promotes itself without a reload. Cheap: a memoized GPU probe and a
@@ -135,6 +152,42 @@ export const Panel = ({ enabled }) => {
   const dead =
     model.status === STATES.UNSUPPORTED || model.status === STATES.UNAVAILABLE;
 
+  /**
+   * Opening the panel puts the caret in the composer.
+   *
+   * Opening the assistant is always followed by typing into it, and without this the
+   * Shift+Alt+C chord is an incomplete gesture -- it opens the box and then leaves you
+   * reaching for the mouse to click it.
+   *
+   * NOT SIMPLY KEYED ON `enabled`. On the render that opens the panel the composer is
+   * usually still disabled: the panel is closed on load, so the very first open is also
+   * the first time the model is asked about, and `dead` is true until that check comes
+   * back a tick later. `focus()` on a disabled control is a silent no-op, so an effect
+   * that only watched `enabled` did nothing on the one open that matters most.
+   *
+   * The latch is what keeps this to ONCE PER OPENING. `dead` can flip again later -- a
+   * model deleted, a provider switched -- and refocusing then would yank the caret out of
+   * whatever the presenter was doing on the slide behind.
+   */
+  /** The Up arrow is only advertised once there is something to recall: on a panel that
+   *  has never been asked anything it is a hint about a feature that would do nothing. */
+  const placeholder = dead
+    ? "No on-device model available"
+    : history.length > 0
+      ? "Ask or instruct… (Enter to send, ↑ for past questions)"
+      : "Ask or instruct… (Enter to send)";
+
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!enabled) {
+      focused.current = false;
+      return;
+    }
+    if (dead || focused.current) return;
+    focused.current = true;
+    inputRef.current?.focus();
+  }, [dead, enabled]);
+
   return html`
     <section
       ref=${panelRef}
@@ -161,12 +214,18 @@ export const Panel = ({ enabled }) => {
             "" /* The model's own controls, inline. Percent, state, trash, info --
                   see `ModelControls`. They lead the group so the panel's controls
                   (broom, recentre, close) stay in the same order and the same place
-                  they have always been, hard right. */
+                  they have always been, hard right.
+
+                  THE THREE BELOW CARRY A MODIFIER EACH so the container query in
+                  `chat.css` can drop them one at a time as the panel narrows. Three
+                  identical `.chat-icon-button`s cannot be told apart in CSS by anything
+                  except `:nth-child`, which would silently retarget the day one of them
+                  moves or `ModelControls` renders a different number of buttons. */
           }
           <${ModelControls} />
           <button
             type="button"
-            className="chat-icon-button"
+            className="chat-icon-button chat-panel__action--new"
             onClick=${newChat}
             title="New chat (fresh context)"
             aria-label="New chat"
@@ -175,7 +234,7 @@ export const Panel = ({ enabled }) => {
           </button>
           <button
             type="button"
-            className="chat-icon-button"
+            className="chat-icon-button chat-panel__action--reset"
             onClick=${reset}
             title="Reset panel position and size"
             aria-label="Reset panel position and size"
@@ -184,8 +243,8 @@ export const Panel = ({ enabled }) => {
           </button>
           <button
             type="button"
-            className="chat-icon-button"
-            onClick=${() => setEnabled(false)}
+            className="chat-icon-button chat-panel__action--close"
+            onClick=${close}
             title="Close (Esc)"
             aria-label="Close deck assistant"
           >
@@ -215,18 +274,36 @@ export const Panel = ({ enabled }) => {
         onStop=${stop}
         busy=${busy}
         disabled=${dead}
-        placeholder=${dead
-          ? "No on-device model available"
-          : "Ask or instruct… (Enter to send)"}
+        history=${history}
+        inputRef=${inputRef}
+        placeholder=${placeholder}
       />
 
-      ${"" /* Resize grip. Its own pointer handlers, same gesture machinery. */}
-      <div
-        className="chat-panel__grip"
-        ...${resizeHandlers}
-        role="separator"
-        aria-label="Resize"
-      ></div>
+      ${
+        "" /* Eight resize handles, one per edge and corner, all on the same gesture
+              machinery as the drag bar.
+
+              THE CORNER GRIP ALONE WAS THE WRONG ONE. The panel's home is the
+              bottom-right of the viewport, so the south-east corner -- the only handle
+              there used to be -- is the one with nowhere to travel, and pulling it
+              inward shrinks the window away from the corner it is parked in. The edges
+              people reach for on a window sitting there are west and north, and those
+              hold the far edge still. See `resize()` in `geometry.js`.
+
+              Only `se` draws anything. Eight visible grips on a small floating window is
+              chrome competing with the slide behind it; the cursor changing on approach
+              is how every window manager announces the other seven. */
+      }
+      ${RESIZE_DIRECTIONS.map(
+        (dir) =>
+          html`<div
+            key=${dir}
+            className=${`chat-panel__handle chat-panel__handle--${dir}`}
+            ...${resizeHandlers(dir)}
+            role="separator"
+            aria-label=${RESIZE_LABELS[dir]}
+          ></div>`,
+      )}
     </section>
   `;
 };

@@ -12,23 +12,27 @@
  * slide on screen is therefore in `deck-context.js` instead.
  *
  * THE BUDGET. LiteRT re-prefills the whole preface every turn, so a token here is
- * paid again on every answer at ~1,600 tok/s. This block costs ~680 and ~0.4s:
+ * paid again on every answer at ~1,600 tok/s. Measured with `deckReplay.prompt()` at
+ * 6,406 chars, ~1,402 tok and ~0.9s:
  *
  *   identity + capabilities   ~60 tok
  *   <deck-facts>             ~350 tok   the argument, from the data modules
  *   <deck-outline>           ~270 tok   35 titles
+ *   <tools>                  ~722 tok   eight tools; ~315 for the four under `?safe`
  *
  * The whole deck as Markdown would be ~4,000 tokens -- 49% of the window and
  * +2.5s per turn -- and would carry the speaker notes, which hold presenter
  * timings and TODOs that must not reach a model answering out loud in a room.
  *
- * The outline earns its 270 tokens here even though the WebMCP command router
- * drops it: "which slide covers X" and "what's the argument" are most of what a
- * Q&A chat is asked, and it answers the first with no retrieval at all.
+ * The outline earns its 270 tokens twice over. "Which slide covers X" and "what's the
+ * argument" are most of what a Q&A chat is asked, and it answers the first with no
+ * retrieval at all -- and now that the model can navigate, it is also what turns "go to
+ * the vector search slide" into a slide number without a `find_nodes` call first.
  */
 import { chapters } from "../../deck/chapters.js";
 import { AUDIENCES, takeaways, VERDICTS } from "../../deck/takeaways.js";
 import { outline, outlineText } from "../harvest/views.js";
+import { catalogText } from "./act/catalog.js";
 
 /** Matches the tag-delimiting in `harvest/views.js`, and for the same reason. */
 const tagged = (tag, lines) => [`<${tag}>`, ...lines, `</${tag}>`].join("\n");
@@ -84,10 +88,33 @@ const CAPABILITIES = [
   "You can see the deck's outline and argument below, and the full text of any slide you have been shown in this conversation.",
   "A slide's text is given in full, including any part that animates in later, so answer about all of it rather than guessing at what is on screen right now.",
   "When a slide holds a code sample, its complete source is given in a fenced block and is the real file from this project, so quote and explain it directly.",
-  "You cannot see the full text of other slides, the speaker notes, the web, or any tools.",
-  "If a question needs a slide you have not been shown, say which slide number to go to rather than guessing at its contents.",
+  "You cannot see the full text of other slides, the speaker notes, or the web.",
+  "If a question needs a slide you have not been shown, you can read it with a tool — or say which slide number to go to.",
 ];
 
+/**
+ * The tool catalog, appended when there are tools.
+ *
+ * WHY IT IS IN THE SYSTEM PROMPT AND NOT NEXT TO THE QUESTION. The header above states the
+ * rule this file follows -- volatility decides what goes here -- and the tool set is the
+ * least volatile thing in the whole layer: `installTools()` runs once at mount, there is no
+ * unregister in the API the deck teaches, and `?safe` is read before any of it. A registry
+ * that cannot change after mount belongs in the block that is fixed at session creation.
+ *
+ * The alternative would be re-sending it with every question through `deck-context.js`'s
+ * `note`, which on Chrome accumulates a copy per turn in a session that cannot un-send
+ * anything, and on LiteRT costs the same prefill while also pushing the catalog away from
+ * the preface the rest of the deck facts live in.
+ *
+ * WHAT IT COSTS. Measured at 3,300 chars, ~722 tokens, on top of the ~680 this file already
+ * spent: ~1,402 of the 8,192-token window, 17% of it, and ~0.9s of prefill per turn on
+ * LiteRT. Under `?safe` it is four tools and ~315. Dumping the registry verbatim instead
+ * would be ~2,010 -- see `act/catalog.js`, which derives the whole block from what was
+ * actually registered and says what each line is for.
+ *
+ * LAST IN THE PROMPT, DELIBERATELY. The instruction most likely to be ignored by a small
+ * model is "emit a tool block and nothing else", and it sits closest to the exchange.
+ */
 export const systemPrompt = () =>
   [
     ...IDENTITY,
@@ -96,4 +123,7 @@ export const systemPrompt = () =>
     factsText(),
     "",
     outlineText(outline()),
-  ].join("\n");
+    catalogText(),
+  ]
+    .filter((part) => part !== null)
+    .join("\n");

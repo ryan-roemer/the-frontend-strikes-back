@@ -42,12 +42,27 @@ the remaps and scopes work, which upgrades are deliberately blocked, and how to 
 | `?dump`               | Show the whole deck as one Markdown document (see below)      |
 | `?tools`              | Open the WebMCP tool inspector (see below)                    |
 | `?tool=NAME`          | ...opened on one tool, so any tool is a link                  |
-| `?mcp`                | Also register the WebMCP tools that **change** slides         |
+| `?safe`               | Register only the WebMCP tools that **cannot** change a slide |
 
 All five flags accept a bare `?chat` as well as `?chat=true` — a flag you have to remember the
 value of is a flag you will get wrong at the podium.
 
 Transitions are also disabled automatically under `prefers-reduced-motion`.
+
+### Keyboard
+
+On top of Spectacle's own bindings (arrows, `p` presenter, `o` overview, `f` fullscreen):
+
+| Keys                      | Effect                                                       |
+| ------------------------- | ------------------------------------------------------------ |
+| `Shift`+`Alt`+`C`         | Toggle the deck assistant                                    |
+| `Shift`+`Alt`+`T`         | Toggle the WebMCP tool inspector                             |
+| `Esc`                     | Close whichever of those is on top                           |
+| `↑` / `↓` **in the chat** | Walk back and forth through the questions asked this session |
+| `Enter` **in the chat**   | Send; `Shift`/`Ctrl`/`Cmd`+`Enter` inserts a newline instead |
+
+On macOS those read as `⇧⌥C` and `⇧⌥T`, which is what the buttons' tooltips say. The chords are
+matched on the physical key, so `Option` producing `Ç` on a Mac layout does not break them.
 
 ## Deck assistant
 
@@ -67,6 +82,13 @@ load touches no model at all. `?chat` opens it. Nothing is sent anywhere.
 
 The Chrome pill only appears when the browser exposes `LanguageModel`; the Gemma pill is always
 offered and explains itself when WebGPU is unavailable.
+
+Drag the title bar to move it, and any of its four edges or four corners to resize — the west and
+north edges hold the opposite edge still, which is what you want for a window parked in the
+bottom-right. It goes down to 180×140, shedding header controls as it narrows (provider pills
+first, then the model diagnostics), so it can be tucked into a corner without covering a slide.
+The crosshair button puts it back. Position and size persist and are re-clamped to the viewport on
+load, so geometry saved on a laptop cannot strand the panel offscreen on a projector.
 
 > **Before presenting:** fetch the Gemma model on a connection you trust and ask one question on
 > each provider. See the pre-flight in [docs/chat-handoff.md](docs/chat-handoff.md), which is also
@@ -146,30 +168,46 @@ The talk teaches `document.modelContext`. The deck also uses it: it registers it
 agent in a browser side panel can read what is on a slide, move the deck, and change it.
 
 ```js
-deckMcp.list(); // 8 tools, or 14 with ?mcp
-await deckMcp.call("find_node", { phrase: "the second bullet" });
+deckMcp.list(); // 8 tools, or 4 with ?safe
+await deckMcp.call("find_nodes", { query: "the second bullet" });
 await deckMcp.call("go_to_slide", { slide: 21 });
 ```
 
-Reading and navigating are always registered; **editing only appears with `?mcp`**, so an agent
-connected during the actual talk can follow along and move the deck but cannot alter a slide.
+**Eight tools, all registered on a plain load.** The count is the design: the eventual consumer is a
+2B on-device model picking a tool and filling its arguments in one shot, and every tool that
+overlaps another is a coin flip it has to win. Tools that differed only in scope were merged into
+one tool with a scope argument. `?safe` drops the four writing tools — a kill switch for the talk
+itself, rather than something to remember to type before anything works.
 
-Every tool that names a node takes either an id (`9.3`) or a description ("the second bullet"). When
-a description fits more than one thing, reading returns all of them and writing refuses with the
-candidates — finding three things is a successful find, but changing one of three is a coin toss.
+Every tool that names a node takes either an id (`9.3`) or a description ("the second bullet"), so
+the common case is one call rather than a find-then-act round trip. When a description fits more
+than one thing, reading returns all of them and writing refuses with the candidates — finding three
+things is a successful find, but changing one of three is a coin toss.
 
 Results come back twice over: prose for whatever reads them, and `structuredContent` for whatever
 chains them, so one tool's output feeds the next with no string parsing.
 
 ```js
-const { matches } = (await deckMcp.call("find_node", { phrase: "browser" }))
+const { matches } = (await deckMcp.call("find_nodes", { query: "browser" }))
   .structuredContent;
-await deckMcp.call("edit_node", { target: matches[1].id, text: "…" });
+await deckMcp.call("edit_text", { target: matches[1].id, text: "…" });
+
+// Or change a phrase wherever it appears, on a slide you are not even on.
+await deckMcp.call("edit_text", {
+  slide: 6,
+  find: "WebMCP",
+  text: "web tools",
+});
 ```
 
-Edits are live-only — they change the running deck, not the source — and `reset_edits` puts
-everything back. `window.deckMcp` works with no extension connected, which is the easiest way to
-try any of it.
+Replacing a phrase beats rewriting a whole node wherever the text has inline code or emphasis in it:
+a third of this deck's nodes do, and rewriting one of those can only replace its longest text run.
+All 35 slides are in the DOM at once, so editing a slide you are not looking at needs no navigation.
+
+Edits are live-only — they change the running deck, not the source — and `undo_edits` puts them
+back, by the last change, by slide, or all of them. A replace across many nodes counts as **one**
+change and undoes in one call. `window.deckMcp` works with no extension connected, which is the
+easiest way to try any of it.
 
 ### The tool inspector
 
@@ -179,7 +217,7 @@ sheet listing every registered tool with its schema, a generated form, and the r
 end of the protocol.
 
 It calls the **registered** functions, not a parallel implementation that agrees with them today,
-so pressing Execute does what happens when an agent calls the tool. `?tool=find_node` opens it on
+so pressing Execute does what happens when an agent calls the tool. `?tool=find_nodes` opens it on
 one tool, which makes any single tool a link worth bookmarking before a talk.
 
 Details, and the six things this turned up along the way, are in

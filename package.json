@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "npx serve",
+    "test": "node --test \"test/*.test.js\"",
     "qr": "node scripts/gen-qr.mjs",
     "lint": "eslint . --fix",
     "pretty": "prettier . --write",
