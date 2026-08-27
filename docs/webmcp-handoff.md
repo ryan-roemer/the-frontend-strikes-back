@@ -44,12 +44,12 @@ reachable from `window.deckMcp`.
 
 ## 2. The tools
 
-| file                 | holds                                                                |
-| -------------------- | -------------------------------------------------------------------- |
-| `chat/mcp/index.js`  | `getModelContext()`, registration, the `?mcp` gate, `window.deckMcp` |
-| `chat/mcp/tools.js`  | the eight descriptors                                                |
-| `chat/mcp/target.js` | `resolveTarget()` — the id-or-phrase contract                        |
-| `chat/nav.js`        | `next` / `prev` / `toSlide` / `first` / `last`                       |
+| file                 | holds                                                                 |
+| -------------------- | --------------------------------------------------------------------- |
+| `chat/mcp/index.js`  | `getModelContext()`, registration, the `?safe` gate, `window.deckMcp` |
+| `chat/mcp/tools.js`  | the eight descriptors                                                 |
+| `chat/mcp/target.js` | `resolveTarget()` — the id-or-phrase contract                         |
+| `chat/nav.js`        | `next` / `prev` / `toSlide` / `first` / `last`                        |
 
 **Everything registers on a plain load; `?safe` drops the writing tools.** This is inverted from
 the original `?mcp` gate, and deliberately: the tools exist to be demonstrated, and a demo that

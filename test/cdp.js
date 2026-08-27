@@ -113,18 +113,21 @@ const attach = (url) =>
 
       socket.addEventListener("open", () => {
         // BOUNDED AT THE ONE PLACE EVERY CALL GOES THROUGH, so no caller has to remember.
-        // A timed-out entry is dropped from `pending`: a late reply then finds nothing
-        // waiting and is discarded, rather than resolving a promise nobody holds.
-        const send = (method, params) =>
-          bounded(
+        // The entry is dropped from `pending` however the call ends, including a timeout:
+        // a late reply then finds nothing waiting and is discarded, rather than resolving a
+        // promise nobody holds. Without that, every timed-out call leaks an entry.
+        const send = (method, params) => {
+          id += 1;
+          const callId = id;
+          return bounded(
             new Promise((ok, no) => {
-              id += 1;
-              pending.set(id, { resolve: ok, reject: no });
-              socket.send(JSON.stringify({ id, method, params }));
+              pending.set(callId, { resolve: ok, reject: no });
+              socket.send(JSON.stringify({ id: callId, method, params }));
             }),
             CALL_MS,
             method,
-          );
+          ).finally(() => pending.delete(callId));
+        };
 
         resolve({
           send,
