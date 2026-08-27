@@ -208,14 +208,34 @@ const byOrdinal = (nodes, words) => {
   );
   if (!pool.length) return null;
 
-  const digits = words.match(/\b(\d{1,2})\b/);
-  const word = words.split(" ").find((w) => ORDINALS.has(w));
-  const wantsLast = words.split(" ").some((w) => LAST.has(w));
+  const digits = words.match(/\b(\d{1,2})\b/g) ?? [];
+  const spoken = words.split(" ");
+  const spelled = spoken
+    .filter((w) => ORDINALS.has(w))
+    .map((w) => ORDINALS.get(w));
+  const wantsLast = spoken.some((w) => LAST.has(w));
+
+  // SEVERAL POSITIONS IS A SET, NOT A TYPO. `digits` used to be a single match, so
+  // "takeaway 1, takeaway 2, takeaway 3, takeaway 4, takeaway 5, takeaway 6" -- a real
+  // reply, from a model asked to make the takeaways yellow -- read as position 1 and
+  // styled ONE node while reporting success. Silently acting on a sixth of what was named
+  // is the outcome this file's header calls the one nothing downstream can recover from.
+  //
+  // Reported as `ambiguous`, which is not a hedge: `target.js` already splits that word
+  // two ways, refusing for edits and accepting the whole set for styles, and this is the
+  // same distinction. So "make takeaways 1 and 3 yellow" styles both, while rewriting
+  // them gets the candidate roster it has always got.
+  const asked = [...new Set([...spelled, ...digits.map(Number)])];
+  if (asked.length > 1) {
+    const hits = asked
+      .map((index) => pool.find((node) => node.roleOrdinal === index))
+      .filter(Boolean);
+    if (hits.length > 1) return { pool, hit: null, hits, index: null };
+  }
 
   let index = null;
   if (wantsLast) index = pool.length;
-  else if (word) index = ORDINALS.get(word);
-  else if (digits) index = Number(digits[1]);
+  else if (asked.length) index = asked[0];
   if (index === null) return { pool, hit: null };
 
   const hit = pool.find((node) => node.roleOrdinal === index);
@@ -325,6 +345,13 @@ export const locate = (phrase, { slide } = {}) => {
 
   const ordinal = byOrdinal(nodes, said);
   if (ordinal?.hit) return result("ordinal", [ordinal.hit], said);
+
+  // Several positions named at once. Ahead of every tier below because it is a decided
+  // answer, not a leftover: the phrase said exactly which nodes it meant and they were
+  // all found. `target.js` reads the note to tell this from the coin-flip ambiguities.
+  if (ordinal?.hits) {
+    return result("ambiguous", ordinal.hits, said, "several positions named");
+  }
 
   // Tier 3: a role with exactly one instance needs no ordinal -- "the heading"
   // on a slide with one heading is unambiguous even though nothing counted.

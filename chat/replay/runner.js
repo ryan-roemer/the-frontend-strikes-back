@@ -33,7 +33,12 @@ import { slideText, slideView } from "../harvest/views.js";
 import { getTools } from "../mcp/index.js";
 import { nav } from "../nav.js";
 import { flag } from "../url.js";
-import { matchSlide, readFixture, recordedExpectations } from "./fixture.js";
+import {
+  matchSlide,
+  readFixture,
+  receiptMatches,
+  recordedExpectations,
+} from "./fixture.js";
 
 /**
  * Record every tool call for the duration of one turn.
@@ -231,6 +236,16 @@ const run = async (input, { record = false } = {}) => {
           );
         }
       });
+
+      // What the tool REPORTED, for the turns where the slide text cannot say -- a style
+      // changes no wording, so this is the only assertion that can tell one node from six.
+      for (const pattern of turn.receipt) {
+        if (!receiptMatches(pattern, receipt)) {
+          note(
+            `turn ${i}: receipt does not say ${JSON.stringify(pattern)} — got ${JSON.stringify(receipt)}`,
+          );
+        }
+      }
 
       // THE GOLDEN COMPARISON. Only the slides the fixture states are asserted; the rest
       // ride along in the report so a recording pass can pick them up.

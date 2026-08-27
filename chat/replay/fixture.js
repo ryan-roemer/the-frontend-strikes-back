@@ -53,6 +53,19 @@ const lineMatches = (pattern, line) =>
     : pattern === line;
 
 /**
+ * Does the receipt say this?
+ *
+ * CONTAINMENT, not equality, which is the one way this differs from `lineMatches` and the
+ * reason it is its own function. A receipt is a whole bubble -- a call line, a result, a
+ * skipped-nodes note -- and a fixture that had to quote all of it would freeze the wording
+ * of every message it touches. What a fixture wants to say is "it reported six nodes".
+ */
+export const receiptMatches = (pattern, text) =>
+  pattern.startsWith(RE)
+    ? new RegExp(pattern.slice(RE.length), "m").test(String(text ?? ""))
+    : String(text ?? "").includes(pattern);
+
+/**
  * Do these patterns describe these lines?
  *
  * BACKTRACKING, NOT GREEDY, and the difference is a real case rather than pedantry. For
@@ -156,10 +169,27 @@ const readTurn = (turn, i) => {
     return { slide: Number(number), patterns: lines };
   });
 
+  // WHAT THE TOOL REPORTED, for the turns where the slide text cannot say.
+  //
+  // A style changes no wording, so `slides` is blank for every `style_node` fixture and
+  // the only thing left to assert is the call -- which is identical whether the target
+  // resolved to one node or six. That is a fixture that cannot fail, and the receipt is
+  // the one place the difference shows: "color: yellow on 6 nodes" against "color: yellow
+  // on slide 6, takeaway 1 — ...". Substrings, or `re:` for a pattern, matching how
+  // `slides` already spells the same choice.
+  const receipt = expect.receipt ?? [];
+  if (
+    !Array.isArray(receipt) ||
+    receipt.some((one) => typeof one !== "string")
+  ) {
+    bad(`turn ${i}: \`receipt\` must be an array of strings`);
+  }
+
   return {
     ask: turn.ask,
     replies: turn.replies,
     calls: expect.calls ?? [],
+    receipt,
     slides,
   };
 };

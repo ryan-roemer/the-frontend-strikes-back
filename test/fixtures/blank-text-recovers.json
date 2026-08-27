@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "kind": "authored",
+    "slide": 9,
+    "about": "`target` + an empty `text`. The refusal already named both working alternatives; `mutate` was dropping the `retry` that let the model act on one.",
+    "recorded-outcome": "not seen in a transcript — reached by hand while triaging the `hide the last bullet` failure alongside it. `setText`'s empty-text refusal reads \"To delete words, pass `find` with an empty `text`; to hide the whole thing, style it `display: none`\", and nothing asked the model again, because `mutate` rebuilt the refusal with `fail(result.message)` and threw the flag away.",
+    "guards": "revert `mutate` to `fail(result.message)` and this consumes one reply. It is the only fixture covering that passthrough — the two address-as-`find` fixtures beside it never enter `mutate`, because a `find` sends edit_text down the `replaceText` path instead."
+  },
+  "turns": [
+    {
+      "ask": "remove the last bullet",
+      "replies": [
+        "```tool edit_text\n{\"target\": \"the last bullet\", \"text\": \"\"}\n```",
+        "```tool style_node\n{\"target\": \"the last bullet\", \"style\": \"display: none\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": { "target": "the last bullet", "text": "" }
+          },
+          {
+            "name": "style_node",
+            "args": { "target": "the last bullet", "style": "display: none" }
+          }
+        ],
+        "receipt": ["display: none on slide 9, bullet 4"]
+      }
+    }
+  ]
+}

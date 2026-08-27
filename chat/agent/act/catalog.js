@@ -18,14 +18,33 @@
  * tools:
  *
  *   `JSON.stringify(registry, null, 2)`   9,188 chars   ~2,010 tok
- *   this                                  3,166 chars     ~693 tok
+ *   this                                  3,300 chars     ~722 tok
  *   this, under `?safe` (four tools)      1,438 chars     ~315 tok
  *
- * The full figure grew from ~540 in two steps, and every one was bought by a bug rather
+ * The full figure grew from ~540 in four steps, and every one was bought by a bug rather
  * than by tidying: `edit_text` earned a third example and a first sentence naming all
  * three of its modes, then `go_to_slide` earned a second example and a second sentence
- * (+303 chars, ~67 tok -- see `MIN_SUMMARY`). Measured with `window.deckReplay.prompt()`
- * rather than estimated.
+ * (+303 chars, ~67 tok -- see `MIN_SUMMARY`), then `set_deck_variable` earned six words
+ * naming `--chapter-accent` as the main one (+37 chars, ~8 tok), then `style_node` earned
+ * a clause saying a plural target styles the group (+97 chars, ~21 tok). Measured with
+ * `window.deckReplay.prompt()` rather than estimated.
+ *
+ * BOTH OF THE LAST TWO HAD TO GO IN A FIRST SENTENCE, which is the recurring cost of
+ * `summarize()` and worth naming as a pattern rather than rediscovering: what a tool can
+ * do is only visible to the model if it is said before the first full stop. `style_node`
+ * explained group targeting in its third sentence for as long as the tool has existed, and
+ * across two live runs the model never once reached for "the takeaways".
+ *
+ * THE `?safe` FIGURE IS UNCHANGED by that last step, and checking why is the habit worth
+ * keeping: `set_deck_variable` is an editing tool, so under `?safe` it is never
+ * constructed, never registered, and cannot appear here. A growth in the full catalog is
+ * only a growth in the safe one when it lands on a read or navigation tool.
+ *
+ * WHAT DID NOT COST ANYTHING. Three fixes landed alongside that one -- an address used as
+ * a `find`, a dropped `retry`, and a target naming six nodes that styled one -- and all
+ * three were fixed in refusals and addressing rather than here. That is the ranking
+ * `.claude/skills/tool-call-triage` argues for, and this is the evidence it works: four
+ * recorded failures, eight tokens.
  *
  * Token figures are chars/4.57, the ratio implied by `prompt.js`'s own measured ~680 for
  * the pre-tools preface, rather than a tokenizer this page does not have when the prompt

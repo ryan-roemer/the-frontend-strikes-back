@@ -658,7 +658,16 @@ const mutate = (target, run) => {
   if (!found.ok) return found.result;
 
   const result = run(found.node);
-  if (!result.ok) return fail(result.message);
+  // `retry` PASSED THROUGH, the same way `edit_text` passes it through from `replaceText`.
+  // Dropping it here silently downgraded every recoverable refusal reached via a target to
+  // a terminal one -- `setText`'s empty-text message names two working alternatives and
+  // nothing ever asked the model to take either.
+  if (!result.ok) {
+    return fail(
+      result.message,
+      result.retry ? { applied: false, retry: true } : undefined,
+    );
+  }
 
   // The node it landed on, so a caller can chain another change to the same
   // thing without re-resolving the phrase -- and so "which one did it pick?" has
@@ -770,8 +779,24 @@ const EDIT_TOOLS = [
       required: ["text"],
     },
     outputSchema: EDIT_SCHEMA,
-    execute: async ({ target, slide, find, text: value }) => {
+    execute: async ({ target, slide, find, text: value, style }) => {
       if (value === undefined || value === null) {
+        // A `style` ARGUMENT IS A TOOL MIX-UP, NOT A MISSING ONE, and it is the whole
+        // diagnosis. Asked to hide the last bullet, the model emitted
+        // `edit_text({ target: "bullet 4", style: "display: none" })` -- the right target
+        // and the right declaration, handed to the tool next to the one that takes them.
+        // `Give me the new text.` answered a question nobody asked and ended the turn.
+        //
+        // `style` is not in this schema, so its presence cannot be anything else, which is
+        // what makes the correction reliable enough for `retry: true`. The retry may name
+        // a different tool -- `respond.js` re-resolves it -- so this is advice the model
+        // can act on rather than a note for a human reading the transcript afterwards.
+        if (style !== undefined && style !== null) {
+          return fail(
+            `\`style\` belongs to style_node, not edit_text. To restyle${target ? ` ${String(target)}` : " something"}, call style_node with that \`target\` and \`style\`. To change wording, call edit_text again with \`text\`.`,
+            { applied: false, retry: true },
+          );
+        }
         return fail("Give me the new text.");
       }
       const needle = String(find ?? "").trim();
@@ -823,6 +848,24 @@ const EDIT_TOOLS = [
       // can offer a reliable fix for -- a phrase spanning several styled runs, where a
       // single identifier does work -- and only that layer knows which refusal that is.
       if (!result.ok) {
+        // A `find` THAT NAMES A NODE INSTEAD OF QUOTING ONE. The slide readout the model
+        // works from is a list of labelled lines -- `22.5 bullet 4: TODO: MORE POINTS` --
+        // and asked to delete that bullet it sent `find: "bullet 4"`, which searches
+        // wording and matches nothing. Twice, on two different slides, once with the same
+        // string in `target` as well.
+        //
+        // The deck can tell: "bullet 4" is exactly what `resolveTarget` resolves. So the
+        // miss is diagnosable rather than mysterious, and the fix is reliable enough for
+        // `retry: true` -- it names the argument the phrase belongs in and the two shapes
+        // that do what was asked. Checked only AFTER a real miss, so a phrase that is both
+        // an address and words on the slide still replaces the words, as it always did.
+        const named = resolveTarget(needle, { slide });
+        if (named.ok) {
+          return fail(
+            `"${needle}" names ${echo(named.node.id)} — that is an address, not wording on the slide, so there is nothing to find. To change what it says, pass it as \`target\` with the new \`text\`. To take it off the slide, style it \`display: none\`.`,
+            { applied: false, retry: true },
+          );
+        }
         return fail(
           result.message,
           result.retry ? { applied: false, retry: true } : undefined,
@@ -838,7 +881,15 @@ const EDIT_TOOLS = [
   },
   {
     name: "style_node",
-    description: `Restyle text on a slide — its colour, size, weight, alignment and so on. Identify what to style by id (like 9.3) or by describing it ('the heading', 'the second bullet'). A description that names a group styles the whole group, so 'the bullets' or 'this list' restyles every bullet on the slide in one go. Give the styling as CSS declarations: "color: yellow", or "color: yellow; text-decoration: underline" to set several at once. You can set: ${STYLE_PROPS.join(", ")}. Relative sizes like 'bigger' are resolved against the element's real size, and the receipt reports the value the slide actually got. To hide something use "display: none" or "visibility: hidden" — nothing is ever removed, so undo_edits brings it straight back. A value the browser will not accept is refused rather than silently dropped.`,
+    // THE GROUP CLAUSE IS IN THE FIRST SENTENCE, and it has to be: `act/catalog.js` shows
+    // the in-page model `summarize(description)`, and this description's first sentence is
+    // 73 characters -- over `MIN_SUMMARY`, so summarising stops there and sentence three,
+    // which is where group targeting used to be explained, never reached the model at all.
+    // Across two live runs, asked to make the takeaways yellow, it enumerated
+    // "takeaway 1, takeaway 2, ... takeaway 6" once and sent a bare "takeaway 1" the other
+    // time. It has never once reached for "the takeaways", because as far as it could see
+    // that was not a thing this tool accepted. Measured at +97 chars (~21 tok).
+    description: `Restyle text on a slide — its colour, size, weight, alignment and so on — and a plural target like 'the bullets' or 'the takeaways' restyles the whole group in one call. Identify what to style by id (like 9.3) or by describing it ('the heading', 'the second bullet'). A description that names a group styles the whole group, so 'the bullets' or 'this list' restyles every bullet on the slide in one go. Give the styling as CSS declarations: "color: yellow", or "color: yellow; text-decoration: underline" to set several at once. You can set: ${STYLE_PROPS.join(", ")}. Relative sizes like 'bigger' are resolved against the element's real size, and the receipt reports the value the slide actually got. To hide something use "display: none" or "visibility: hidden" — nothing is ever removed, so undo_edits brings it straight back. A value the browser will not accept is refused rather than silently dropped.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -869,7 +920,15 @@ const EDIT_TOOLS = [
         found.nodes.map((node) => node.id),
         style,
       );
-      if (!result.ok) return fail(result.message, { applied: false });
+      // `retry` PASSED THROUGH, as in `mutate` and `edit_text`. This is the third place
+      // that had to be taught the same thing, which is the argument for the flag riding on
+      // the result rather than being decided per call site.
+      if (!result.ok) {
+        return fail(result.message, {
+          applied: false,
+          ...(result.retry ? { retry: true } : {}),
+        });
+      }
 
       return ok([result.label, result.note], {
         applied: true,
@@ -885,7 +944,15 @@ const EDIT_TOOLS = [
   {
     name: "set_deck_variable",
     description:
-      "Change one of the deck's theme colours, either for the current chapter or across the whole deck. These drive the accent colour, surfaces and hairlines that every slide is built from, so one change is visible everywhere.",
+      // `--chapter-accent` NAMED IN THE FIRST SENTENCE, which is the only part
+      // `agent/act/catalog.js` shows the in-page model. The signature carries all six
+      // names as an enum and carries no way to tell them apart, so asked to make the deck
+      // orange the model picked `--chapter-accent-base` -- legal, applied, and nearly
+      // invisible, because `-base` only drives underlines and gradient stops while
+      // `--chapter-accent` is what headings, rules and eyebrows actually read. A succeeded
+      // call has no refusal to carry the fix, so this is the one place it can go. Measured
+      // at +36 chars (~8 tok) on every turn; see the budget table in `prompt.js`.
+      "Change one of the deck's theme colours, either for the current chapter or across the whole deck — `--chapter-accent` is the main one. These drive the accent colour, surfaces and hairlines that every slide is built from, so one change is visible everywhere.",
     inputSchema: {
       type: "object",
       properties: {

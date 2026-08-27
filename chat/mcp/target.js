@@ -114,6 +114,16 @@ export const echo = (id) => describeNode(id) ?? id;
 const ROLE_AMBIGUITY = "role matched, no position";
 
 /**
+ * The note `locate()` attaches when a phrase named SEVERAL POSITIONS of one role.
+ *
+ * The same kind of ambiguity as `ROLE_AMBIGUITY` and treated identically here: a set the
+ * user meant, not a question they left open. It exists separately because the two arrive
+ * from different tiers and a future reader deleting one should not silently widen the
+ * other.
+ */
+const POSITIONS_NAMED = "several positions named";
+
+/**
  * A target -> the nodes it names, where NAMING SEVERAL CAN BE THE ANSWER.
  *
  * `resolveTarget` refuses every ambiguity, and for a tool that rewrites wording it is
@@ -148,7 +158,10 @@ export const resolveGroup = (target, { slide } = {}) => {
   }
 
   const found = locate(said, { slide });
-  if (found.match === "ambiguous" && found.note === ROLE_AMBIGUITY) {
+  if (
+    found.match === "ambiguous" &&
+    (found.note === ROLE_AMBIGUITY || found.note === POSITIONS_NAMED)
+  ) {
     return { ok: true, nodes: found.nodes };
   }
 

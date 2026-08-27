@@ -163,9 +163,19 @@ export const setText = (id, text) => {
     // The refusal stands -- a node blanked by rewriting leaves an empty box where the
     // deck expects words. But this is where "remove the heading" arrives, so it says
     // which argument DOES delete rather than only that this one does not.
-    return fail(
-      "Give me some text. To delete words, pass `find` with an empty `text`; to hide the whole thing, style it `display: none`.",
-    );
+    //
+    // `retry: true` because both alternatives it names are reliable, which is the bar
+    // `act/receipt.js` `retryable` sets. Asked to "hide the last bullet" the model sent
+    // `edit_text` with an empty `text`, read this, and had nothing ask it again -- the
+    // turn ended on a refusal that was already holding the answer. The retry can dispatch
+    // a DIFFERENT tool (`respond.js` re-resolves the name), so "style it `display: none`"
+    // is advice the model can actually take.
+    return {
+      ...fail(
+        "Give me some text. To delete words, pass `find` with an empty `text`; to hide the whole thing, style it `display: none`.",
+      ),
+      retry: true,
+    };
   }
   if (value.length > MAX_TEXT) {
     return fail(
@@ -504,16 +514,29 @@ export const setStyles = (ids, style) => {
 
   const { pairs, dropped } = parseDeclarations(style);
   if (!pairs.length) {
-    return fail(
-      `I couldn't read "${style}" as a style. Give me declarations like "color: yellow; text-decoration: underline".`,
-    );
+    // A WORD WHERE A DECLARATION GOES, which is what "hide the last bullet" turns into
+    // once the model has picked the right tool: `style_node({ target: "the bullets",
+    // style: "remove" })`. The intent is unmistakable and the correction is a fixed form,
+    // so this is `retry`-worthy on `receipt.js`'s own test -- the message already spells
+    // out the shape, and without the flag a turn that got everything but the syntax right
+    // ends on a refusal.
+    return {
+      ...fail(
+        `I couldn't read "${style}" as a style. Give me declarations like "color: yellow; text-decoration: underline". To take something off the slide, that is "display: none".`,
+      ),
+      retry: true,
+    };
   }
 
   const unknown = pairs.find(({ prop }) => !STYLE_PROPS.includes(prop));
   if (unknown) {
-    return fail(
-      `I can't set "${unknown.prop}". I can set: ${STYLE_PROPS.join(", ")}.`,
-    );
+    // The valid set is named in full, which is the same reliable-correction bar.
+    return {
+      ...fail(
+        `I can't set "${unknown.prop}". I can set: ${STYLE_PROPS.join(", ")}.`,
+      ),
+      retry: true,
+    };
   }
 
   const patches = [];
