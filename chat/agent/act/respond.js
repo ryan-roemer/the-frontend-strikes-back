@@ -36,7 +36,7 @@ import { streamAnswer } from "../session.js";
 import { byName, toolNames } from "./catalog.js";
 import { invalidate } from "./invalidate.js";
 import { parseCall, sniff } from "./parse.js";
-import { callLine, receiptText, retryable } from "./receipt.js";
+import { callLine, receiptText, retryable, retryText } from "./receipt.js";
 
 /**
  * Run one model call, deciding as it streams whether it is an answer or a call.
@@ -170,7 +170,12 @@ export const respond = async ({ text, onChunk, signal, onPrompt }) => {
       // WORDED FOR BOTH KINDS, because there are now two. "Pick one" is right for
       // candidates and nonsense for a bad enum value, where nothing was offered to pick
       // between -- it read as an instruction the refusal had not set up.
-      text: `${receiptText(call.name, call.args, result)}\n\nCall the tool again with that fixed. The request was: ${text}`,
+      //
+      // `retryText`, NOT `receiptText`: the panel's wording leads with "**Couldn't do
+      // that.**", and arriving as a user turn that reads as the user withdrawing the
+      // capability rather than as a tool result. See `receipt.js` for the transcript where
+      // the model agreed and stopped editing for the rest of the conversation.
+      text: retryText(call.name, call.args, result, text),
       onChunk,
       signal,
       onPrompt,

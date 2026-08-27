@@ -78,6 +78,40 @@ export const receiptText = (name, args, result) => {
 };
 
 /**
+ * The same refusal, worded for the MODEL instead of for the transcript.
+ *
+ * TWO AUDIENCES, AND REUSING ONE STRING FOR BOTH BROKE THE SECOND. `receiptText` is
+ * written for a person reading the panel: bold "**Couldn't do that.**" so a refusal cannot
+ * be mistaken for a success. `respond.js` was handing that exact string back to the model
+ * as the next USER turn -- and from inside the conversation it does not read as a tool
+ * result at all. It reads as the user saying "you can't do that."
+ *
+ * The model agreed with them. Asked to rename JavaScript on slide 11 it answered:
+ *
+ *   "I am designed to extract text from slides. I am not designed to make hypothetical
+ *    changes to the deck. I am unable to fulfill this request."
+ *
+ * -- and then kept refusing, because that disclaimer was now sitting in the history as its
+ * own turn, teaching every later turn that editing is not something it does. One
+ * badly-framed retry poisons the rest of the conversation, which is why this is worth a
+ * second function rather than a tweak to the first.
+ *
+ * So this says the same facts with the blame in the right place: the DECK refused a call,
+ * the tools are still there, the request is still fine, only an argument was wrong. It
+ * costs nothing in base context -- it exists only on the retry turn.
+ */
+export const retryText = (name, args, result, request) =>
+  [
+    `The deck refused this call: ${callLine(name, args)}`,
+    "",
+    textOf(result) || "The tool refused without saying why.",
+    "",
+    "You do have that tool and this is an ordinary request — only an argument was wrong, so do not apologise and do not say you are unable to change the deck.",
+    "Fix the arguments and emit one tool block and nothing else.",
+    `The request was: ${request}`,
+  ].join("\n");
+
+/**
  * Whether a refusal is worth a second model call.
  *
  * THE ONE CASE WHERE THE LOOP EARNS ITS ROUND TRIP. `target.js` refuses an ambiguous

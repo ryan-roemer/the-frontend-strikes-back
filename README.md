@@ -83,6 +83,13 @@ load touches no model at all. `?chat` opens it. Nothing is sent anywhere.
 The Chrome pill only appears when the browser exposes `LanguageModel`; the Gemma pill is always
 offered and explains itself when WebGPU is unavailable.
 
+Drag the title bar to move it, and any of its four edges or four corners to resize — the west and
+north edges hold the opposite edge still, which is what you want for a window parked in the
+bottom-right. It goes down to 180×140, shedding header controls as it narrows (provider pills
+first, then the model diagnostics), so it can be tucked into a corner without covering a slide.
+The crosshair button puts it back. Position and size persist and are re-clamped to the viewport on
+load, so geometry saved on a laptop cannot strand the panel offscreen on a projector.
+
 > **Before presenting:** fetch the Gemma model on a connection you trust and ask one question on
 > each provider. See the pre-flight in [docs/chat-handoff.md](docs/chat-handoff.md), which is also
 > the record of what each provider can and cannot do, and the measured numbers behind those

@@ -820,7 +820,41 @@ const EDIT_TOOLS = [
 
       if (target) {
         const found = resolveTarget(target);
-        if (!found.ok) return found.result;
+        if (!found.ok) {
+          // A `target` THAT DOES NOT RESOLVE, NEXT TO A `find` THAT WOULD.
+          //
+          // "Replace JavaScript with BooyaScript" on slide 11 works first time in a fresh
+          // conversation -- `{ find, text }`, no target. Three turns after two successful
+          // `style_node({ target: "the bullets" })` calls it becomes
+          // `{ target: "the JavaScript", find: "JavaScript", text: ... }`: the model
+          // pattern-matched its own recent history and dressed the search phrase up as an
+          // address. The roster `resolveTarget` hands back is honest but answers a
+          // different question -- it says "pick 11.1 or 11.2", when the fix is to pass no
+          // target at all and let the replace run where the phrase actually is.
+          //
+          // Checked against the real index rather than assumed, so this never sends the
+          // model to a second dead end: if the phrase is nowhere either, the roster stands
+          // on its own and the terminal refusal is the honest answer.
+          const needful = needle.toLowerCase();
+          const hits = nodeIndex().filter((node) =>
+            node.text.toLowerCase().includes(needful),
+          );
+          if (hits.length) {
+            const roster = (found.result.content ?? [])
+              .map((block) => block.text)
+              .join("\n");
+            return fail(
+              `${roster}\n\nBut you also gave \`find\`, so you do not need a \`target\` here — call edit_text again with just \`find\` and \`text\` to replace "${needle}" wherever it appears (${hits.length} ${hits.length === 1 ? "place" : "places"}).`,
+              {
+                applied: false,
+                candidates:
+                  found.result.structuredContent?.candidates ?? undefined,
+                retry: true,
+              },
+            );
+          }
+          return found.result;
+        }
         ids = [found.node.id];
         where = echo(found.node.id);
       } else if (slide !== undefined && slide !== null && slide !== "") {
@@ -848,23 +882,58 @@ const EDIT_TOOLS = [
       // can offer a reliable fix for -- a phrase spanning several styled runs, where a
       // single identifier does work -- and only that layer knows which refusal that is.
       if (!result.ok) {
+        // BOTH DIAGNOSES BELOW ASSUME THE PHRASE WAS NOT FOUND, so neither may run when
+        // `replaceText` found it and refused the replacement -- a too-long result, or one
+        // spanning several styled runs. Telling the model `"One API" is not in slide 9,
+        // bullet 2` about the node that plainly contains it is the same confidently-false
+        // shape as the address-as-`find` misfire below, arrived at from the other side.
+        if (result.reason !== "none") {
+          return fail(
+            result.message,
+            result.retry ? { applied: false, retry: true } : undefined,
+          );
+        }
+
+        // WHERE ELSE IS THE PHRASE? Asked first, because it decides between the two
+        // diagnoses below and getting that order wrong produces a confidently false one.
+        const elsewhere = nodeIndex().filter((node) =>
+          node.text.toLowerCase().includes(needle.toLowerCase()),
+        );
+
+        // SCOPED TOO NARROWLY. The phrase is on the deck, just not inside the node the
+        // call named. `edit_text({ target: "code", find: "JavaScript" })` on slide 11 is
+        // the recorded case: `target` resolved -- to the code pane, whose node text is the
+        // FILENAME -- so the replace ran against "declarative-tool.html" and found
+        // nothing, while "JavaScript" sat in the subtitle one line above. The fix is to
+        // drop the scope, and it is reliable because the hits are counted, not guessed.
+        if (elsewhere.length && target) {
+          return fail(
+            `"${needle}" is not in ${where}, but it is on the deck — ${elsewhere.length} ${elsewhere.length === 1 ? "place" : "places"}. Drop \`target\` and call edit_text again with just \`find\` and \`text\` to replace it wherever it appears.`,
+            { applied: false, retry: true },
+          );
+        }
+
         // A `find` THAT NAMES A NODE INSTEAD OF QUOTING ONE. The slide readout the model
         // works from is a list of labelled lines -- `22.5 bullet 4: TODO: MORE POINTS` --
         // and asked to delete that bullet it sent `find: "bullet 4"`, which searches
         // wording and matches nothing. Twice, on two different slides, once with the same
         // string in `target` as well.
         //
-        // The deck can tell: "bullet 4" is exactly what `resolveTarget` resolves. So the
-        // miss is diagnosable rather than mysterious, and the fix is reliable enough for
-        // `retry: true` -- it names the argument the phrase belongs in and the two shapes
-        // that do what was asked. Checked only AFTER a real miss, so a phrase that is both
-        // an address and words on the slide still replaces the words, as it always did.
-        const named = resolveTarget(needle, { slide });
-        if (named.ok) {
-          return fail(
-            `"${needle}" names ${echo(named.node.id)} — that is an address, not wording on the slide, so there is nothing to find. To change what it says, pass it as \`target\` with the new \`text\`. To take it off the slide, style it \`display: none\`.`,
-            { applied: false, retry: true },
-          );
+        // ONLY WHEN THE PHRASE IS NOWHERE AS TEXT, which is the guard this shipped
+        // without and needed. `locate()` matches by TEXT before it matches by address, so
+        // `resolveTarget("JavaScript")` resolves happily to the subtitle containing it --
+        // and the message then told the model that a word plainly on the slide was "an
+        // address, not wording on the slide". A refusal that is confidently wrong is worse
+        // than the terminal one it replaced. `elsewhere` being empty is what makes the
+        // address reading the only one left.
+        if (!elsewhere.length) {
+          const named = resolveTarget(needle, { slide });
+          if (named.ok) {
+            return fail(
+              `"${needle}" names ${echo(named.node.id)} — that is an address, not wording on the slide, so there is nothing to find. To change what it says, pass it as \`target\` with the new \`text\`. To take it off the slide, style it \`display: none\`.`,
+              { applied: false, retry: true },
+            );
+          }
         }
         return fail(
           result.message,

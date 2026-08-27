@@ -185,11 +185,26 @@ const readTurn = (turn, i) => {
     bad(`turn ${i}: \`receipt\` must be an array of strings`);
   }
 
+  // WHAT THE MODEL WAS ASKED, one entry per model call in the turn. `null` skips a call.
+  // A leading `!` on a pattern asserts the message does NOT contain it. See `runner.js`.
+  const asked = expect.asked ?? [];
+  if (!Array.isArray(asked)) bad(`turn ${i}: \`asked\` must be an array`);
+  asked.forEach((patterns, n) => {
+    if (patterns === null) return;
+    if (
+      !Array.isArray(patterns) ||
+      patterns.some((p) => typeof p !== "string")
+    ) {
+      bad(`turn ${i}, asked ${n}: must be null or an array of strings`);
+    }
+  });
+
   return {
     ask: turn.ask,
     replies: turn.replies,
     calls: expect.calls ?? [],
     receipt,
+    asked,
     slides,
   };
 };

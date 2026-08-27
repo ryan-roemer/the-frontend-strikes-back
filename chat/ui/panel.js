@@ -33,6 +33,20 @@ const html = htm.bind(createElement);
  * the bridge is down (overview and presenter mode unmount it) rather than showing a
  * confident wrong slide number.
  */
+/** Edges before corners, so a corner handle stacks on top of the two edges it meets. */
+const RESIZE_DIRECTIONS = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
+
+const RESIZE_LABELS = {
+  n: "Resize from top",
+  s: "Resize from bottom",
+  e: "Resize from right",
+  w: "Resize from left",
+  ne: "Resize from top-right",
+  nw: "Resize from top-left",
+  se: "Resize from bottom-right",
+  sw: "Resize from bottom-left",
+};
+
 const SUGGESTIONS = (slide) => [
   "What is this talk about?",
   slide ? `Summarize slide ${slide}` : "Summarize this slide",
@@ -200,12 +214,18 @@ export const Panel = ({ enabled }) => {
             "" /* The model's own controls, inline. Percent, state, trash, info --
                   see `ModelControls`. They lead the group so the panel's controls
                   (broom, recentre, close) stay in the same order and the same place
-                  they have always been, hard right. */
+                  they have always been, hard right.
+
+                  THE THREE BELOW CARRY A MODIFIER EACH so the container query in
+                  `chat.css` can drop them one at a time as the panel narrows. Three
+                  identical `.chat-icon-button`s cannot be told apart in CSS by anything
+                  except `:nth-child`, which would silently retarget the day one of them
+                  moves or `ModelControls` renders a different number of buttons. */
           }
           <${ModelControls} />
           <button
             type="button"
-            className="chat-icon-button"
+            className="chat-icon-button chat-panel__action--new"
             onClick=${newChat}
             title="New chat (fresh context)"
             aria-label="New chat"
@@ -214,7 +234,7 @@ export const Panel = ({ enabled }) => {
           </button>
           <button
             type="button"
-            className="chat-icon-button"
+            className="chat-icon-button chat-panel__action--reset"
             onClick=${reset}
             title="Reset panel position and size"
             aria-label="Reset panel position and size"
@@ -223,7 +243,7 @@ export const Panel = ({ enabled }) => {
           </button>
           <button
             type="button"
-            className="chat-icon-button"
+            className="chat-icon-button chat-panel__action--close"
             onClick=${close}
             title="Close (Esc)"
             aria-label="Close deck assistant"
@@ -259,13 +279,31 @@ export const Panel = ({ enabled }) => {
         placeholder=${placeholder}
       />
 
-      ${"" /* Resize grip. Its own pointer handlers, same gesture machinery. */}
-      <div
-        className="chat-panel__grip"
-        ...${resizeHandlers}
-        role="separator"
-        aria-label="Resize"
-      ></div>
+      ${
+        "" /* Eight resize handles, one per edge and corner, all on the same gesture
+              machinery as the drag bar.
+
+              THE CORNER GRIP ALONE WAS THE WRONG ONE. The panel's home is the
+              bottom-right of the viewport, so the south-east corner -- the only handle
+              there used to be -- is the one with nowhere to travel, and pulling it
+              inward shrinks the window away from the corner it is parked in. The edges
+              people reach for on a window sitting there are west and north, and those
+              hold the far edge still. See `resize()` in `geometry.js`.
+
+              Only `se` draws anything. Eight visible grips on a small floating window is
+              chrome competing with the slide behind it; the cursor changing on approach
+              is how every window manager announces the other seven. */
+      }
+      ${RESIZE_DIRECTIONS.map(
+        (dir) =>
+          html`<div
+            key=${dir}
+            className=${`chat-panel__handle chat-panel__handle--${dir}`}
+            ...${resizeHandlers(dir)}
+            role="separator"
+            aria-label=${RESIZE_LABELS[dir]}
+          ></div>`,
+      )}
     </section>
   `;
 };

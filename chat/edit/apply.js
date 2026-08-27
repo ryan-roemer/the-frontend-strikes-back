@@ -270,11 +270,20 @@ const planReplace = (id, find, replacement, matchCase) => {
     runs.map((run) => next.get(run.index) ?? run.value).join(""),
   );
 
-  // THE GUARD FIRES ON GROWTH THIS CALL CAUSED, not on absolute length. A code
-  // pane is already far past `MAX_TEXT`, and refusing to rename a symbol inside
-  // one because of a limit that was already exceeded before anybody asked would
-  // be a layout guard blocking an edit that cannot affect the layout.
-  if (after.length > MAX_TEXT && after.length > before.length) {
+  // THE GUARD FIRES ON CROSSING THE LIMIT, not on growing while already past it.
+  //
+  // `MAX_TEXT` is a layout guard for text that has nowhere to go: a bullet or a title
+  // spills off the 1366x768 canvas once it is long enough. A code pane is not that. It is
+  // `overflow: auto` inside a capped `.code-frame` (see `deck/styles.css`), so its text
+  // scrolls and cannot push anything off the slide at any length.
+  //
+  // The previous rule was `after > MAX_TEXT && after > before`, which meant a node already
+  // over the limit could only be edited if the edit never added a character. Renaming
+  // JavaScript to BooyaScript in the slide 11 pane is +1 character on 569, and it was
+  // refused with "anything over 140 overflows the slide" -- a claim that was not true of
+  // that node at 569 and is not true of it at 570. Asking whether THIS EDIT crossed the
+  // limit is the question the comment above always said it was asking.
+  if (after.length > MAX_TEXT && before.length <= MAX_TEXT) {
     return {
       ok: false,
       message: `Replacing "${find}" in ${id} would make it ${after.length} characters; anything over ${MAX_TEXT} overflows the slide.`,
@@ -332,7 +341,16 @@ export const replaceText = (
   }
 
   if (!plans.length) {
-    if (refusals.length) return fail(refusals.join(" "));
+    // `reason` DECLARED, NOT INFERRED FROM THE MESSAGE. There are two ways to end up here
+    // and callers need to tell them apart: the phrase was NOT FOUND in range, or it was
+    // found and the replacement was refused. `mcp/tools.js` offers "drop `target`, it is
+    // elsewhere on the deck" advice on a miss, and handing that to a length refusal
+    // produced a flatly false receipt -- `"One API" is not in slide 9, bullet 2` about the
+    // node that contains it. Sniffing prose for "Nothing in range" would work today and
+    // break the first time somebody rewords a message, which is the same argument
+    // `act/receipt.js` `retryable` makes for not guessing at recoverability.
+    if (refusals.length)
+      return { ...fail(refusals.join(" ")), reason: "refused" };
 
     // IS IT THERE, JUST NOT IN ONE PIECE? `planReplace` matches within a single text run,
     // and a syntax-highlighted code pane is one run per token -- `name`, `: `,
@@ -358,10 +376,15 @@ export const replaceText = (
             `Try a single word or identifier from it — in a code sample, something like a name or a value on its own.`,
         ),
         retry: true,
+        // Found, not missing -- so callers must not offer "it is elsewhere" advice.
+        reason: "refused",
       };
     }
 
-    return fail(`Nothing in range contains "${needle}".`);
+    return {
+      ...fail(`Nothing in range contains "${needle}".`),
+      reason: "none",
+    };
   }
 
   // BEFORE `pushAll`, which rebuilds. Capturing afterwards would record the

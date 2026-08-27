@@ -179,8 +179,18 @@ const run = async (input, { record = false } = {}) => {
 
     let receipt = null;
     let error = null;
+    // WHAT THE MODEL WAS ASKED, per call in the turn. The replay provider reports it
+    // through `onPrompt` like a real one does, and it is the only way to test the wording
+    // of a RETRY -- the reply that follows is scripted, so nothing downstream of it can
+    // show whether the message that provoked it said the right thing. That mattered once:
+    // the retry was handing the panel's "**Couldn't do that.**" back as a user turn and
+    // the model read it as being told it could not edit the deck.
+    const asked = [];
     try {
-      receipt = await respond({ text: turn.ask });
+      receipt = await respond({
+        text: turn.ask,
+        onPrompt: ({ message }) => asked.push(message),
+      });
     } catch (thrown) {
       // Most often the replay provider refusing an exhausted script, which means this turn
       // asked for a model reply the fixture does not have. That IS the finding.
@@ -239,13 +249,38 @@ const run = async (input, { record = false } = {}) => {
 
       // What the tool REPORTED, for the turns where the slide text cannot say -- a style
       // changes no wording, so this is the only assertion that can tell one node from six.
+      // `!` NEGATES here too, spelled the same way as in `asked`. "Does not carry a
+      // `Skipped:` line" is the assertion that catches a length guard coming back, and a
+      // fixture that could only state positives could not express it.
       for (const pattern of turn.receipt) {
-        if (!receiptMatches(pattern, receipt)) {
+        const no = pattern.startsWith("!");
+        const body = no ? pattern.slice(1) : pattern;
+        if (receiptMatches(body, receipt) === no) {
           note(
-            `turn ${i}: receipt does not say ${JSON.stringify(pattern)} — got ${JSON.stringify(receipt)}`,
+            `turn ${i}: receipt ${no ? "still says" : "does not say"} ${JSON.stringify(body)} — got ${JSON.stringify(receipt)}`,
           );
         }
       }
+
+      // What the MODEL was asked, indexed by call within the turn. `null` skips a call, so
+      // a fixture can assert on the retry without restating the original question.
+      turn.asked.forEach((patterns, n) => {
+        if (patterns === null) return;
+        for (const pattern of patterns) {
+          const got = asked[n];
+          const wanted = pattern.startsWith("!");
+          const body = wanted ? pattern.slice(1) : pattern;
+          const hit = got !== undefined && receiptMatches(body, got);
+          // `!` NEGATES, because "does not still say `Couldn't do that`" is the assertion
+          // that catches a revert here -- the new wording could be anything, but the old
+          // wording coming back is exactly the regression.
+          if (wanted === hit) {
+            note(
+              `turn ${i}: model call ${n} ${wanted ? "still says" : "does not say"} ${JSON.stringify(body)} — got ${JSON.stringify(got ?? null)}`,
+            );
+          }
+        }
+      });
 
       // THE GOLDEN COMPARISON. Only the slides the fixture states are asserted; the rest
       // ride along in the report so a recording pass can pick them up.

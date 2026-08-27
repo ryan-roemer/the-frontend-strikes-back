@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "kind": "authored",
+    "slide": 9,
+    "about": "A `target` that resolves but does not contain the `find`. The refusal counts where the phrase really is and says to drop the scope.",
+    "recorded-outcome": "the recorded shape came from a live conversation primed by two style_node({\"target\": ...}) calls: Gemma sent edit_text({\"target\": \"code\", \"find\": \"JavaScript\", ...}) on slide 11, scoping a deck-wide rename to one node. That exact call now SUCCEEDS — the code pane really does contain the word, and the length guard that used to block it was fixed alongside this (see code-pane-grows-by-a-letter.json) — so the behaviour is pinned here with a target that genuinely lacks the phrase. Before the fix the model got a candidate roster, which answers \"which node did you mean\" when the answer is \"none of them, drop the argument\".",
+    "guards": "the `elsewhere.length && target` branch in edit_text's failure path. Remove it and turn 0 consumes one reply — an unused reply AND one call where two were expected. The `!is an address` assertion guards the `!elsewhere.length` clause below it, which stops that branch claiming a word plainly on the slide is an address."
+  },
+  "turns": [
+    {
+      "ask": "rename modelContext to modelBridge in the heading",
+      "replies": [
+        "```tool edit_text\n{\"target\": \"the heading\", \"find\": \"modelContext\", \"text\": \"modelBridge\"}\n```",
+        "```tool edit_text\n{\"find\": \"modelContext\", \"text\": \"modelBridge\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "target": "the heading",
+              "find": "modelContext",
+              "text": "modelBridge"
+            }
+          },
+          {
+            "name": "edit_text",
+            "args": { "find": "modelContext", "text": "modelBridge" }
+          }
+        ],
+        "asked": [
+          null,
+          [
+            "but it is on the deck",
+            "Drop `target`",
+            "!is an address, not wording on the slide"
+          ]
+        ],
+        "receipt": ["Replaced \"modelContext\" with \"modelBridge\""],
+        "slides": {
+          "9": [
+            "re:^<slide n=\"9\" .*>$",
+            "...",
+            "bullet 2: One API: document.modelBridge",
+            "..."
+          ]
+        }
+      }
+    }
+  ]
+}
