@@ -49,6 +49,21 @@ value of is a flag you will get wrong at the podium.
 
 Transitions are also disabled automatically under `prefers-reduced-motion`.
 
+### Keyboard
+
+On top of Spectacle's own bindings (arrows, `p` presenter, `o` overview, `f` fullscreen):
+
+| Keys                      | Effect                                                       |
+| ------------------------- | ------------------------------------------------------------ |
+| `Shift`+`Alt`+`C`         | Toggle the deck assistant                                    |
+| `Shift`+`Alt`+`T`         | Toggle the WebMCP tool inspector                             |
+| `Esc`                     | Close whichever of those is on top                           |
+| `↑` / `↓` **in the chat** | Walk back and forth through the questions asked this session |
+| `Enter` **in the chat**   | Send; `Shift`/`Ctrl`/`Cmd`+`Enter` inserts a newline instead |
+
+On macOS those read as `⇧⌥C` and `⇧⌥T`, which is what the buttons' tooltips say. The chords are
+matched on the physical key, so `Option` producing `Ç` on a Mac layout does not break them.
+
 ## Deck assistant
 
 The sparkle button in the deck chrome opens a chat panel backed by a model running **entirely on

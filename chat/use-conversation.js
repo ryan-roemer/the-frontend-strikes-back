@@ -40,6 +40,20 @@ import { useCallback, useRef, useState } from "react";
  */
 export const useConversation = (respond) => {
   const [entries, setEntries] = useState([]);
+  /**
+   * Every question asked in this session, oldest first, for the composer's Up arrow.
+   *
+   * SEPARATE FROM `entries`, AND NOT CLEARED BY `clear()`. The transcript tracks what the
+   * model remembers; this tracks what the person typed, and the two part company the
+   * moment the broom is used. Wiping a question you asked thirty seconds ago because the
+   * model was given fresh context would make recall useless exactly when it is most
+   * wanted -- rephrasing the question the small model just fumbled is the main reason to
+   * reach for the Up arrow at all.
+   *
+   * Fed here rather than in the composer so the empty state's one-tap suggestions land in
+   * it too: they go through `send` without ever touching the textarea.
+   */
+  const [history, setHistory] = useState([]);
   const [streaming, setStreaming] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -64,6 +78,12 @@ export const useConversation = (respond) => {
       abortRef.current = controller;
 
       setEntries((prev) => [...prev, { role: "user", text: message }]);
+      // Consecutive repeats collapse, the way a shell's history does: asking the same
+      // thing twice because the first answer streamed badly is common here, and it should
+      // not cost two presses of Up to get past.
+      setHistory((prev) =>
+        prev[prev.length - 1] === message ? prev : [...prev, message],
+      );
       setError(null);
       setStreaming("");
       streamingRef.current = "";
@@ -158,5 +178,5 @@ export const useConversation = (respond) => {
     setBusy(false);
   }, []);
 
-  return { entries, streaming, busy, error, send, stop, clear };
+  return { entries, history, streaming, busy, error, send, stop, clear };
 };

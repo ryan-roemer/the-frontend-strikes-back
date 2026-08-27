@@ -10,6 +10,7 @@ import {
 } from "./agent/model-state.js";
 import { systemPrompt } from "./agent/prompt.js";
 import { installDump } from "./harvest/dump.js";
+import { installKeys } from "./keys.js";
 import { installTools } from "./mcp/index.js";
 import { installReplay } from "./replay/runner.js";
 
@@ -84,6 +85,12 @@ export const mountChat = () => {
   // last because it is the only one that reads the other two.
   const stopReplay = installReplay();
 
+  // The deck-wide chords: Shift+Alt+C, Shift+Alt+T, and Escape as a fallback for a panel
+  // whose focus has wandered onto a slide. Installed beside the other three for the same
+  // "three edits" reason, and it is the only one of the four that is pure chrome -- see
+  // `chat/keys.js` for why it reads physical key codes rather than characters.
+  const stopKeys = installKeys();
+
   // A FUNCTION, NOT A STRING, and that is now load-bearing rather than merely a
   // seam left open: `systemPrompt()` reads a live harvest of the fiber tree for the
   // deck outline, so it cannot be evaluated until the deck has rendered. See the
@@ -115,6 +122,7 @@ export const mountChat = () => {
   return () => {
     reactRoot.unmount();
     host.remove();
+    stopKeys();
     stopReplay();
     stopTools();
     stopDump();

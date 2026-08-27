@@ -90,8 +90,9 @@ export const Panel = ({ enabled }) => {
   // there is no adapter between the two. It wraps `streamAnswer` rather than replacing it:
   // a turn that calls no tool is the same single streamed call it always was, and one that
   // does gets its receipt through the same `onChunk`. See `agent/act/respond.js`.
-  const { entries, streaming, busy, error, send, stop, clear } =
+  const { entries, history, streaming, busy, error, send, stop, clear } =
     useConversation(respond);
+  const inputRef = useRef(null);
 
   // Re-check whenever the panel is opened, so a model that finished downloading
   // mid-talk promotes itself without a reload. Cheap: a memoized GPU probe and a
@@ -136,6 +137,42 @@ export const Panel = ({ enabled }) => {
 
   const dead =
     model.status === STATES.UNSUPPORTED || model.status === STATES.UNAVAILABLE;
+
+  /**
+   * Opening the panel puts the caret in the composer.
+   *
+   * Opening the assistant is always followed by typing into it, and without this the
+   * Shift+Alt+C chord is an incomplete gesture -- it opens the box and then leaves you
+   * reaching for the mouse to click it.
+   *
+   * NOT SIMPLY KEYED ON `enabled`. On the render that opens the panel the composer is
+   * usually still disabled: the panel is closed on load, so the very first open is also
+   * the first time the model is asked about, and `dead` is true until that check comes
+   * back a tick later. `focus()` on a disabled control is a silent no-op, so an effect
+   * that only watched `enabled` did nothing on the one open that matters most.
+   *
+   * The latch is what keeps this to ONCE PER OPENING. `dead` can flip again later -- a
+   * model deleted, a provider switched -- and refocusing then would yank the caret out of
+   * whatever the presenter was doing on the slide behind.
+   */
+  /** The Up arrow is only advertised once there is something to recall: on a panel that
+   *  has never been asked anything it is a hint about a feature that would do nothing. */
+  const placeholder = dead
+    ? "No on-device model available"
+    : history.length > 0
+      ? "Ask or instruct… (Enter to send, ↑ for past questions)"
+      : "Ask or instruct… (Enter to send)";
+
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!enabled) {
+      focused.current = false;
+      return;
+    }
+    if (dead || focused.current) return;
+    focused.current = true;
+    inputRef.current?.focus();
+  }, [dead, enabled]);
 
   return html`
     <section
@@ -187,7 +224,7 @@ export const Panel = ({ enabled }) => {
           <button
             type="button"
             className="chat-icon-button"
-            onClick=${() => setEnabled(false)}
+            onClick=${close}
             title="Close (Esc)"
             aria-label="Close deck assistant"
           >
@@ -217,9 +254,9 @@ export const Panel = ({ enabled }) => {
         onStop=${stop}
         busy=${busy}
         disabled=${dead}
-        placeholder=${dead
-          ? "No on-device model available"
-          : "Ask or instruct… (Enter to send)"}
+        history=${history}
+        inputRef=${inputRef}
+        placeholder=${placeholder}
       />
 
       ${"" /* Resize grip. Its own pointer handlers, same gesture machinery. */}
