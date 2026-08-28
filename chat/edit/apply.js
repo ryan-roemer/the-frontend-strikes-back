@@ -196,7 +196,10 @@ export const setText = (id, text) => {
     index: original.index,
     value: original.value,
   });
-  const was = found.node.text;
+  // READ OFF THE ELEMENT, BEFORE THE PUSH. `found.node.text` is the harvest, which holds
+  // the AUTHORED wording however many times this node has been rewritten -- so the second
+  // rename of a heading reported the wording two edits ago as the one it just replaced.
+  const was = normalize(found.el.textContent ?? "");
   push({
     kind: "text",
     id,
@@ -212,13 +215,12 @@ export const setText = (id, text) => {
   // reading "New wordingdocument.modelContext", and a receipt quoting the
   // argument reports a change the deck did not make.
   //
-  // BOTH SIDES, and the new one last. `describeNode` reads the fiber tree, which
-  // still holds the authored wording -- React never learns about a `nodeValue`
-  // write, which is exactly what makes the edit durable. So a receipt built from
-  // it alone quotes the text that was just replaced and reads as a no-op.
+  // BOTH SIDES, and the new one last. `describeNode` reports what the slide says NOW, so
+  // the before half is handed to it -- a receipt quoting the current text twice reads as
+  // a no-op, and one quoting the harvest reads as a no-op the other way round.
   const now = normalize(found.el.textContent ?? "");
   return done(
-    `${describeNode(id) ?? `${id} — "${was}"`} → "${now}"`,
+    `${describeNode(id, { text: was }) ?? `${id} — "${was}"`} → "${now}"`,
     isMixed(found.el)
       ? `${id} has inline markup, so "${value}" replaced only its main text run. Use find to change part of it instead.`
       : null,

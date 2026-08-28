@@ -30,6 +30,7 @@
  *             per slide. Neither uses the cascade -- they have two fixed sources.
  */
 import { getSnapshot } from "../bus.js";
+import { asShown } from "../edit/patches.js";
 import { harvestDeck, harvestSlide, resolveNode } from "./index.js";
 
 /**
@@ -270,7 +271,7 @@ export const positionRef = ({ slide, count, title }) =>
  * words the model was offered. It names the SLIDE too, which is the only way to catch the
  * failure that matters most: having resolved against the wrong slide entirely.
  */
-export const describeNode = (id) => {
+export const describeNode = (id, { text } = {}) => {
   const node = resolveNode(id);
   if (!node) return null;
 
@@ -282,7 +283,18 @@ export const describeNode = (id) => {
   if (!slide) return null;
 
   const label = labelOf(node, nameCounts(slide.nodes));
-  return `slide ${node.slide}, ${label} — "${node.text}"`;
+  // QUOTED AS THE SLIDE NOW READS IT. The harvest holds the authored wording, so styling
+  // a heading that was renamed a turn ago read back `— "TODO: Your next steps (Monday!)"`
+  // over a slide saying Tuesday: the one line whose job is to let a person check the
+  // address, telling them the tool had landed somewhere it had not.
+  //
+  // `text` OVERRIDES IT, for the one caller that wants a wording the node no longer has:
+  // `apply.js` `setText` reads this back as the BEFORE half of "was → now", and it has
+  // the before because it took it off the element a moment earlier. Before this argument
+  // existed it relied on the stale harvest to supply that half, which held only for a
+  // node's first edit -- a second one reported the ORIGINAL wording as what it replaced.
+  const [shown] = asShown([node]);
+  return `slide ${node.slide}, ${label} — "${text ?? shown.text}"`;
 };
 
 // --- Selection --------------------------------------------------------------

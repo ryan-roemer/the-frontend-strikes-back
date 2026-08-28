@@ -65,7 +65,7 @@ import {
   STYLE_PROPS,
   undoEdit,
 } from "../edit/apply.js";
-import { summary, withEdits } from "../edit/patches.js";
+import { asShown, summary, withEdits } from "../edit/patches.js";
 import { start as startWatchdog } from "../edit/watchdog.js";
 import { nav } from "../nav.js";
 import { echo, resolveGroup, resolveTarget } from "./target.js";
@@ -107,6 +107,18 @@ const fail = (message, structured) => {
   if (structured) result.structuredContent = structured;
   return result;
 };
+
+/**
+ * Every node in the deck, worded the way the deck currently reads.
+ *
+ * USED BY EVERYTHING THAT SEARCHES FOR A PHRASE, because the raw `nodeIndex()` reports
+ * the AUTHORED wording forever -- an edit writes the DOM and React never learns of it.
+ * "Which slides still say TODO" would go on naming a slide whose TODOs were rewritten
+ * two turns ago, and every "but the phrase is over here" line a refusal offers would be
+ * counting a deck nobody is looking at. `replaceText` already works off the live DOM, so
+ * without this the advice and the tool that acts on it disagree.
+ */
+const currentNodes = () => asShown(nodeIndex());
 
 /** The shape of a node, for every `outputSchema` that returns one. */
 const NODE_SCHEMA = {
@@ -404,7 +416,7 @@ export const READ_TOOLS = [
 
       if (scope === "deck") {
         const needle = said.toLowerCase();
-        const hits = nodeIndex().filter((node) =>
+        const hits = currentNodes().filter((node) =>
           node.text.toLowerCase().includes(needle),
         );
 
@@ -836,7 +848,7 @@ const EDIT_TOOLS = [
           // model to a second dead end: if the phrase is nowhere either, the roster stands
           // on its own and the terminal refusal is the honest answer.
           const needful = needle.toLowerCase();
-          const hits = nodeIndex().filter((node) =>
+          const hits = currentNodes().filter((node) =>
             node.text.toLowerCase().includes(needful),
           );
           if (hits.length) {
@@ -863,7 +875,7 @@ const EDIT_TOOLS = [
         ids = (slideView(at.number)?.nodes ?? []).map((node) => node.id);
         where = `slide ${at.number}`;
       } else {
-        const all = nodeIndex();
+        const all = currentNodes();
         const needful = needle.toLowerCase();
         const hits = all.filter((node) =>
           node.text.toLowerCase().includes(needful),
@@ -896,7 +908,7 @@ const EDIT_TOOLS = [
 
         // WHERE ELSE IS THE PHRASE? Asked first, because it decides between the two
         // diagnoses below and getting that order wrong produces a confidently false one.
-        const elsewhere = nodeIndex().filter((node) =>
+        const elsewhere = currentNodes().filter((node) =>
           node.text.toLowerCase().includes(needle.toLowerCase()),
         );
 

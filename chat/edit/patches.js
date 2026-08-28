@@ -257,6 +257,29 @@ export const withEdits = (nodes) =>
     return text === null ? node : { ...node, text, edited: true };
   });
 
+/**
+ * The same overlay, for MATCHING A PHRASE against a node or QUOTING IT BACK.
+ *
+ * `withEdits` is for showing a slide's content, and code panes are where the two jobs
+ * part company. An edited pane's element holds its whole source, so `withEdits` gives
+ * that node six hundred characters of source as its text -- right for `get_slide`, whose
+ * business is the content, and wrong here twice over. `locate.js` addresses a pane by its
+ * FILENAME, the only name it has, so an edit anywhere inside it would make the pane
+ * unaddressable; and a receipt quoting the node back would print the file instead of
+ * naming it.
+ *
+ * So a pane keeps its filename and carries its current source alongside, which is what
+ * `locate.js`'s `bySource` tier searches. Every other node is `withEdits` exactly.
+ */
+export const asShown = (nodes) => {
+  const shown = withEdits(nodes);
+  return shown.map((node, i) =>
+    node.edited && node.role === "code"
+      ? { ...node, text: nodes[i].text, source: node.text }
+      : node,
+  );
+};
+
 /** Put every touched property back to the value the deck shipped with. */
 const restoreBaselines = () => {
   for (const [key, baseline] of baselines) {

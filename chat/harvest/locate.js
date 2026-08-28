@@ -25,6 +25,17 @@
  * three and be finished. This file's job is to be honest about what matched, not
  * to decide whose problem that is.
  *
+ * IT READS THE DECK AS IT NOW SAYS, not as it was authored. The harvest takes its text
+ * from React's fibers and an edit writes the DOM, so the two diverge the moment anything
+ * is edited -- `edit/patches.js` `patchedText` explains why that divergence is what makes
+ * an edit durable. Everything that SHOWS a slide already goes through that overlay, so a
+ * heading renamed from "Monday" to "Tuesday" is quoted back as Tuesday in the receipt,
+ * re-pinned as Tuesday in the conversation and listed as Tuesday by `get_slide`. Matching
+ * on the raw harvest meant the one wording the model had been handed three times was the
+ * only one it could not address: "make Tuesday yellow" missed the heading completely,
+ * matched the three bullets that say "TODO" -- the phrase contains that word -- and was
+ * offered a roster of three wrong candidates to pick from, which it did.
+ *
  * IN JS, NOT IN THE MODEL, for the same reason `views.js` chooses the view in JS:
  * a deterministic rule cannot hallucinate, and neither provider offers
  * grammar-constrained decoding to keep a 2B model inside the lines
@@ -32,6 +43,7 @@
  * can see; this file's job is to let a HUMAN skip that step and be understood
  * anyway.
  */
+import { asShown } from "../edit/patches.js";
 import { harvestSlide } from "./index.js";
 import { normalize } from "./nodes.js";
 import { position } from "./views.js";
@@ -280,13 +292,19 @@ const bySource = (harvested, nodes, phrase) => {
 
   for (const node of nodes) {
     if (node.role !== "code") continue;
-    // Paired by the same expression `serialize.js` emits the node text from, so the two
-    // cannot drift: a pane contributes `{ file, language, source }` and its node's text is
-    // `file ?? language ?? "code"`.
-    const pane = panes.find(
-      (one) => (one.file ?? one.language ?? "code") === node.text,
-    );
-    if (pane?.source?.toLowerCase().includes(needle)) hits.push(node);
+    // AN EDITED PANE CARRIES ITS OWN SOURCE, put there by `asShown` because the harvested
+    // one is the authored text and stops matching the moment a rename lands -- renaming
+    // `search_documents` to `search_hi` and then quoting the new name back would find
+    // nothing, which is this file's own bug one rename later.
+    //
+    // An untouched pane is paired by the same expression `serialize.js` emits the node
+    // text from, so the two cannot drift: a pane contributes `{ file, language, source }`
+    // and its node's text is `file ?? language ?? "code"`.
+    const source =
+      node.source ??
+      panes.find((one) => (one.file ?? one.language ?? "code") === node.text)
+        ?.source;
+    if (source?.toLowerCase().includes(needle)) hits.push(node);
   }
 
   return hits;
@@ -327,7 +345,10 @@ export const locate = (phrase, { slide } = {}) => {
   const number = given ? Number(slide) : position().slide;
   const said = clean(phrase);
   const harvested = Number.isInteger(number) ? harvestSlide(number) : null;
-  const nodes = harvested?.nodes ?? [];
+  // THROUGH THE EDIT OVERLAY, so a phrase is matched against what the slide says now.
+  // See the header: the raw harvest reports the authored wording forever, which makes
+  // every edit the model just made unaddressable by the wording it was shown.
+  const nodes = asShown(harvested?.nodes ?? []);
 
   if (!nodes.length) {
     return result(
