@@ -212,19 +212,11 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * TODO: cold open.
-                  * ${em("Agents are already using your app")}, just badly.
+                  * Hi! I'm going to talk today about the browser is going to mean for your agents in
+                  * ... **The Frontend Strikes Back**
                 `}
               </${Markdown}>
             </${Notes}>
-          </${DeckSlide}>
-          ${"" /* TODO: REMOVE VENUE SLIDE? */}
-          <${DeckSlide} ...${photoBackground(backgrounds.venue)}>
-            <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center">
-              <${SlideHeading} fixed=${true} fontSize="150px" color="primary">
-                <${Icon} name="heart" /> AGNTCon
-              </${SlideHeading}>
-            </${FlexBox}>
           </${DeckSlide}>
           <${DeckSlide}>
             <${FlexBox} flexDirection="column" alignSelf="center" justifyContent="left" alignItems="left">
@@ -243,21 +235,16 @@
               </${AppearComponent}>
               <${AppearComponent}>
                 <${Text} fontSize="h3">
-                  <${Icon} name="brackets-angle" /> I've been building for the web a long time...
+                  <${Icon} name="brackets-angle" /> Play in both the backend and frontend worlds
                 </${Text}>
               </${AppearComponent}>
             </${FlexBox}>
             <${Notes}>
               <${Markdown} className="notes">
-                ${`
-                  * TODO: personal framing.
-                  * Why the ${em("frontend")} is where this happens.
-                `}
+                ${``}
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
-          ${"" /* --- Cold open --- */}
-          ${"" /* TODO: This is all good anchoring, but it's missing the "story" of how agents are doing more. Review and make sure we have the framing right. */}
           <${DeckSlide}>
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
               <${Eyebrow}>
@@ -267,9 +254,6 @@
                 The frontend is <u>back</u>.
               </${SlideHeading}>
               <${AccentRule} />
-              ${
-                "" /* `fixed` opts out of the tint treatment so this reads as support under the claim, not a second headline. */
-              }
               <${SlideHeading}
                 variant="subtitle"
                 fixed=${true}
@@ -278,22 +262,14 @@
                 textAlign="left"
                 margin="24px 0 0"
               >
-                Agents can call it. And it can run the AI stack.
+                Agents can <strong>call</strong> it. And agents are running <em>in</em> it.
               </${SlideHeading}>
             </${FlexBox}>
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * One line: agents are already using your app.
-                  * TODO: name the bad path once? The accepted abstract's opening is
-                    concrete -- screen-scraping, driving Playwright MCP through
-                    human-shaped UIs. One line, then hand off.
-                  * TODO: hand off to the session with the research on this.
-                  * The two things are the two halves of the title, and the next slide's
-                    Part A and Part B: ${em("WebMCP")}, and ${em("the agent-ready browser")}.
-                  * WebMCP opens your frontend to every agent, in the page or out.
-                  * Retrieval, inference, coordination: all of it can run in the browser now.
-                  * Don't relitigate "agents are coming." They bought a ticket.
+                  * If we think of "agents", we usually think of a backend server or the cloud.
+                  * TODO: HERE.
                 `}
               </${Markdown}>
             </${Notes}>
