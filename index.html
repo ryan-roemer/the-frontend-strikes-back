@@ -262,14 +262,15 @@
                 textAlign="left"
                 margin="24px 0 0"
               >
-                Agents can <strong>call</strong> it. And agents are running <em>in</em> it.
+                An agent <strong>interface</strong> and <strong>runtime</strong>.
               </${SlideHeading}>
             </${FlexBox}>
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
                   * If we think of "agents", we usually think of a backend server or the cloud.
-                  * TODO: HERE.
+                  * Backend agents already _do_ interact with web sites -- just poorly, like scraping, Playwright, etc.
+                  * The browser is emerging as a first class **interface** and **runtime** for agents and agentic apps.
                 `}
               </${Markdown}>
             </${Notes}>
@@ -282,13 +283,15 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * Half of you build frontends, half build AI systems.
-                  * One takeaway for each. We come back to these at the end.
-                  * 20 sec. This is the setup for the closing slide.
+                  * Survey
+                    * How many of you build **frontends**? (Full-stack devs?)
+                    * How many of you build AI **backends** or **cloud infrastructures**?
+                  * ... we've got something for both of you.
                 `}
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
+          ${"" /* TODO: Takeaways either need to be revised or removed. Don't like. */}
           <${DeckSlide}>
             <${SlideHeading} fontSize="h3" textAlign="left" margin="0 0 14px">
               Six things to take away
@@ -311,14 +314,6 @@
               columns=${3}
               compact=${true}
             />
-            <${Notes}>
-              <${Markdown} className="notes">
-                ${`
-                  * 45 sec. Read them, don't explain them. They get earned later.
-                  * Part A: ${em("your app")}. Part B: ${em("the browser")}.
-                `}
-              </${Markdown}>
-            </${Notes}>
           </${DeckSlide}>
           <${RowsSlide}
             title="Go see these too"
