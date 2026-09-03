@@ -29,7 +29,13 @@ import { load, switchProvider } from "../agent/model-state.js";
 import { script } from "../agent/providers/replay.js";
 import { resetEdits } from "../edit/apply.js";
 import { withEdits } from "../edit/patches.js";
-import { slideText, slideView } from "../harvest/views.js";
+import {
+  nodeLabels,
+  outline,
+  position,
+  slideText,
+  slideView,
+} from "../harvest/views.js";
 import { getTools } from "../mcp/index.js";
 import { nav } from "../nav.js";
 import { flag } from "../url.js";
@@ -39,6 +45,7 @@ import {
   receiptMatches,
   recordedExpectations,
 } from "./fixture.js";
+import { fill, resolveAnchors } from "./anchors.js";
 
 /**
  * Record every tool call for the duration of one turn.
@@ -95,7 +102,7 @@ const slideOfId = (id) => Number(String(id ?? "").split(".")[0]);
  * all. The tools already report which nodes they changed; this is that, one level up.
  *
  * `undo_edits` reports an edit-log summary and no nodes, so a reset turn contributes
- * nothing here. `meta.slides` is the union'd fallback for exactly that case.
+ * nothing here. `meta.watch` is the union'd fallback for exactly that case.
  */
 const touchedSlides = (calls) => {
   const found = new Set();
@@ -133,30 +140,78 @@ const sameCall = (a, b) =>
   a?.name === b?.name && JSON.stringify(a?.args) === JSON.stringify(b?.args);
 
 /**
+ * The deck as `anchors.js` wants to search it: one entry per slide, carrying the three
+ * things a fixture can describe -- what it is called, what it says, and what shape it is.
+ *
+ * BUILT FROM THE SAME VIEWS THE MODEL IS GIVEN. `slideNow` is the serialisation a golden
+ * comparison runs against and `nodeLabels` is the vocabulary `labelOf` offers, so a fixture
+ * saying `{ nodes: { bullet: 4 } }` is describing the deck in the words the tools use. A
+ * second traversal of the fiber tree with rules of its own would drift from those, and the
+ * drift would show up as a fixture that resolves to a slide where its own target does not
+ * exist.
+ */
+const deckSnapshot = () =>
+  outline().map(({ number, title, chapter }) => ({
+    number,
+    title,
+    chapter,
+    text: slideNow(number) ?? "",
+    labels: nodeLabels(slideView(number)?.nodes ?? []),
+  }));
+
+/**
  * Run one fixture.
  *
  * `record: true` skips every comparison and reports what the deck did, which is how a
  * fixture's `expect` blocks are authored -- see `recordedExpectations` in `fixture.js`.
  */
 const run = async (input, { record = false } = {}) => {
-  const { meta, turns } = readFixture(input);
   const failures = [];
   const note = (message) => failures.push(message);
 
-  // Slides to snapshot even when no call reported touching them: the reset turns, and
-  // anything a fixture wants watched for a change it does NOT expect.
-  const watched = (meta.slides ?? (meta.slide ? [Number(meta.slide)] : [])).map(
-    Number,
-  );
-
   // A FRESH DECK PER FIXTURE. One leaked edit fails the next twelve comparisons in a way
   // that looks like a real regression, and this harness is meant to be run repeatedly
-  // against a long-lived browser.
+  // against a long-lived browser. BEFORE the snapshot below, so anchors are resolved
+  // against the authored deck rather than one carrying the last fixture's edits.
   resetEdits();
+
+  // ANCHORS FIRST, BECAUSE EVERY NUMBER IN THE FIXTURE COMES OUT OF THEM. `anchors.js`
+  // says why fixtures describe their slide instead of numbering it; this is where the
+  // description becomes the number, and `fill` puts that number everywhere the fixture
+  // wrote `{at}` -- including into the recorded replies.
+  const raw = typeof input === "string" ? JSON.parse(input) : input;
+  const { values, failures: unresolved } = resolveAnchors(
+    raw?.meta ?? {},
+    deckSnapshot(),
+    { count: position().count ?? outline().length },
+  );
+
+  // FAILED RATHER THAN SKIPPED, and reported before anything runs. An anchor that matches
+  // no slide means the fixture is about content this deck no longer has -- which is a
+  // finding, and the one thing that must not come back as a pass. Running on with `{at}`
+  // unsubstituted would do exactly that: `nav.toSlide(NaN)` is a no-op and a golden keyed
+  // `"{at}"` matches no slide the runner looked at, so nothing would be compared.
+  if (unresolved.length) {
+    return {
+      ok: false,
+      meta: { ...(raw?.meta ?? {}), anchors: values },
+      turns: [],
+      failures: unresolved,
+    };
+  }
+
+  const { meta, turns } = readFixture(fill(raw, values));
+
+  // Slides to snapshot even when no call reported touching them: the reset turns, and
+  // anything a fixture wants watched for a change it does NOT expect. `meta.watch` is
+  // written in placeholders like everything else -- `["{at}", "{at+1}"]`.
+  const watched = (meta.watch ?? [values.at])
+    .map(Number)
+    .filter(Number.isFinite);
 
   // `resolveTarget` reads the slide on screen, so "the heading" means nothing until the
   // deck is where the fixture was captured.
-  if (meta.slide) await nav.toSlide(Number(meta.slide));
+  if (values.at) await nav.toSlide(values.at);
 
   // Picked by `pick()` under `?replay`, but a stored id or a switch made by hand could
   // have moved it. Said rather than assumed: replaying a fixture against a real model
@@ -171,7 +226,7 @@ const run = async (input, { record = false } = {}) => {
   for (const [i, turn] of turns.entries()) {
     // BEFORE the turn, for `changedLines`. Only the watched slides can be snapshotted --
     // which slides a call touches is not known until it has run -- and a slide first seen
-    // afterwards records its whole body instead. `meta.slide` covers the ordinary case.
+    // afterwards records its whole body instead. The anchor slide covers the ordinary case.
     const before = new Map(watched.map((slide) => [slide, slideNow(slide)]));
 
     script.load(turn.replies);
@@ -311,7 +366,16 @@ const run = async (input, { record = false } = {}) => {
     });
   }
 
-  return { ok: !failures.length, meta, turns: report, failures };
+  // `anchors` ON THE REPORT, because it is the first thing to read when a fixture fails:
+  // every number in every message below came out of it, and "resolved to the wrong slide"
+  // and "resolved to the right slide and the tool misbehaved" are otherwise identical
+  // failures. It is also what a recording pass turns back into placeholders.
+  return {
+    ok: !failures.length,
+    meta: { ...meta, anchors: values },
+    turns: report,
+    failures,
+  };
 };
 
 /**
@@ -332,12 +396,26 @@ export const installReplay = () => {
     /** Run with no comparisons and hand back `expect` blocks to write into the fixture. */
     record: async (input) => {
       const report = await run(input, { record: true });
-      return { ...report, expectations: recordedExpectations(report) };
+      return {
+        ...report,
+        expectations: recordedExpectations(report, {
+          anchors: report.meta?.anchors ?? {},
+        }),
+      };
     },
     /** For a client checking it attached to the right tab before sending a fixture. */
     ready: () => Boolean(getTools().length),
     /** The one-liner a person types in the console between hand experiments. */
     reset: () => resetEdits(),
+    /**
+     * The deck as `anchors.js` searches it: number, title, chapter, text, node names.
+     *
+     * HOW AN ANCHOR IS WRITTEN. A fixture describes its slide by content or by shape, and
+     * both are questions about this list -- "which slides have exactly four bullets" is not
+     * answerable from the deck source, where they are a `<Bullets>` component and a loop.
+     * Reading it beats guessing and re-running the suite to find out.
+     */
+    snapshot: () => deckSnapshot(),
     /** What `parseCall` makes of a reply, without running it. */
     parse: (reply) => parseCall(reply),
     /**

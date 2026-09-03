@@ -190,6 +190,19 @@ const nodeLines = (nodes, { ids = true } = {}) => {
 };
 
 /**
+ * What one slide's nodes are called out loud, WITHOUT their ordinals.
+ *
+ * `["title", "bullet", "bullet", "bullet", "bullet"]` for a slide of four bullets. The
+ * replay harness counts these to find a slide by its shape -- "the slide with four
+ * bullets", so that `bullet 4` is addressable and last -- and it has to count the same
+ * names `labelOf` hands the model, or a fixture would be describing a vocabulary nothing
+ * else uses. Sub-bullets are already a separate name here, which is what makes four
+ * bullets and three sub-bullets two groups rather than one of seven.
+ */
+export const nodeLabels = (nodes) =>
+  nodes.map((node) => roleName(node.role, node.depth));
+
+/**
  * A code pane's actual source, fenced.
  *
  * A `CodePane` NODE'S TEXT IS ITS FILENAME -- `code: register-tool.js` -- because that is

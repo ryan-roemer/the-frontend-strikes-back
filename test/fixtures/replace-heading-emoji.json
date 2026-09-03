@@ -1,7 +1,11 @@
 {
   "meta": {
+    "at": {
+      "nodes": {
+        "bullet": 4
+      }
+    },
     "kind": "authored",
-    "slide": 9,
     "about": "Rewriting a whole piece of text: `target` + `text`, no `find`.",
     "recorded-outcome": "the real model reached for find-and-replace and decorated the old title into \"🚀 WebMCP 🚀 WebMCP 🚀\" — it had never been shown the target+text mode"
   },
@@ -22,8 +26,8 @@
           }
         ],
         "slides": {
-          "9": [
-            "re:^<slide n=\"9\" .*title=\"How WebMCP works\">$",
+          "{at}": [
+            "re:^<slide n=\"{at}\" .*>$",
             "...",
             "title: 🚀 🚀 🚀",
             "..."

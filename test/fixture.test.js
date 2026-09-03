@@ -22,6 +22,12 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { parseCall } from "../chat/agent/act/parse.js";
 import { matchSlide, readFixture } from "../chat/replay/fixture.js";
+import {
+  fill,
+  resolveAnchor,
+  resolveAnchors,
+  unfill,
+} from "../chat/replay/anchors.js";
 
 const DIR = new URL("./fixtures/", import.meta.url);
 
@@ -182,4 +188,152 @@ test("backtracking finds a match a greedy scan would miss", () => {
   // and the match is real. This is why `matchFrom` is not a left-to-right scan.
   const lines = ["A", "x", "B", "y", "B", "C"].join("\n");
   assert.ok(matchSlide(["A", "...", "B", "C"], lines).ok);
+});
+
+/**
+ * Anchors: the part that decides which slide a fixture is about.
+ *
+ * A HAND-WRITTEN DECK OF FOUR SLIDES, because the interesting cases are the ones a real
+ * deck only has by accident -- two slides of the same shape, a title that repeats, a slide
+ * whose content moved somewhere else. All four exist below on purpose.
+ */
+const DECK = [
+  {
+    number: 1,
+    title: "How WebMCP works",
+    chapter: 1,
+    text: "title: How WebMCP works\nbullet: One API: document.modelContext",
+    labels: ["title", "bullet"],
+  },
+  {
+    number: 2,
+    title: "Register a tool",
+    chapter: 1,
+    text: "title: Register a tool\ncode: register-tool.js",
+    labels: ["title", "code"],
+  },
+  {
+    number: 3,
+    title: "The wrinkles",
+    chapter: 2,
+    text: "title: The wrinkles\nbullet 1: a\nbullet 2: b\nbullet 3: c\nbullet 4: d",
+    labels: ["title", "bullet", "bullet", "bullet", "bullet"],
+  },
+  {
+    number: 4,
+    title: "Takeaway",
+    chapter: 2,
+    text: "title: Takeaway\nbullet 1: a\nbullet 2: b\nbullet 3: c\nbullet 4: d",
+    labels: ["title", "bullet", "bullet", "bullet", "bullet"],
+  },
+];
+
+test("a string anchor finds the slide by its content", () => {
+  assert.deepEqual(resolveAnchor("document.modelContext", DECK), { slide: 1 });
+  assert.deepEqual(resolveAnchor("register-tool.js", DECK), { slide: 2 });
+});
+
+test("a shape anchor finds a slide without naming anything on it", () => {
+  // THE DURABLE FORM, and the reason anchors exist at all: "hide the last bullet" needs
+  // four bullets so that `bullet 4` is both addressable and last. Reword every one of them
+  // and this still resolves.
+  assert.deepEqual(resolveAnchor({ nodes: { bullet: 4 } }, DECK), { slide: 3 });
+});
+
+test("an exact node count refuses a slide with more", () => {
+  // "At least four" would take slide 1 out of a deck where bullets had been added, and
+  // then "the last bullet" resolves to `bullet 7` while the recorded reply says `bullet 4`.
+  const wide = [{ ...DECK[0], labels: ["title", ...Array(7).fill("bullet")] }];
+  assert.ok(resolveAnchor({ nodes: { bullet: 4 } }, wide).reason);
+});
+
+test("clauses narrow, so identical shapes can be told apart", () => {
+  assert.deepEqual(
+    resolveAnchor({ nodes: { bullet: 4 }, title: "Takeaway" }, DECK),
+    { slide: 4 },
+  );
+  assert.deepEqual(resolveAnchor({ chapter: 2, title: "wrinkles" }, DECK), {
+    slide: 3,
+  });
+});
+
+test("first match wins, and a miss is a reason rather than a guess", () => {
+  // Ambiguity resolving to the first slide is deliberate -- see `anchors.js`. A MISS must
+  // not be: a fixture about content the deck no longer has is a finding, and returning
+  // slide 1 for it would report a pass on a slide nobody meant.
+  assert.deepEqual(resolveAnchor({ nodes: { bullet: 4 } }, DECK), { slide: 3 });
+  const miss = resolveAnchor("a phrase this deck does not contain", DECK);
+  assert.equal(miss.slide, undefined);
+  assert.match(miss.reason, /no slide matches/);
+});
+
+test("`re:` anchors on a pattern, one line at a time", () => {
+  assert.deepEqual(resolveAnchor("re:^title: Register", DECK), { slide: 2 });
+  // MULTILINE, matching `receiptMatches`: `^` is the start of a LINE of the slide, not the
+  // start of the slide. Without that, anchoring on anything below the title would need a
+  // `[\s\S]*` prefix, and every fixture would grow one.
+  assert.deepEqual(resolveAnchor("re:^bullet: One API", DECK), { slide: 1 });
+  assert.ok(resolveAnchor("re:^bullet: No such line", DECK).reason);
+});
+
+test("a number passes through as itself", () => {
+  assert.deepEqual(resolveAnchor(7, DECK), { slide: 7 });
+});
+
+test("`meta` resolves to the numbers its placeholders stand for", () => {
+  const { values, failures } = resolveAnchors(
+    { at: "document.modelContext", anchors: { later: { title: "Takeaway" } } },
+    DECK,
+  );
+  assert.deepEqual(failures, []);
+  assert.deepEqual(values, { total: 4, later: 4, at: 1 });
+});
+
+test("an unresolvable anchor is reported by name", () => {
+  const { failures } = resolveAnchors({ at: "nothing here" }, DECK);
+  assert.match(failures[0], /anchor `at`/);
+});
+
+test("`fill` substitutes values, offsets and keys", () => {
+  const out = fill(
+    {
+      replies: ['```tool go_to_slide\n{"move": "{at+1}"}\n```'],
+      expect: {
+        receipt: ["slide {at} of {total}", "on slide {at}, bullet 4"],
+        slides: { "{at}": ["..."], "{at+1}": ["..."] },
+      },
+    },
+    { at: 8, total: 34 },
+  );
+
+  assert.deepEqual(out.replies, ['```tool go_to_slide\n{"move": "9"}\n```']);
+  assert.deepEqual(out.expect.receipt, [
+    "slide 8 of 34",
+    "on slide 8, bullet 4",
+  ]);
+  assert.deepEqual(Object.keys(out.expect.slides), ["8", "9"]);
+});
+
+test("`fill` leaves alone every brace that is not a placeholder", () => {
+  // These fixtures carry JavaScript in their replies. `registerTool({` is a brace followed
+  // by a newline, and a substitution pass that went near it would corrupt the one thing a
+  // fixture must reproduce byte for byte: what the model said.
+  const code = 'document.modelContext.registerTool({\n  name: "x",\n});';
+  assert.equal(fill(code, { at: 8 }), code);
+  // A typo'd name survives intact, so it shows up in a failure message rather than as
+  // `undefined` or a throw.
+  assert.equal(fill("slide {atx}", { at: 8 }), "slide {atx}");
+});
+
+test("`unfill` turns a recorded number back into a placeholder", () => {
+  // Recording writes `expect` blocks back into a fixture, so it has to write placeholders
+  // or it would quietly undo the whole scheme, one recording at a time.
+  const values = { at: 8, total: 34, later: 29 };
+  assert.equal(unfill(8, values), "{at}");
+  assert.equal(unfill(9, values), "{at+1}");
+  assert.equal(unfill(7, values), "{at-1}");
+  assert.equal(unfill(29, values), "{later}");
+  // Too far from any anchor to be worth expressing as one, and `{total}` is a count rather
+  // than a position, so it is never a slide's name.
+  assert.equal(unfill(20, values), "20");
 });

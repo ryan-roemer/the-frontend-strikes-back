@@ -23,7 +23,7 @@ question is what it was _told_.
 
 ```
 npm run dev                                   # if not already up
-# Chrome already running with --remote-debugging-port=9222
+npm run cdp                                   # throwaway Chrome on the port npm test uses
 ```
 
 Open the deck with `?replay` and use the in-page harness:
@@ -35,6 +35,7 @@ Open the deck with `?replay` and use the in-page harness:
 | run a tool directly                 | `deckMcp.call(name, args)`      |
 | what a phrase resolves to           | `deckDump.locate(phrase)`       |
 | what is addressable on a slide      | `deckMcp.call("get_slide", {})` |
+| every slide's title, text and shape | `deckReplay.snapshot()`         |
 | reset the deck                      | `deckReplay.reset()`            |
 
 **Read the prompt first.** `deckReplay.prompt()` exists precisely because reconstructing it by
@@ -53,7 +54,7 @@ always been a CDP call that never gets answered, and the harness bounds every ca
 (`CALL_MS`) precisely so this degrades into a skip. If it happens again:
 
 ```
-curl -s localhost:9222/json/list | grep -o '"url": "[^"]*"' | head -40
+curl -s localhost:9333/json/list | grep -o '"url": "[^"]*"' | head -40
 ```
 
 A working profile can carry twenty-plus page targets. `pages()` filters to the deck's origin
@@ -135,8 +136,30 @@ Write the recorded `expect` blocks back, then **cut them down**. A fixture must 
 content it is not testing — this deck's wording changes weekly, and a suite that cries wolf
 gets deleted. Use `"..."` to elide and `re:` for the one line that matters.
 
+### Never write a slide number
+
+A fixture says which slide it is about with `meta.at`, an anchor, and every number in it is
+then written `{at}` — in receipts, in `expect.slides` keys, even inside the recorded replies.
+One slide was once deleted from `index.html` and fourteen of sixteen fixtures went red, each
+reporting a mismatch on content that was correct one slide further down. `chat/replay/anchors.js`
+is the whole argument; `deckReplay.snapshot()` is how you write one.
+
+Two forms, and the choice says what the fixture is really testing:
+
+| the replies…                             | anchor                               |
+| ---------------------------------------- | ------------------------------------ |
+| quote the slide (`find: "modelContext"`) | `"at": "modelContext"`               |
+| only need a shape (`target: "bullet 4"`) | `"at": { "nodes": { "bullet": 4 } }` |
+
+Prefer the shape. It survives the slide being reworded, retitled and moved — an exact node
+count because `{ bullet: 4 }` is what makes `bullet 4` both addressable and last. Narrow with
+`title`, `chapter` or `text` when one clause is not enough, name extra anchors in
+`meta.anchors` (`{ch4}`), and use `{total}` for the deck's length. `meta.watch` lists slides
+to snapshot every turn, which is how a turn that changes nothing records no golden at all.
+
 Fixture `meta` earns its keep:
 
+- `at` — the anchor, per above
 - `about` — what behaviour this pins
 - `recorded-outcome` — what went wrong originally, in enough detail to recognise a
   regression

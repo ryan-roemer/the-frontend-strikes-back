@@ -133,7 +133,7 @@ export const AUDIENCES = [
     key: "frontend",
     icon: "browser",
     who: "If you build frontends",
-    claim: "Agents are increasing users of your browser apps.",
+    claim: "Agents are increasingly users of your browser apps.",
     action: "Register a few tools and see what happens.",
     rollUp: [1, 2, 3],
   },

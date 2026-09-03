@@ -5,7 +5,7 @@
  * if one is open and opens its own if not, so the setup is:
  *
  *   npm run dev
- *   Chrome, started with --remote-debugging-port=9222
+ *   npm run cdp
  *
  * SKIPPED RATHER THAN FAILED when either is missing, because that is the ordinary state of
  * a checkout: `npm test` on a laptop with nothing running should be green and fast. The

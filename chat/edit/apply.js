@@ -26,7 +26,6 @@ import { describeNode } from "../harvest/views.js";
 import {
   captureBaseline,
   dropSlide,
-  isMixed,
   mainTextValue,
   push,
   pushAll,
@@ -186,34 +185,47 @@ export const setText = (id, text) => {
   const found = target(id);
   if (found.error) return found.error;
 
-  // The baseline is the TEXT NODE's own value, not the harvested node text --
-  // they differ wherever there is inline markup. See `mainTextValue`.
-  const original = mainTextValue(found.el);
-  if (!original) return fail(`${id} has no editable text run.`);
+  // EVERY RUN, NOT JUST THE MAIN ONE. A node with inline markup -- `<span
+  // class="em">Orama</span> for the client-side vector store`, or `A web-sized
+  // <strong>embedding model</strong>, quantized down` -- is several text runs, and
+  // writing only the longest one used to leave the others exactly as authored: asked to
+  // replace a bullet wholesale, the deck kept the old bolded word and stitched the new
+  // wording onto whatever was left, with no space between them. `target` + `text` is
+  // documented as rewriting the wording completely, so every run this node has gets
+  // covered here -- the new text goes to the one `mainRunIndex` picks as least likely to
+  // carry unwanted styling, and the rest are blanked.
+  const runs = runsOf(found.el);
+  if (!runs.length) return fail(`${id} has no editable text run.`);
 
-  captureBaseline(id, `text:${original.index}`, {
-    kind: "text",
-    index: original.index,
-    value: original.value,
-  });
+  const mainIndex = mainTextValue(found.el)?.index ?? runs[0].index;
+  const mixed = runs.length > 1;
+
+  // The baseline is each TEXT NODE's own value, not the harvested node text -- they
+  // differ wherever there is inline markup.
+  for (const run of runs) {
+    captureBaseline(id, `text:${run.index}`, {
+      kind: "text",
+      index: run.index,
+      value: run.value,
+    });
+  }
   // READ OFF THE ELEMENT, BEFORE THE PUSH. `found.node.text` is the harvest, which holds
   // the AUTHORED wording however many times this node has been rewritten -- so the second
   // rename of a heading reported the wording two edits ago as the one it just replaced.
   const was = normalize(found.el.textContent ?? "");
-  push({
-    kind: "text",
-    id,
-    runIndex: original.index,
-    text: value,
-    label: `text ${id} → "${value}"`,
-  });
+  pushAll(
+    runs.map((run) => ({
+      kind: "text",
+      id,
+      runIndex: run.index,
+      text: run.index === mainIndex ? value : "",
+      label: `text ${id} → "${value}"`,
+    })),
+    `text ${id} → "${value}"`,
+  );
 
   // WHAT THE SLIDE NOW SAYS, read back off the element rather than echoed from
-  // the argument. On the third of this deck that carries inline markup the two
-  // are not the same string: setting 9.3 -- `#text "One API: "` plus
-  // `<code>document.modelContext</code>` -- to "New wording" leaves the slide
-  // reading "New wordingdocument.modelContext", and a receipt quoting the
-  // argument reports a change the deck did not make.
+  // the argument.
   //
   // BOTH SIDES, and the new one last. `describeNode` reports what the slide says NOW, so
   // the before half is handed to it -- a receipt quoting the current text twice reads as
@@ -221,8 +233,8 @@ export const setText = (id, text) => {
   const now = normalize(found.el.textContent ?? "");
   return done(
     `${describeNode(id, { text: was }) ?? `${id} — "${was}"`} → "${now}"`,
-    isMixed(found.el)
-      ? `${id} has inline markup, so "${value}" replaced only its main text run. Use find to change part of it instead.`
+    mixed
+      ? `${id} had part of its wording styled differently (bold, emphasis, or similar); that styling is gone now that the whole line was replaced.`
       : null,
   );
 };
@@ -375,7 +387,8 @@ export const replaceText = (
       return {
         ...fail(
           `"${needle}" is on the slide but spans several separately-styled pieces of text, so it cannot be replaced in one go. ` +
-            `Try a single word or identifier from it — in a code sample, something like a name or a value on its own.`,
+            `Try a single word or identifier from it — in a code sample, something like a name or a value on its own. ` +
+            `Or, to replace the whole thing with different wording, call edit_text again with target: "${spanning}" and no find.`,
         ),
         retry: true,
         // Found, not missing -- so callers must not offer "it is elsewhere" advice.

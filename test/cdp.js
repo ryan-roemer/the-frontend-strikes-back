@@ -7,9 +7,11 @@
  * `docs/dependencies.md` accounts for line by line.
  *
  * ATTACHES TO A RUNNING BROWSER RATHER THAN LAUNCHING ONE, and OPENS ITS OWN TAB if the
- * deck is not already up. The only thing a person has to arrange is a Chrome with
- * `--remote-debugging-port=9222` and `npm run dev`; requiring them to also open the right
- * URL with the right flag was a step to get wrong before the tests could even run.
+ * deck is not already up. The only thing a person has to arrange is `npm run dev` and
+ * `npm run cdp`, which starts a throwaway Chrome on the port `npm test` looks at;
+ * requiring them to also open the right URL with the right flag was a step to get wrong
+ * before the tests could even run. `CDP_URL` overrides the endpoint for a Chrome that is
+ * already open on some other port.
  *
  * REUSES A DECK TAB WHEN THERE IS ONE, which is what makes the debug loop quick: leave the
  * deck open, edit a fixture, re-run, and watch the slides change while it goes. A tab this
@@ -319,7 +321,7 @@ export const connect = async () => {
   const listed = await pages();
   if (!listed) {
     return {
-      reason: `no CDP at ${ENDPOINT} — start Chrome with --remote-debugging-port=9222`,
+      reason: `no CDP at ${ENDPOINT} — run \`npm run cdp\`, or point CDP_URL at a Chrome you already have`,
     };
   }
 

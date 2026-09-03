@@ -1,7 +1,14 @@
 {
   "meta": {
+    "at": {
+      "chapter": 1
+    },
+    "anchors": {
+      "ch4": {
+        "chapter": 4
+      }
+    },
     "kind": "recorded",
-    "slide": 3,
     "about": "`chapter` arriving as a string. Pins the coercion `go_to_slide` already does, because nothing else states that the deck accepts it.",
     "recorded-outcome": "not a failure — it worked. Asked to jump to the chapter about web agents, Gemma emitted go_to_slide({\"chapter\": \"4\"}) against a schema declaring `chapter` an integer, and landed on 24. It survives on `Number(chapter)` alone, with no test anywhere saying that is deliberate; a tidy-up to `s.chapter === chapter` would look correct and break it silently.",
     "guards": "drop the `Number()` in go_to_slide's chapter branch and the strict compare finds nothing, turning this into `There is no chapter 4.` — a refusal, and a deck that never moves."
@@ -11,8 +18,15 @@
       "ask": "jump to the chapter about web agents",
       "replies": ["```tool go_to_slide\n{\"chapter\": \"4\"}\n```"],
       "expect": {
-        "calls": [{ "name": "go_to_slide", "args": { "chapter": "4" } }],
-        "receipt": ["slide 24 of 35"]
+        "calls": [
+          {
+            "name": "go_to_slide",
+            "args": {
+              "chapter": "4"
+            }
+          }
+        ],
+        "receipt": ["slide {ch4} of {total}"]
       }
     }
   ]

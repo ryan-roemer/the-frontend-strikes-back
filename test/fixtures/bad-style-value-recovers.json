@@ -1,7 +1,11 @@
 {
   "meta": {
+    "at": {
+      "nodes": {
+        "bullet": 4
+      }
+    },
     "kind": "recorded",
-    "slide": 9,
     "about": "A word where a CSS declaration goes. The refusal spells out the shape, names `display: none` for the hide case, and the retry lands it.",
     "recorded-outcome": "asked to hide the last bullet — after style_node's description was widened so the model stopped reaching for edit_text — Gemma emitted style_node({\"target\": \"the bullets\", \"style\": \"remove\"}). Right tool, right target, and a word instead of a declaration. The refusal explained the shape and then ended the turn, because `setStyles` set no `retry` and `style_node` would have dropped it anyway.",
     "guards": "two replies for one ask, and it needs BOTH halves: `retry: true` on `setStyles`'s unreadable-style refusal, and `style_node` passing it through instead of rebuilding the result with `{ applied: false }`. Revert either and this consumes one reply."
@@ -17,14 +21,20 @@
         "calls": [
           {
             "name": "style_node",
-            "args": { "target": "the bullets", "style": "remove" }
+            "args": {
+              "target": "the bullets",
+              "style": "remove"
+            }
           },
           {
             "name": "style_node",
-            "args": { "target": "the last bullet", "style": "display: none" }
+            "args": {
+              "target": "the last bullet",
+              "style": "display: none"
+            }
           }
         ],
-        "receipt": ["display: none on slide 9, bullet 4"]
+        "receipt": ["display: none on slide {at}, bullet 4"]
       }
     }
   ]

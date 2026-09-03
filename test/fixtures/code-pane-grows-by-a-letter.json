@@ -1,7 +1,7 @@
 {
   "meta": {
+    "at": "JavaScript",
     "kind": "recorded",
-    "slide": 11,
     "about": "A rename inside a code pane that adds a character. The 140-limit guards slide text that can overflow, not a pane that scrolls.",
     "recorded-outcome": "\"replace the text JavaScript with BooyaScript\" on slide 11, once the subtitle had already been renamed, refused with `Replacing \"JavaScript\" in 11.2 would make it 570 characters; anything over 140 overflows the slide.` The pane was already 569 and rendering fine — `.code-frame pre` is `overflow: auto` inside a capped frame, so its text scrolls at any length. The old rule was `after > MAX_TEXT && after > before`, which let a node already past the limit be edited only if the edit added no characters at all; BooyaScript is one letter longer than JavaScript.",
     "guards": "the `before.length <= MAX_TEXT` clause in `planReplace`. Put back `after.length > before.length` and the replace touches one node instead of two, and the receipt carries a `Skipped:` line naming 11.2."
@@ -16,7 +16,10 @@
         "calls": [
           {
             "name": "edit_text",
-            "args": { "find": "JavaScript", "text": "BooyaScript" }
+            "args": {
+              "find": "JavaScript",
+              "text": "BooyaScript"
+            }
           }
         ],
         "receipt": [
@@ -25,8 +28,8 @@
           "!overflows the slide"
         ],
         "slides": {
-          "11": [
-            "re:^<slide n=\"11\" .*>$",
+          "{at}": [
+            "re:^<slide n=\"{at}\" .*>$",
             "subtitle: ...or no BooyaScript at all",
             "re:^code: .*No BooyaScript\\. Annotating the form.*$",
             "..."

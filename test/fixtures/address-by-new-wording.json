@@ -1,7 +1,7 @@
 {
   "meta": {
+    "at": "TODO: Your next steps (Monday!)",
     "kind": "recorded",
-    "slide": 31,
     "about": "Addressing a node by the wording an edit gave it one turn earlier — the case every other reader of slide text already handled and `locate()` did not.",
     "recorded-outcome": "\"Replace Monday with Tuesday\" worked. \"Make Tuesday yellow\" then went to the three bullets: locate() matched the raw harvest, which still said Monday, so the heading did not match at all while the phrase's own \"TODO\" matched every bullet. The refusal offered 31.2/31.3/31.4 as the candidates and the model picked 31.2, so the first bullet turned yellow and the receipt said so.",
     "guards": "both halves of the fix. Drop `asShown` from locate() and turn 2 refuses instead of styling — reported as a receipt that no longer says `on slide 31, title`. Drop the `{ text: was }` argument describeNode now takes and turn 1's receipt reads `\"…(Tuesday!)\" → \"…(Tuesday!)\"`, a rename reported as a no-op."
@@ -26,7 +26,7 @@
           "— \"TODO: Your next steps (Monday!)\" → \"TODO: Your next steps (Tuesday!)\""
         ],
         "slides": {
-          "31": ["...", "title: TODO: Your next steps (Tuesday!)", "..."]
+          "{at}": ["...", "title: TODO: Your next steps (Tuesday!)", "..."]
         }
       }
     },
@@ -46,7 +46,7 @@
           }
         ],
         "receipt": [
-          "color: yellow on slide 31, title",
+          "color: yellow on slide {at}, title",
           "!bullet",
           "!matches 3 nodes"
         ]

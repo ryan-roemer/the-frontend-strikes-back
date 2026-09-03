@@ -1,7 +1,11 @@
 {
   "meta": {
+    "at": {
+      "nodes": {
+        "takeaway": 6
+      }
+    },
     "kind": "recorded",
-    "slide": 6,
     "about": "A target naming SEVERAL positions of one role styles all of them. Asserted on the receipt, because a style changes no wording and the call is identical either way.",
     "recorded-outcome": "asked to make the takeaways yellow and bold, Gemma emitted style_node({\"target\": \"takeaway 1, takeaway 2, takeaway 3, takeaway 4, takeaway 5, takeaway 6\", ...}). `byOrdinal` read the first number in the phrase and nothing else, so ONE takeaway went yellow and the receipt reported success. Acting on a sixth of what was named, and saying it worked.",
     "guards": "the receipt line. Revert `byOrdinal` to `words.match(/\\b(\\d{1,2})\\b/)` and the call is byte-identical — only the receipt changes, to \"color: yellow; font-weight: bold on slide 6, takeaway 1 — ...\". A fixture asserting on `calls` alone could not fail here, which is why `expect.receipt` exists."
@@ -34,10 +38,13 @@
         "calls": [
           {
             "name": "style_node",
-            "args": { "target": "takeaway 2", "style": "color: red" }
+            "args": {
+              "target": "takeaway 2",
+              "style": "color: red"
+            }
           }
         ],
-        "receipt": ["color: red on slide 6, takeaway 2"]
+        "receipt": ["color: red on slide {at}, takeaway 2"]
       }
     }
   ]

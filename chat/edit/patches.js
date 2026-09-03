@@ -80,30 +80,40 @@ const textRuns = (el) => {
 };
 
 /**
- * Which text node an edit should write to.
+ * Which text node a whole-node rewrite should carry the new wording.
  *
- * The longest trimmed one is the sentence; the short ones are the whitespace
- * between inline elements.
+ * A run that is a DIRECT child of the element is plain text at the deck's own default
+ * style; one nested inside `<strong>`, `<code>`, or a decorative `<span>` is not, and
+ * landing the new wording there would have it inherit that styling -- "Orama for the
+ * client-side vector store" is `<span class="em">Orama</span> for the...`, so writing a
+ * full replacement into the first (nested, emphasised) run would set the ENTIRE new
+ * bullet in italics. Direct-child runs are ranked first, longest-trimmed among them
+ * second, so a bullet split around a `<strong>` picks the plain clause on either side of
+ * it rather than the bold word in the middle.
  *
- * CHOSEN ONCE, THEN ADDRESSED BY INDEX FOREVER. "Longest" is a property of the CURRENT
- * text, so re-deciding it on every rebuild moves the target as soon as an edit changes a
- * length. On a bullet with two text nodes either side of a `<strong>`, shortening the
- * longer one makes the next rebuild pick the other as "longest", restore the original into
- * it AND write the replacement into it -- "CHANGEDregistersCHANGED", with both halves
- * overwritten so reset cannot recover it.
+ * Falls back to the longest run overall when nothing is a direct child -- content wrapped
+ * entirely in one inline element, which has no unstyled run to prefer.
  *
- * The index is stable because `childNodes` order is; a `nodeValue` write never adds or
- * removes a node, which is the other half of why this channel is safe.
+ * CHOSEN ONCE, THEN ADDRESSED BY INDEX FOREVER. `setText` writes every OTHER run to "" in
+ * the same call, so which run is "main" cannot change from the edit itself -- but the
+ * index is still resolved fresh from the live DOM every time, never cached, because a
+ * fiber remount can renumber the runs.
+ *
+ * The index is stable within one call because `childNodes` order is; a `nodeValue` write
+ * never adds or removes a node, which is the other half of why this channel is safe.
  */
 const mainRunIndex = (el) => {
   const runs = textRuns(el);
   let best = -1;
-  let longest = -1;
+  let bestRank = -1;
+  let bestLength = -1;
   runs.forEach((node, i) => {
+    const rank = node.parentElement === el ? 1 : 0;
     const length = (node.nodeValue ?? "").trim().length;
-    if (length > longest) {
-      longest = length;
+    if (rank > bestRank || (rank === bestRank && length > bestLength)) {
       best = i;
+      bestRank = rank;
+      bestLength = length;
     }
   });
   return best;
@@ -115,26 +125,11 @@ const textRunAt = (el, index) => textRuns(el)[index] ?? null;
 export const runsOf = (el) =>
   textRuns(el).map((node, index) => ({ index, value: node.nodeValue ?? "" }));
 
-/**
- * The exact string a text edit will overwrite.
- *
- * NOT the node's harvested text. The two differ whenever a node has inline markup: a
- * bullet harvesting as "One API: document.modelContext" may hold only "One API: " in its
- * main text node, the rest being a `<code>` element. A baseline taken from the harvest
- * restores the WHOLE flattened string into that one node and leaves the markup beside it,
- * so undo yields "One API: document.modelContextdocument.modelContext" -- a deck visibly
- * different from how it started, reported as success.
- */
+/** The run `mainRunIndex` picked, and its current value. */
 export const mainTextValue = (el) => {
   const index = mainRunIndex(el);
   if (index < 0) return null;
   return { index, value: textRunAt(el, index)?.nodeValue ?? null };
-};
-
-/** Whether a whole-node text edit here would only cover part of what is on screen. */
-export const isMixed = (el) => {
-  if (!el) return false;
-  return textRuns(el).filter((n) => (n.nodeValue ?? "").trim()).length > 1;
 };
 
 /**

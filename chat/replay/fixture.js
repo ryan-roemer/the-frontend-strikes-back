@@ -14,10 +14,11 @@
  *   looked at -- and carries nothing at all for a call that edits a slide the model is not
  *   on. A recorded fixture asks the deck directly and gets every slide it touched.
  *
- * PURE, AND NO IMPORTS. Two consumers that share nothing: `runner.js` beside it, in the
- * page against a live deck, and `test/fixture.test.js` under `node --test` with no deck, no
- * model and no DOM. One browser-shaped import would end the second, and this is the one
- * piece both layers have to agree on exactly.
+ * PURE, AND NOTHING BROWSER-SHAPED IMPORTED. Two consumers that share nothing: `runner.js`
+ * beside it, in the page against a live deck, and `test/fixture.test.js` under `node --test`
+ * with no deck, no model and no DOM. One browser-shaped import would end the second, and
+ * this is the one piece both layers have to agree on exactly. `anchors.js` is the single
+ * import, and it is pure on the same terms.
  *
  * SLIDE STATE IS AN ARRAY OF LINE PATTERNS, not one string with escaped newlines. Two
  * reasons, and the second is the load-bearing one:
@@ -31,6 +32,8 @@
  *   deleted. So `"..."` elides any run of lines, and only the lines that matter are
  *   written down.
  */
+
+import { isPlaceholder, unfill } from "./anchors.js";
 
 /**
  * A pattern line that matches any number of lines, including none.
@@ -164,6 +167,20 @@ const readTurn = (turn, i) => {
     if (lines.some((line) => typeof line !== "string")) {
       bad(`turn ${i}, slide ${number}: a pattern is not a string`);
     }
+    // A KEY THAT IS NEITHER A NUMBER NOR A PLACEHOLDER IS A TYPO, and naming it here is
+    // the difference between a named refusal and `Number(NaN)` -- which reaches the runner
+    // as a golden comparison reporting "no such slide" about a slide nobody meant.
+    //
+    // AN UNRESOLVED PLACEHOLDER IS FINE, because this module is read from BOTH sides of the
+    // deck: `runner.js` fills the numbers in before reading, and `test/fixture.test.js`
+    // reads the fixture as authored, with no deck to resolve `{at}` against. `{atx}` --
+    // a name that resolved to nothing -- is the case this catches, and it is caught in the
+    // browser, where the anchors are known.
+    if (!Number.isFinite(Number(number)) && !isPlaceholder(number)) {
+      bad(
+        `turn ${i}, slide "${number}": not a slide number or a placeholder like \`{at+1}\``,
+      );
+    }
     // NOT JOINED. Joining was what made a partial pattern impossible to express, and the
     // whole point of `GAP` is that a fixture describes some lines rather than all of them.
     return { slide: Number(number), patterns: lines };
@@ -260,16 +277,21 @@ const changedLines = (before, after) => {
  * diff is the act of accepting it -- the only honest way round, because a hand-written
  * golden slide is a guess about `slideText()`'s output and this is not.
  */
-export const recordedExpectations = (report) =>
+export const recordedExpectations = (report, { anchors = {} } = {}) =>
   report.turns.map((turn) => ({
     ask: turn.ask,
     replies: turn.replies,
     expect: {
       calls: turn.actual,
+      // KEYED BY PLACEHOLDER, NOT BY NUMBER. Recording is how a fixture is authored, so
+      // writing `"9"` back here would undo `anchors.js` one recording at a time -- and
+      // silently, because the fixture would pass on the day it was recorded and fail the
+      // next time a slide moved. `unfill` is the same mapping `fill` applied, run
+      // backwards.
       slides: Object.fromEntries(
         turn.slides
           .map(({ slide, before, actual }) => [
-            String(slide),
+            unfill(slide, anchors),
             changedLines(before ?? null, actual),
           ])
           .filter(([, patterns]) => patterns.length),

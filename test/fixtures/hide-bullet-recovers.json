@@ -1,7 +1,11 @@
 {
   "meta": {
+    "at": {
+      "nodes": {
+        "bullet": 4
+      }
+    },
     "kind": "recorded",
-    "slide": 9,
     "about": "\"Hide\" reaching edit_text instead of style_node. The same address-as-`find` refusal recovers it, and the retry dispatches a DIFFERENT tool.",
     "recorded-outcome": "asked to hide the last bullet, Gemma emitted edit_text({\"target\": \"bullet 4\", \"find\": \"bullet 4\", \"text\": \"\"}). Wrong tool — hiding is a style — and `find` holding an address rather than wording. style_node's summary is one sentence, so the `display: none` sentence in its description never reaches the model at all; the refusal is the only place that advice can arrive.",
     "guards": "the second reply calls a tool the first turn never mentioned, which only works because `respond.js` re-resolves the name on a retry. Narrow that to the same tool, or drop `retry: true` from the address-as-`find` refusal, and this consumes one reply."
@@ -17,14 +21,21 @@
         "calls": [
           {
             "name": "edit_text",
-            "args": { "target": "bullet 4", "find": "bullet 4", "text": "" }
+            "args": {
+              "target": "bullet 4",
+              "find": "bullet 4",
+              "text": ""
+            }
           },
           {
             "name": "style_node",
-            "args": { "target": "bullet 4", "style": "display: none" }
+            "args": {
+              "target": "bullet 4",
+              "style": "display: none"
+            }
           }
         ],
-        "receipt": ["display: none on slide 9, bullet 4"]
+        "receipt": ["display: none on slide {at}, bullet 4"]
       }
     }
   ]

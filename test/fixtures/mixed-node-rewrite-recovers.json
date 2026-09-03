@@ -1,0 +1,92 @@
+{
+  "meta": {
+    "at": "Orama for the client-side",
+    "kind": "recorded",
+    "about": "A whole-node rewrite (`target` + `text`, no `find`) on a bullet with inline markup. `setText` used to write only the LONGEST text run and leave the others exactly as authored, so the old bolded/emphasised word survived next to the new wording with no separating space. Fixed by rewriting every run: the new text goes to the run least likely to carry unwanted styling, the rest are blanked.",
+    "recorded-outcome": "Asked to replace the first bullet ('Orama for the client-side vector store', italicised on 'Orama') with all-new wording, the model reached for `find` with the bullet's whole current text — which spans the italic span and the plain run, so `replaceText` refused it as \"spans several separately-styled pieces of text\". That refusal named no way to replace a WHOLE node, only \"try a single word\", so the model spent the rest of the conversation alternating between narrower `find` phrases and an ambiguous `target: \"the bullets\"` guess, and one turn it repeated the plain-bullet 15.3 case (`A web-sized <strong>embedding model</strong>, quantized down`) and gave up without even calling the tool. Reproducing `edit_text({target: \"15.3\", text: ...})` directly (bypassing the model) showed the deeper bug: the whole-node path silently 'succeeded', but left \"A web-sized embedding model\" untouched and appended the new text straight after it with no space, because `mainRunIndex` picked the LONGEST run (\", quantized down\") to overwrite and left the rest alone.",
+    "guards": "two things, either alone reintroduces the bug. (1) `setText` in `chat/edit/apply.js`: writing only to `mainTextValue(el)`'s run and leaving the rest as authored, instead of blanking every other run in the same `pushAll` group — revert that and the `bullet 1: my friends call...` slide assertion below fails because the italic \"Orama\" survives. (2) The spanning-refusal message in `replaceText`: drop the `target: \"${spanning}\" and no find` clause and the `asked` assertion on turn 1 fails."
+  },
+  "turns": [
+    {
+      "ask": "Change the word \"vector\" on this slide to dog emojis.",
+      "replies": [
+        "```tool edit_text\n{\"target\": \"the bullets\", \"find\": \"vector\", \"text\": \"🐶\"}\n```",
+        "```tool edit_text\n{\"find\": \"vector\", \"text\": \"🐶\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "target": "the bullets",
+              "find": "vector",
+              "text": "🐶"
+            }
+          },
+          {
+            "name": "edit_text",
+            "args": {
+              "find": "vector",
+              "text": "🐶"
+            }
+          }
+        ],
+        "asked": [
+          null,
+          [
+            "matches 5 nodes",
+            "you do not need a `target` here",
+            "wherever it appears"
+          ]
+        ],
+        "receipt": ["Replaced \"vector\" with \"🐶\""],
+        "slides": {
+          "{at}": ["...", "bullet 1: Orama for the client-side 🐶 store", "..."]
+        }
+      }
+    },
+    {
+      "ask": "Replace the first bullet point on this slide with \"my friends call me the stinkiest stink to ever live! Wow!\"",
+      "replies": [
+        "```tool edit_text\n{\"find\": \"Orama for the client-side 🐶 store\", \"text\": \"my friends call me the stinkiest stink to ever live! Wow!\"}\n```",
+        "```tool edit_text\n{\"target\": \"{at}.2\", \"text\": \"my friends call me the stinkiest stink to ever live! Wow!\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "find": "Orama for the client-side 🐶 store",
+              "text": "my friends call me the stinkiest stink to ever live! Wow!"
+            }
+          },
+          {
+            "name": "edit_text",
+            "args": {
+              "target": "{at}.2",
+              "text": "my friends call me the stinkiest stink to ever live! Wow!"
+            }
+          }
+        ],
+        "asked": [
+          null,
+          [
+            "spans several separately-styled pieces of text",
+            "target: \"{at}.2\" and no find"
+          ]
+        ],
+        "receipt": [
+          "my friends call me the stinkiest stink to ever live! Wow!",
+          "styling is gone now that the whole line was replaced"
+        ],
+        "slides": {
+          "{at}": [
+            "...",
+            "bullet 1: my friends call me the stinkiest stink to ever live! Wow!",
+            "..."
+          ]
+        }
+      }
+    }
+  ]
+}

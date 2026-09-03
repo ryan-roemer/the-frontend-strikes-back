@@ -1,7 +1,9 @@
 {
   "meta": {
+    "at": {
+      "title": "re:WebMCP\\s"
+    },
     "kind": "authored",
-    "slide": 9,
     "about": "Removing words -- `find` with an empty `text`, scoped to one node by `target`."
   },
   "turns": [
@@ -22,8 +24,8 @@
           }
         ],
         "slides": {
-          "9": [
-            "re:^<slide n=\"9\" .*title=\"How WebMCP works\">$",
+          "{at}": [
+            "re:^<slide n=\"{at}\" .*>$",
             "...",
             "title: How works",
             "..."

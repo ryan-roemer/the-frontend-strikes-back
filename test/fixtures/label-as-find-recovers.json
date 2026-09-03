@@ -1,7 +1,12 @@
 {
   "meta": {
+    "at": {
+      "text": "MORE POINTS",
+      "nodes": {
+        "bullet": 4
+      }
+    },
     "kind": "recorded",
-    "slide": 22,
     "about": "A `find` that names a node instead of quoting one. The refusal says which argument the phrase belongs in, and the model takes the advice on a second reply.",
     "recorded-outcome": "asked to delete the MORE POINTS bullet, Gemma emitted edit_text({\"find\": \"bullet 4\", \"text\": \"\"}) — the label off the slide readout `22.5 bullet 4: TODO: MORE POINTS`, put where wording goes. `Nothing in range contains \"bullet 4\".` named no alternative and carried no `retry`, so the turn ended there.",
     "guards": "two replies for one ask. Drop the `resolveTarget(needle)` branch from edit_text's failure path, or its `retry: true`, and this turn consumes one reply — reported as an unused reply AND as one call where two were expected."
@@ -15,13 +20,22 @@
       ],
       "expect": {
         "calls": [
-          { "name": "edit_text", "args": { "find": "bullet 4", "text": "" } },
+          {
+            "name": "edit_text",
+            "args": {
+              "find": "bullet 4",
+              "text": ""
+            }
+          },
           {
             "name": "style_node",
-            "args": { "target": "bullet 4", "style": "display: none" }
+            "args": {
+              "target": "bullet 4",
+              "style": "display: none"
+            }
           }
         ],
-        "receipt": ["display: none on slide 22, bullet 4"]
+        "receipt": ["display: none on slide {at}, bullet 4"]
       }
     }
   ]
