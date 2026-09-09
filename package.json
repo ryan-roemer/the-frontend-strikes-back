@@ -4,7 +4,7 @@
   "description": "2026 talk on 'The Frontend Strikes Back: WebMCP and The Agent-Ready Browser'",
   "type": "module",
   "config": {
-    "cdp_port": "9333"
+    "cdp_port": "1980"
   },
   "scripts": {
     "dev": "npx serve",

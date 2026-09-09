@@ -54,7 +54,7 @@ always been a CDP call that never gets answered, and the harness bounds every ca
 (`CALL_MS`) precisely so this degrades into a skip. If it happens again:
 
 ```
-curl -s localhost:9333/json/list | grep -o '"url": "[^"]*"' | head -40
+curl -s localhost:1980/json/list | grep -o '"url": "[^"]*"' | head -40
 ```
 
 A working profile can carry twenty-plus page targets. `pages()` filters to the deck's origin
