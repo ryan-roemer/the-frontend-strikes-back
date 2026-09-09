@@ -9,9 +9,10 @@ import { useCallback } from "react";
  * visible and silently change slides behind whatever is on top. Escape is handled here
  * rather than globally because each surface closes itself.
  *
- * One hook, three surfaces -- the panel, the context sheet and the tool inspector each
+ * One hook, four surfaces -- the panel, the context sheet and the tool inspector each
  * had a byte-identical copy of this, and the two later ones carried a comment pointing
- * at the first while repeating the code it described.
+ * at the first while repeating the code it described. The fourth is the deck's own
+ * Spectacle banner (`SpectacleBadge` in `deck/components.js`).
  *
  * @param {() => void} onEscape What this surface does when dismissed.
  */

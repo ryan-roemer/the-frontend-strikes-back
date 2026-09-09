@@ -620,12 +620,35 @@ body::after {
   flex: 0 0 auto;
 }
 
+/*
+ * Padding here is measured, not chosen. The diagram is five stacked bands plus
+ * two connectors, so every vertical value is spent twice or three times over --
+ * at 16px it ran 52px past the slide's content box, which the chrome band's
+ * bottom padding hides until it is on a projector.
+ */
 .seam__box {
   background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
   border: 1px solid var(--hairline);
   border-radius: 14px;
   padding: 16px 20px;
   text-align: center;
+}
+
+/*
+ * SPECTACLE'S `Text` CARRIES 16px OF VERTICAL PADDING from the theme, and this
+ * diagram is seven of them stacked in five bands -- 224px of padding nobody asked
+ * for, which is what pushed the whole thing off the bottom of the slide. Every
+ * label here is inside a box that already owns its own padding, so the Text's is
+ * pure loss. Zeroed by class rather than by shrinking the boxes, which is what
+ * the first attempt did and why it kept not converging.
+ */
+#root .seam__name,
+#root .seam__note,
+#root .seam__bar-label,
+#root .seam__bar-tools,
+#root .seam__caption {
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 #root .seam__name {
@@ -669,7 +692,7 @@ body::after {
 
 .seam__link {
   width: 2px;
-  height: 26px;
+  height: 24px;
   margin: 0 auto;
   background: var(--hairline);
 }
@@ -677,8 +700,8 @@ body::after {
 .seam__fork {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  height: 30px;
-  margin-top: 14px;
+  height: 28px;
+  margin-top: 12px;
 }
 
 .seam__fork span {
@@ -790,6 +813,109 @@ body::after {
 #root .demo__url {
   font-family: var(--mono);
   color: var(--chapter-accent);
+}
+
+/* --- Spectacle badge -----------------------------------------------------
+ *
+ * The logo sitting in the "I lead technology & OSS at Nearform" line, and the
+ * banner it opens. See `SpectacleBadge` in `components.js`; the scrim behind the
+ * card is `.chat-sheet`, shared with the chat sheets.
+ */
+
+/*
+ * The bubble behind the logo is what says "clickable" from the back of a room.
+ * Nothing else in the deck's body copy has a surface behind it, so the one that
+ * does reads as a control -- and it stays faint enough that the sentence is
+ * still a sentence.
+ *
+ * `font: inherit` is what makes every `em` below mean anything: a button starts
+ * at the UA's own 13px, not the 46px of the line it sits in. With it, the whole
+ * badge scales with whatever line it lands in.
+ *
+ * SIZED AGAINST THE LINE BOX. Logo, padding and border come to about 59px on
+ * this 46px/1.2 line, which is a few px taller than the box -- so the appear
+ * line below sits ~4px lower than the two above it. That is the trade for a
+ * bubble big enough to read as a target; grow it much further and the uneven
+ * leading starts to show.
+ */
+.spectacle-badge {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 0 0.45em;
+  padding: 0.16em;
+  border: 1px solid rgba(252, 105, 134, 0.28);
+  border-radius: 50%;
+  background: rgba(252, 105, 134, 0.12);
+  font: inherit;
+  line-height: 1;
+  vertical-align: -0.1em;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.spectacle-badge:hover,
+.spectacle-badge:focus-visible {
+  border-color: rgba(252, 105, 134, 0.55);
+  background: rgba(252, 105, 134, 0.22);
+  box-shadow: 0 0 0.5em rgba(252, 105, 134, 0.45);
+}
+
+.spectacle-badge:focus-visible {
+  outline: 2px solid var(--chapter-accent, #78eec5);
+  outline-offset: 3px;
+}
+
+.spectacle-badge svg {
+  display: block;
+  width: auto;
+  height: 0.92em;
+}
+
+/*
+ * The closing banner slide, as a card. 16:9 so it reads as the slide it is, and
+ * the logo and URL scale with the card rather than off the edge of a small
+ * window.
+ */
+.spectacle-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2%;
+  width: min(1000px, 100%);
+  aspect-ratio: 16 / 9;
+  /* So the URL below can size itself off the card and not the window. */
+  container-type: inline-size;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background-color: var(--nf-midnight-base, #000e38);
+  background-position: center;
+  background-size: cover;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+/*
+ * `cqw` and not `%`: the logo's containing block is the link wrapped around it,
+ * which is a flex item sized by its content -- so a percentage width would be a
+ * percentage of the SVG's own attribute width. 30cqw is what the 400px logo is
+ * on the 1366px slide.
+ */
+.spectacle-card svg {
+  width: min(300px, 30cqw);
+  height: auto;
+}
+
+/*
+ * Two classes deep on purpose. Spectacle's `Text` carries its own generated
+ * class, styled-components injects it after this file, and at equal specificity
+ * the later rule wins -- so a single class here would lose the font size.
+ */
+.spectacle-card .spectacle-card__url {
+  font-size: clamp(18px, 3.2cqw, 32px);
 }
 
 /* --- Deck chrome --------------------------------------------------------- */
@@ -1298,11 +1424,11 @@ body::after {
 
   /* Both connectors are fixed-height Boxes, so both swell without this. */
   #root .seam__link {
-    height: 26px;
+    height: 24px;
   }
 
   #root .seam__fork {
-    height: 30px;
+    height: 28px;
   }
 
   #root .accent-rule {

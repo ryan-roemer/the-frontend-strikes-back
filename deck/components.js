@@ -1,4 +1,14 @@
-import { Fragment, Suspense, createElement, lazy } from "react";
+import {
+  Fragment,
+  Suspense,
+  createElement,
+  lazy,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import htm from "htm";
 import {
   Appear,
@@ -21,13 +31,16 @@ import {
   Table,
   TableRow,
   TableCell,
+  SpectacleLogo,
 } from "spectacle";
-import { colors, photoBackground } from "./theme.js";
+import { colors, isPaged, photoBackground, SPECTACLE_ROSE } from "./theme.js";
+import { images } from "./media.js";
 import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
 import { DeckBridge } from "../chat/bridge.js";
 import { ChatToggle } from "../chat/toggle.js";
 import { ToolsToggle } from "../chat/tools/toggle.js";
+import { useDismissKeys } from "../chat/ui/use-dismiss-keys.js";
 
 const html = htm.bind(createElement);
 
@@ -210,6 +223,46 @@ export const Icon = ({ name, fill = true, color, className, style, title }) =>
 // the chapter class on the slide -- so emphasis picks up the section's accent
 // automatically and falls back to the deck green outside a chapter.
 export const em = (text) => `<span class="em">${text}</span>`;
+
+/**
+ * `htm`'s parse cache is keyed on the statics array's IDENTITY, and it holds
+ * that array forever. Building a fresh `[text]` per render would miss the cache
+ * every render and retain the miss, so each authored string keeps one array.
+ *
+ * Bounded by the number of distinct strings the deck is written with, which is
+ * a constant -- these are slide props, not user input.
+ */
+const STATICS = new Map();
+
+/**
+ * A string prop, parsed as markup, so `em()` and `icon()` work inside one.
+ *
+ * Both of those return an HTML STRING. That is right for speaker notes, where
+ * markdown passes raw HTML straight through, but a string interpolated into JSX
+ * is text -- so `em("relay")` in a slide prop renders the span literally, angle
+ * brackets and all. Handing the finished string back to `htm` parses it into
+ * the elements it describes.
+ *
+ * A PARSED STRING IS USUALLY SEVERAL ROOTS, not one: markup in the middle of a
+ * sentence splits it into text, element, text. They are spread as separate
+ * children rather than passed as one array child, because React asks for `key`
+ * only on children that arrive as an array.
+ *
+ * Strings WITHOUT markup are returned untouched -- no wrapper element, no cache
+ * entry, and no chance of a stray `<` in prose being read as a tag.
+ */
+const markup = (text) => {
+  if (typeof text !== "string" || !text.includes("<")) return text;
+
+  let statics = STATICS.get(text);
+  if (!statics) STATICS.set(text, (statics = [text]));
+
+  const parsed = html(statics);
+
+  return Array.isArray(parsed)
+    ? createElement(Fragment, null, ...parsed)
+    : parsed;
+};
 
 /** Small tracked-out label that sits above a heading. */
 export const Eyebrow = ({
@@ -940,14 +993,14 @@ export const SeamDiagram = ({
 
     <${Box} className="seam__bar">
       <${Text} className="seam__bar-label" fontSize="20px" margin="0px">${boundary}</${Text}>
-      <${Text} className="seam__bar-tools" fontSize="24px" margin="4px 0 0">
+      <${Text} className="seam__bar-tools" fontSize="24px" margin="6px 0 0">
         ${tools.join("  ·  ")}
       </${Text}>
     <//>
 
     ${
       caption
-        ? html`<${Text} className="seam__caption" fontSize="19px" margin="10px 0 0">
+        ? html`<${Text} className="seam__caption" fontSize="19px" margin="12px 0 0">
             ${caption}
           </${Text}>`
         : null
@@ -1047,6 +1100,9 @@ const backupNote = (backup) => {
  * stage is what to do when the demo fails -- so the fallback plan rides along in
  * the speaker notes, closing them, where it is the last thing read before the
  * demo starts.
+ *
+ * `points` go through `markup()`, so a bullet can carry `em()`, `icon()` or any
+ * other inline tag instead of being flat text.
  */
 // TODO(Ryan): Check this `backup` thing and see about video backups for live demos.
 export const DemoSlide = ({
@@ -1077,7 +1133,7 @@ export const DemoSlide = ({
           ? html`<${UnorderedList} className="demo__points" margin="18px 0 0">
               ${points.map(
                 (point, i) =>
-                  html`<${ListItem} key=${i} fontSize="28px">${point}</${ListItem}>`,
+                  html`<${ListItem} key=${i} fontSize="28px">${markup(point)}</${ListItem}>`,
               )}
             </${UnorderedList}>`
           : null
@@ -1090,3 +1146,92 @@ export const DemoSlide = ({
     />
   </${DeckSlide}>
 `;
+
+/**
+ * Spectacle's own logo, inline in a sentence, that opens the banner over the deck.
+ *
+ * A button and not a link: the banner is a thing to show the room mid-sentence
+ * when Spectacle comes up, and following a link would leave the talk to do it.
+ *
+ * PORTALED TO `<body>`, like the chat panel and for the same reason: Spectacle
+ * portals every slide into an aspect-fit box carrying `transform: scale()` and
+ * `overflow: hidden`, so an overlay rendered inside a slide is scaled with the
+ * canvas and clipped at the slide's edges (see the header of `chat/index.js`).
+ * A portal keeps React context, so Spectacle's theme still reaches the `Text`
+ * and `Link` inside.
+ *
+ * The scrim, the centering and the z-index above the chat panel are `.chat-sheet`
+ * from `chat/chat.css`, shared with the context and tool sheets. Only the card
+ * is new.
+ */
+export const SpectacleBadge = () => {
+  const [open, setOpen] = useState(false);
+  const sheet = useRef(null);
+  const close = useCallback(() => setOpen(false), []);
+
+  /** Escape closes, arrows stay off the deck -- see `use-dismiss-keys.js`. */
+  const onKeyDown = useDismissKeys(close);
+
+  // Focused on open so Escape has somewhere to land. Lowercase `tabindex` below
+  // because prettier formats these html`` templates as HTML -- see the longer
+  // note in `chat/context/modal.js`.
+  useEffect(() => {
+    if (open) sheet.current?.focus();
+  }, [open]);
+
+  // Paged output is a stack of static slides: nothing to click, no viewport to
+  // center an overlay in, and a `position: fixed` scrim already cost this deck a
+  // phantom page once. The sentence keeps its logo everywhere else.
+  if (isPaged) return null;
+
+  return html`
+    <${Fragment}>
+      <button
+        type="button"
+        className="spectacle-badge"
+        aria-label="Show the Spectacle banner"
+        onClick=${() => setOpen(true)}
+      >
+        <${SpectacleLogo} size=${64} />
+      </button>
+      ${open &&
+      createPortal(
+        html`<div
+          ref=${sheet}
+          className="chat-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Spectacle"
+          tabindex=${-1}
+          onKeyDown=${onKeyDown}
+          onMouseDown=${(event) => {
+            if (event.target === event.currentTarget) close();
+          }}
+        >
+          <div
+            className="spectacle-card"
+            style=${{ backgroundImage: `url(${images.spectacle})` }}
+          >
+            <${Link}
+              href="https://nearform.com/open-source/spectacle"
+              target="_blank"
+            >
+              <${SpectacleLogo} size=${280} />
+            <//>
+            <${Text} className="spectacle-card__url" margin="0px">
+              <${Link}
+                href="https://nearform.com/open-source"
+                color=${SPECTACLE_ROSE}
+                textDecoration="none"
+                target="_blank"
+              >
+                nearform.com/open-source
+              <//>
+            <//>
+          </div>
+        </div>`,
+        document.body,
+      )}
+    <//>
+  `;
+};

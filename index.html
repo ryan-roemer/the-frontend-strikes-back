@@ -97,16 +97,10 @@
         Markdown,
         MarkdownSlideSet,
         Notes,
-        SpectacleLogo,
       } from "spectacle";
       import { StyleSheetManager } from "styled-components";
       import isPropValid from "@emotion/is-prop-valid";
-      import {
-        theme,
-        DECK_BACKGROUND,
-        photoBackground,
-        SPECTACLE_ROSE,
-      } from "./deck/theme.js";
+      import { theme, DECK_BACKGROUND, photoBackground } from "./deck/theme.js";
       import { logosHtm, backgrounds, images } from "./deck/media.js";
       import { getExamples } from "./deck/examples.js";
       import { chapter, applyChapterStyles } from "./deck/chapters.js";
@@ -128,6 +122,7 @@
         Eyebrow,
         AccentRule,
         SlideHeading,
+        SpectacleBadge,
         AppearComponent,
         mdSlideProps,
         deckTransition,
@@ -142,11 +137,6 @@
       applyChapterStyles();
 
       const qrCodeImg = `<img class="qr-card" src="${images.qrCode}" width="200px" style="margin-top: calc(22vh);" />`;
-
-      // The closing slide carries links above the code, so it cannot drop the
-      // full 22vh first. Same card, same 200px, just pulled up to sit under a
-      // short line of text instead of centring in an empty column.
-      const qrCodeImgTight = `<img class="qr-card" src="${images.qrCode}" width="200px" style="margin-top: 24px;" />`;
 
       // The presentation deck.
       //
@@ -226,6 +216,14 @@
               <${AppearComponent}>
                 <${Text} fontSize="h3">
                   ${logosHtm.nearform} I lead technology & OSS at <${Link} href="https://nearform.com" fontSize="h3">Nearform</${Link}>
+                  ${
+                    "" /* The Spectacle setup, as a logo instead of a line of its own.
+                          It pays off twice -- the deck is a WebMCP server in chapter 1
+                          and runs a model in chapter 2 -- so it has to be said here,
+                          but it does not have to cost a whole appear step. Clicking it
+                          puts the banner up, which is the slide this replaced. */
+                  }
+                  <${SpectacleBadge} />
                 </${Text}>
               </${AppearComponent}>
               <${AppearComponent}>
@@ -233,23 +231,15 @@
                   <${Icon} name="brackets-angle" /> Play in both the backend and frontend worlds
                 </${Text}>
               </${AppearComponent}>
-              ${
-                "" /* The setup. It pays off three times: the deck is a WebMCP server
-                      in chapter 1, runs a model in chapter 2, and gets its own slide
-                      at the close. Saying it here means none of those needs
-                      explaining when it arrives. */
-              }
-              <${AppearComponent}>
-                <${Text} fontSize="h3">
-                  <${Icon} name="projector-screen" /> ...and we maintain <${Link} href="https://nearform.com/open-source/spectacle" fontSize="h3">Spectacle</${Link}>, which this deck runs on
-                </${Text}>
-              </${AppearComponent}>
             </${FlexBox}>
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * Keep it to 30 sec. The Spectacle line is the one that matters:
-                    it's why the deck can be a demo later.
+                  * Keep it to 30 sec.
+                  * We also maintain ${em("Spectacle")}, a presentation library for
+                    React. This deck runs on it -- no build step, all in the browser.
+                    Click the logo to put the banner up, Escape to drop it.
+                  * That's the line that matters: it's why the deck can be a demo later.
                 `}
               </${Markdown}>
             </${Notes}>
@@ -396,7 +386,7 @@
             app="Claude Desktop calls our page"
             url="nearform.github.io/vector-search-web"
             points=${[
-              "Configure @mcp-b/webmcp-local-relay once.",
+              "Configure <code>@mcp-b/webmcp-local-relay</code> once.",
               "Open the page, like any internal app.",
               "Ask Claude. Watch the page answer.",
             ]}
@@ -424,7 +414,7 @@
             url="⇧⌥T  ·  ?tool=go_to_slide"
             points=${[
               "This deck registers its own tools.",
-              "Open the inspector and call go_to_slide.",
+              "Open the inspector and call <code>go_to_slide</code>.",
               "The deck moves.",
             ]}
             backup=${`Nothing to fail here -- it is this page. If the inspector
@@ -733,39 +723,41 @@
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
-          <${DeckSlide} backgroundImage="url(${images.spectacle})">
-            <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="center">
-              <${Link} href="https://nearform.com/open-source/spectacle">
-                <${SpectacleLogo} size=${400} />
-              </${Link}>
-              <${Text} fontSize="h3">
-                <${Link}
-                  href="https://nearform.com/open-source"
-                  color=${SPECTACLE_ROSE}
-                  textDecoration="none"
-                >
-                  nearform.com/open-source
-                </${Link}>
-              </${Text}>
-            </${FlexBox}>
-            <${Notes}>
-              <${Markdown} className="notes">
-                ${`
-                  * ${em("Spectacle")} is a presentation library for React.
-                  * This deck runs on it. No build step, all in the browser.
-                  * Come find me later: ${em("stickers")} and ${em("t-shirts")}.
-                `}
-              </${Markdown}>
-            </${Notes}>
-          </${DeckSlide}>
           ${
-            "" /* One closing slide, not two. The deck-links slide and the thanks
-                  slide were both mostly QR code, and at 25 minutes including Q&A the
-                  last thing the room needs is to be shown the same square twice. The
-                  demo apps join the list here rather than living only in the notes. */
+            "" /* The Spectacle banner used to be a slide of its own here. It is now
+                  the modal behind the logo on the "Hi" slide -- shown when Spectacle
+                  comes up in the intro, which is where the room is actually asking
+                  about it, rather than held for the close. */
+          }
+          ${
+            "" /* Two closing slides, not one. Everything the room might want to open
+                  goes on the first and everything about finding Ryan goes on the
+                  second, so a photo of either one is complete on its own -- which is
+                  what actually happens to a closing slide. Both carry the same QR in
+                  the same place, so it reads as one card held up twice rather than
+                  two different codes. */
           }
           <${MarkdownSlideSet} ...${mdSlideProps()}>
             ${`
+              --- { "layout": "columns" }
+
+              ::section
+
+              # Links
+
+              ${icon("browser")} [ryan-roemer.github.io/the-frontend-strikes-back](https://ryan-roemer.github.io/the-frontend-strikes-back/)
+              ${icon("github-logo")} [github.com/ryan-roemer/the-frontend-strikes-back](https://github.com/ryan-roemer/the-frontend-strikes-back)
+              ${icon("magnifying-glass")} [nearform.github.io/vector-search-web](https://nearform.github.io/vector-search-web/)
+              ${icon("users-three")} [nearform.github.io/web-agents](https://nearform.github.io/web-agents/)
+
+              ::section
+
+              ${qrCodeImg}
+
+              Notes: \
+                Both demo apps are public and both run entirely in the tab, so anyone \
+                can open them on the wifi here. TODO: add the article link once it is up.
+
               --- { "layout": "columns" }
 
               ::section
@@ -779,17 +771,11 @@
 
               ::section
 
-              ${qrCodeImgTight}
-
-              ${icon("browser")} Slides & code:
-              [ryan-roemer.github.io/the-frontend-strikes-back](https://ryan-roemer.github.io/the-frontend-strikes-back/)
-
-              ${icon("magnifying-glass")} [nearform.github.io/vector-search-web](https://nearform.github.io/vector-search-web/)
-              ${icon("users-three")} [nearform.github.io/web-agents](https://nearform.github.io/web-agents/)
+              ${qrCodeImg}
 
               Notes: \
                 Find me in the hall! Love to talk agents, the web platform, and code. \
-                Stickers and t-shirts. TODO: add the article link here once it is up.
+                Stickers and t-shirts.
             `}
           </${MarkdownSlideSet}>
         </${Deck}>
