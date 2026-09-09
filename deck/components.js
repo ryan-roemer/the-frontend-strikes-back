@@ -375,7 +375,7 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
             aria-hidden=${chrome ? undefined : true}
           >
             ${String(slideNumber).padStart(2, "0")} /
-            ${String(numberOfSlides).padStart(2, "0")}
+            ${" "}${String(numberOfSlides).padStart(2, "0")}
           </${Text}>
         <//>
         ${
