@@ -14,7 +14,8 @@
     "qr": "node scripts/gen-qr.mjs",
     "lint": "eslint . --fix",
     "pretty": "prettier . --write",
-    "format": "npm run lint && npm run pretty"
+    "format": "npm run lint && npm run pretty",
+    "demo:relay": "npx @mcp-b/webmcp-local-relay@5.1.0 --port 9333"
   },
   "license": "MIT",
   "devDependencies": {
