@@ -37,6 +37,7 @@ import { colors, isPaged, photoBackground, SPECTACLE_ROSE } from "./theme.js";
 import { images } from "./media.js";
 import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
+import { SlideKeys } from "./slide-keys.js";
 import { DeckBridge } from "../chat/bridge.js";
 import { ChatToggle } from "../chat/toggle.js";
 import { ToolsToggle } from "../chat/tools/toggle.js";
@@ -315,9 +316,10 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
   // render rather than mounting it as a component, so anything with hooks in it
   // borrows Deck's hook list -- and an early return here would change the hook
   // count on the first navigation and take the deck down with it. `DeckBridge`
-  // has hooks. It is safe only because it is an ELEMENT with its own fiber, and
-  // only if it renders on every slide. Hence a branch on what the chrome
-  // CONTAINS, never on whether the template renders at all.
+  // and `SlideKeys` both have hooks. They are safe only because they are
+  // ELEMENTS with their own fibers, and only if they render on every slide --
+  // `SlideKeys` is where Shift+arrow gets its deck. Hence a branch on what the
+  // chrome CONTAINS, never on whether the template renders at all.
   //
   // The empty band left on slide 1 costs nothing: `.deck-chrome` inherits
   // `pointer-events: none` from Spectacle's `TemplateWrapper` and paints no
@@ -331,6 +333,7 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
   return html`
     <${Fragment}>
       <${DeckBridge} />
+      <${SlideKeys} />
       <${Box}
         className="deck-chrome"
         position="absolute"

@@ -55,6 +55,7 @@ On top of Spectacle's own bindings (arrows, `p` presenter, `o` overview, `f` ful
 
 | Keys                      | Effect                                                       |
 | ------------------------- | ------------------------------------------------------------ |
+| `Shift`+`←` / `→`         | Whole slide at a time, skipping any reveals on it            |
 | `Shift`+`Alt`+`C`         | Toggle the deck assistant                                    |
 | `Shift`+`Alt`+`T`         | Toggle the WebMCP tool inspector                             |
 | `Esc`                     | Close whichever of those is on top                           |
