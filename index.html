@@ -109,18 +109,8 @@
       } from "./deck/theme.js";
       import { logosHtm, backgrounds, images } from "./deck/media.js";
       import { getExamples } from "./deck/examples.js";
-      import {
-        chapter,
-        chapterClass,
-        applyChapterStyles,
-      } from "./deck/chapters.js";
-      import {
-        takeaways,
-        byPart,
-        byChapter,
-        PARTS,
-        AUDIENCES,
-      } from "./deck/takeaways.js";
+      import { chapter, applyChapterStyles } from "./deck/chapters.js";
+      import { byChapter, AUDIENCES } from "./deck/takeaways.js";
       import {
         icon,
         Icon,
@@ -131,8 +121,8 @@
         TopicSlide,
         RowsSlide,
         MatrixSlide,
-        TakeawayList,
         TakeawaySlide,
+        SeamSlide,
         AudienceCards,
         DemoSlide,
         Eyebrow,
@@ -152,6 +142,11 @@
       applyChapterStyles();
 
       const qrCodeImg = `<img class="qr-card" src="${images.qrCode}" width="200px" style="margin-top: calc(22vh);" />`;
+
+      // The closing slide carries links above the code, so it cannot drop the
+      // full 22vh first. Same card, same 200px, just pulled up to sit under a
+      // short line of text instead of centring in an empty column.
+      const qrCodeImgTight = `<img class="qr-card" src="${images.qrCode}" width="200px" style="margin-top: 24px;" />`;
 
       // The presentation deck.
       //
@@ -238,10 +233,24 @@
                   <${Icon} name="brackets-angle" /> Play in both the backend and frontend worlds
                 </${Text}>
               </${AppearComponent}>
+              ${
+                "" /* The setup. It pays off three times: the deck is a WebMCP server
+                      in chapter 1, runs a model in chapter 2, and gets its own slide
+                      at the close. Saying it here means none of those needs
+                      explaining when it arrives. */
+              }
+              <${AppearComponent}>
+                <${Text} fontSize="h3">
+                  <${Icon} name="projector-screen" /> ...and we maintain <${Link} href="https://nearform.com/open-source/spectacle" fontSize="h3">Spectacle</${Link}>, which this deck runs on
+                </${Text}>
+              </${AppearComponent}>
             </${FlexBox}>
             <${Notes}>
               <${Markdown} className="notes">
-                ${``}
+                ${`
+                  * Keep it to 30 sec. The Spectacle line is the one that matters:
+                    it's why the deck can be a demo later.
+                `}
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
@@ -275,84 +284,51 @@
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
+          ${
+            "" /* The two audiences ARE the two pillars, which is why this slide is
+                  the table of contents and not just a warm-up survey: the frontend
+                  half is being told about the browser as an agent interface, the AI
+                  half about it as an agent runtime, and the chapter dividers name
+                  those same two words. It runs again at the close with `action`. */
+          }
           <${DeckSlide}>
-            <${SlideHeading} textAlign="left" margin="0 0 36px">
-              Everyone's welcome
+            <${SlideHeading} textAlign="left" margin="0 0 30px">
+              Two halves of the room
             </${SlideHeading}>
             <${AudienceCards} audiences=${AUDIENCES} />
+            <${Text} className="register-line" fontSize="24px" margin="28px 0 0">
+              A tour, not a tutorial: highlights, lowlights, and a lot of demos.
+            </${Text}>
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * Survey
+                  * Survey, hands up:
                     * How many of you build **frontends**? (Full-stack devs?)
                     * How many of you build AI **backends** or **cloud infrastructures**?
-                  * ... we've got something for both of you.
+                  * ... we've got something for both of you, and it's the same something.
+                  * Then set the register out loud: 20 minutes, high level, four demos.
+                    Nobody leaves able to write the spec, everybody leaves able to start.
                 `}
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
-          ${"" /* TODO: HERE -- need to revamp from here on in new vein... */}
-          ${"" /* TODO: Takeaways either need to be revised or removed. Don't like. */}
-          <${DeckSlide}>
-            <${SlideHeading} fontSize="h3" textAlign="left" margin="0 0 14px">
-              Six things to take away
-            </${SlideHeading}>
-            <${Eyebrow} className="takeaway-part">
-              <${Icon} name=${PARTS.A.icon} /> Part A · ${PARTS.A.title}
-            </${Eyebrow}>
-            <${TakeawayList}
-              items=${byPart("A")}
-              detail=${false}
-              columns=${3}
-              compact=${true}
-            />
-            <${Eyebrow} className="takeaway-part">
-              <${Icon} name=${PARTS.B.icon} /> Part B · ${PARTS.B.title}
-            </${Eyebrow}>
-            <${TakeawayList}
-              items=${byPart("B")}
-              detail=${false}
-              columns=${3}
-              compact=${true}
-            />
-          </${DeckSlide}>
-          <${RowsSlide}
-            title="Go see these too"
-            sections=${[
-              {
-                title: "The vision",
-                items: [{ text: "TODO: session + when", icon: "compass" }],
-              },
-              {
-                title: "How agents arrive",
-                items: [{ text: "TODO: session + when", icon: "path" }],
-              },
-              {
-                title: "WebMCP in depth",
-                items: [
-                  { text: "TODO: session + when", icon: "plugs-connected" },
-                ],
-              },
-            ]}
-            notes=${`
-              * TODO: how to name these? Speakers, rooms, times, or just topics.
-              * 20 sec. We're on first, so this is a pointer, not a disclaimer.
-              * TODO: your line for handing off the WebMCP deep dives.
-            `}
-          />
-          ${"" /* --- 1. WebMCP --- */}
+          ${"" /* --- 01 · Interface: WebMCP --- */}
           <${TopicSlide} chapter=${chapter(1)} />
-          ${
-            "" /* TODO: two things the accepted abstract promises that the deck currently drops.
-                  Both belong on the slide below, which is already at capacity -- adding a
-                  bullet means cutting one, so this is a real trade, not a freebie.
-                    1. "WebMCP changes the contract." The abstract's strongest framing line,
-                       and arguably a better heading than "How WebMCP works".
-                    2. "A new rising W3C standard." One line, no spec teaching -- and it is
-                       the natural setup for pointing at the two deep-dive sessions. */
-          }
           <${MarkdownSlideSet} ...${mdSlideProps(1)}>
             ${`
+              ---
+              # How agents use your app today
+
+              * **Scrape** the HTML and hope the DOM hasn't moved
+              * Drive **Playwright** through a UI built for a mouse
+              * Re-implement your auth, or ask someone to paste a cookie
+              * Break on your next redeploy
+
+              Notes: \
+                And it mostly works, which is why it's everywhere. That's the bar \
+                WebMCP has to clear: not "can an agent use this" but "can it use it \
+                without guessing". Keep this fast, it's the setup.
+
               ---
               # How WebMCP works
 
@@ -362,12 +338,12 @@
                   * Claude Desktop, over a local relay
                   * A browser extension
                   * Or code running in the page itself
-              * Most of this lands on apps that ${em("keep")} their backend
+              * A rising **W3C** standard
 
               Notes: \
                 Mental model, then move. No spec history, no standards-body slide. \
-                The "agent can be anywhere" bullet matters: it's what makes ch. 4 an \
-                architecture and not a party trick.
+                The "agent can be anywhere" bullet matters: it's what makes chapter \
+                3 an architecture and not a party trick.
             `}
           </${MarkdownSlideSet}>
           ${"" /* TODO(CODE): REVIEW ALL CODE EXAMPLES AND REVISE */}
@@ -406,111 +382,99 @@
                 agent did.
             `}
           />
+          ${
+            "" /* THE ONLY TIME THE TALK LEAVES THE BROWSER. It is here because a
+                  remote agent driving a page is exactly what is being shown, and
+                  nowhere else because every context switch is a chance to lose the
+                  room. The app runs with its title flag set vague so it reads as an
+                  ordinary internal search tool -- chapter 2 is where it turns out to
+                  have had no backend. */
+          }
           <${DemoSlide}
             chapter=${1}
-            label="Quick demo"
+            label="Live demo"
             app="Claude Desktop calls our page"
             url="nearform.github.io/vector-search-web"
             points=${[
               "Configure @mcp-b/webmcp-local-relay once.",
-              "Open any WebMCP-enabled page.",
-              "Call its tools from Claude Desktop.",
+              "Open the page, like any internal app.",
+              "Ask Claude. Watch the page answer.",
             ]}
             backup=${`Cut to the recorded clip. Do NOT debug on stage --
-              this is a 75-second cameo and the real demo is chapter 2.`}
+              the relay is the one fragile thing in the talk and this is
+              the only slide that needs it.`}
             notes=${`
-              * 75 sec. Same app as ch. 2, so there's only one thing to set up.
-              * Keep it short. Other sessions go deep on agents driving your site.
-              * ${em("First cut")} if we're running long.
+              * 90 sec. Point out the UI updating: the agent used the same code
+                path the search box does, so the human sees what the agent did.
+              * TODO: confirm the vague-title flag on the app before the talk.
+              * Don't linger. Other sessions go deep on agents driving your site.
+            `}
+          />
+          ${
+            "" /* Same tool surface, a second caller, and no tab switch. This is the
+                  hinge the whole talk turns on: Claude called these tools, in a
+                  moment a human clicks them, and in chapter 2 a model running on
+                  this machine calls the same ones. Three callers, one interface --
+                  which is the argument the seam slide draws at the end. */
+          }
+          <${DemoSlide}
+            chapter=${1}
+            label="Live demo"
+            app="...and so does this deck"
+            url="⇧⌥T  ·  ?tool=go_to_slide"
+            points=${[
+              "This deck registers its own tools.",
+              "Open the inspector and call go_to_slide.",
+              "The deck moves.",
+            ]}
+            backup=${`Nothing to fail here -- it is this page. If the inspector
+              will not open, say the tool names out loud and move on.`}
+            notes=${`
+              * 45 sec. Back in the browser, and we stay here for the rest of the talk.
+              * Same API as the last slide, on a page that isn't an app.
+              * The segue is the point: I just called those by hand. Next, something
+                else calls them for me.
             `}
           />
           <${TakeawaySlide}
             chapter=${1}
-            title=${`Part A · ${PARTS.A.title}`}
+            title="Verdict"
             items=${byChapter(1)}
-            compact=${true}
             notes=${`
-              * All three. This is the ${em("frontend")} half of the room.
-              * On 3: TODO, hand off to the session with the traffic research.
+              * This one is ${em("ready")}. Not a preview, not a proposal you should
+                wait on.
+              * This is the ${em("frontend")} half of the room's slide.
             `}
           />
-          ${"" /* --- 2. Vector search --- */}
-          ${"" /* TODO: Mention "semantic search" in here as it's in the abstract. */}
+          ${"" /* --- 02 · Runtime: AI in the browser --- */}
           <${TopicSlide} chapter=${chapter(2)} />
+          ${
+            "" /* The pivot, stated rather than sprung. The app Claude just drove had
+                  no server behind it, and saying so plainly is what turns chapter 1's
+                  demo into chapter 2's opening evidence without spending a reveal the
+                  room did not ask for. */
+          }
           <${MarkdownSlideSet} ...${mdSlideProps(2)}>
             ${`
               ---
-              # Our starting point: browser-based vector search
+              # That app had no backend
 
-              * ${em("Orama")} for the client-side vector store
+              * **Semantic search** over your own documents, with no server behind it
+              * ${em("Orama")} for the vector store: index and query both in the tab
               * A web-sized **embedding model**, quantized down
-              * Indexing and querying both happen in the tab
-              * No network roundtrips
-              * Offline capability, privacy, simplicity
+              * Nothing leaves the page. Offline, private, nothing to operate.
+              * Model download **TODO** · Index build **TODO** · Query **TODO**
 
               Notes: \
-                Orama, plus a quantized web-sized embedding model. Near-instant \
-                in-memory queries, no network roundtrips. Drawback: you have to load \
-                the data and fit it client-side.
+                This is the app from ten minutes ago. Near-instant in-memory \
+                queries, no network roundtrips at all. TODO: fill the numbers from \
+                a fresh run before the talk. The drawback is the next slide but one: \
+                you have to load the data and fit it client-side.
             `}
           </${MarkdownSlideSet}>
-          <${DemoSlide}
-            chapter=${2}
-            label="Live demo"
-            app="Browser-based vector search"
-            url="nearform.github.io/vector-search-web"
-            points=${[
-              "Build the index in the page.",
-              "Search it with no network at all.",
-              "Watch the tab, not a server log.",
-            ]}
-            backup=${`Recorded clip, then straight to the numbers slide.`}
-            notes=${`
-              * ${em("Two minutes")} of clicking, max.
-              * Show the network tab going quiet.
-              * https://nearform.com/digital-community/browser-based-vector-search-fast-private-and-no-backend-required
-            `}
-          />
-          <${RowsSlide}
-            chapter=${2}
-            title="Performance"
-            sections=${[
-              {
-                title: "Model download",
-                items: [
-                  {
-                    text: "TODO: MB, cached after first load",
-                    icon: "download",
-                  },
-                ],
-              },
-              {
-                title: "Index build",
-                items: [{ text: "TODO: ms for N documents", icon: "database" }],
-              },
-              {
-                title: "Query",
-                items: [{ text: "TODO: ms, no network", icon: "lightning" }],
-              },
-            ]}
-            notes=${`
-              * TODO: FILL IN from a fresh run of the demo.
-              * Numbers from the article's Performance section.
-            `}
-          />
-          <${TakeawaySlide}
-            chapter=${2}
-            title="Takeaway"
-            items=${byChapter(2)}
-            notes=${`
-              * This one is ${em("ready")}. Go use it.
-            `}
-          />
-          ${"" /* --- 3. Models in the browser --- */}
-          <${TopicSlide} chapter=${chapter(3)} />
           <${MatrixSlide}
-            chapter=${3}
-            title="Running a model in the browser"
+            chapter=${2}
+            title="What else runs in a tab"
             rows=${[
               {
                 icon: "browser",
@@ -540,64 +504,83 @@
             ]}
             notes=${`
               * TODO: tune these one-liners, they're my summary not yours.
-              * No demo in this chapter, so it's the cheapest 30 sec to cut.
+              * 30-40 sec, no demo. Say the article covers this properly and point
+                at the link.
+              * TODO: article title + URL.
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps(3)}>
+          ${
+            "" /* The lowlights slide. The closing line is a paragraph, not a sixth
+                  bullet, because it is the conclusion the four wrinkles add up to and
+                  the hinge into chapter 3 -- a small model with a small context is
+                  exactly the machine you fix by spending the context better. */
+          }
+          <${MarkdownSlideSet} ...${mdSlideProps(2)}>
             ${`
               ---
               # The wrinkles
 
-              * **Context**: TODO -- super small. 2023 small
-              * **Tool calling**: the model can't actually call our tools... yet.
-              * **Availability**: flags, model downloads, cold starts.
-              * TODO: MORE POINTS
+              * **Size**: we count kilobytes. This index is 13 MB and models reach gigabytes.
+              * **Context**: small, and the system prompt already spends a chunk of it
+              * **Quality**: a few years behind what you're used to
+              * **Tool calling**: not native. You prompt, parse, dispatch, repeat.
+              * **Availability**: flags, downloads, cold starts
+
+              So the scarce context has to be spent on the ${em("right")} context.
+
+              Notes: \
+                On size: the whole discipline of frontend performance is about \
+                shaving kilobytes, and web AI arrives asking for three orders of \
+                magnitude more. There is real UX work in that -- progress, caching, \
+                what you show while it downloads -- and we are only noting it here, \
+                not solving it. The closing line is the hinge into web agents.
             `}
           </${MarkdownSlideSet}>
           ${
-            "" /* TODO: Demo? — this deck IS the demo for this chapter.
-             *
-             * The sparkle button opens a chat panel running a model on this machine, with
-             * TWO swappable providers: Gemma 4 E2B on WebGPU (LiteRT-LM, a 2 GB model this
-             * page owns) and Gemini Nano (Chrome Prompt API, the browser's, invisible to
-             * us). One click switches mid-conversation.
-             *
-             * A `<${DemoSlide} chapter=${3} .../>` belongs HERE -- after the wrinkles,
-             * before the takeaway -- so the room sees the wrinkles rather than reads them:
-             *
-             *   1. Open the panel. "This deck has been able to run a model all along."
-             *   2. Ask on Gemma. It streams, on the GPU, in the page.
-             *   3. Flip the pill to Chrome. Transcript clears -- two models, two memories.
-             *   4. Ask again, and point at what changed in the CHROME, not the answer:
-             *      download row gone, delete button gone, context meter 8,192 -> 9,216.
-             *
-             * Unlike ch. 2 and ch. 4 this needs no network and no tab switch, and a
-             * provider failing on stage IS takeaway 5 -- so there is a working demo either
-             * way. Budget 60s, not the 2 min the other demos get.
-             *
-             * Undecided, and NOT free: it costs the 30s this chapter is currently the
-             * cheapest place to cut from. The plan is to pay for it by collapsing the
-             * five-row matrix above into one verdict slide, which the kill list already
-             * calls for and which has not been done yet. Full brainstorm, with the
-             * arguments against, in docs/outline.md ch. 3. */
+            "" /* No network, no tab switch, and a provider failing on stage IS the
+                  verdict on the next slide -- so this demo works either way. */
           }
-          <${TakeawaySlide}
-            chapter=${3}
-            title="Takeaway"
-            items=${byChapter(3)}
+          <${DemoSlide}
+            chapter=${2}
+            label="Live demo"
+            app="This deck has been running a model all along"
+            url="⇧⌥C"
+            points=${[
+              "A model on this machine. Nothing leaves the page.",
+              "Calling the same tools we clicked a moment ago.",
+              "Watch the context meter, not the answer.",
+            ]}
+            backup=${`Flip the provider pill: Gemma on WebGPU and Gemini Nano via
+              the Prompt API are independent. If both are down, the download row
+              and the context meter still tell the story.`}
             notes=${`
-              * Classifiers, rerankers, extractors: yes.
-                Product core: not yet.
+              * 75 sec. Point at the ${em("chrome")}, not the prose: the download row,
+                the delete button, the context meter.
+              * This is the third caller of the same tool surface: Claude, then me,
+                now a 2B model that has never left this tab.
             `}
           />
-          ${"" /* --- 4. Web agents --- */}
-          <${TopicSlide} chapter=${chapter(4)} />
-         ${"" /* TODO(SLIDE?): Alex Nahas nod. */}
-         ${"" /* TODO: Tweak this -- Keep? */}
+          <${TakeawaySlide}
+            chapter=${2}
+            title="Verdict"
+            items=${byChapter(2)}
+            notes=${`
+              * Real, and genuinely useful in narrow jobs. Not your product's core.
+              * Don't oversell and don't dismiss. Both are wrong by this time next year.
+            `}
+          />
+          ${"" /* --- 03 · Web agents --- */}
+          <${TopicSlide} chapter=${chapter(3)} />
+          ${"" /* TODO(SLIDE?): Alex Nahas nod. */}
+          ${
+            "" /* The heading carries the claim and the grid carries the shape. Both
+                  are needed: "many small agents" is the trade, and the three rows are
+                  what that costs to build. */
+          }
           <${RowsSlide}
-            chapter=${4}
+            chapter=${3}
             dense=${true}
-            title="Web agents: all in a browser tab"
+            title="Many small agents, each with a small context"
             sections=${[
               {
                 title: "Agents",
@@ -628,14 +611,15 @@
               },
             ]}
             notes=${`
-              * \`search_nearform_knowledge\` is ${em("remote")}: it's ch. 2's app, reached
-                cross-origin over the MCP-B bridge.
-              * TODO: this wants a real diagram. Inline SVG of agents, tools, and the
-                cross-origin hop.
+              * The trade is ${em("time")}. Each agent gets a narrow job and only the
+                context that job needs, makes a little progress, and hands off.
+                Slower, and better.
+              * \`search_nearform_knowledge\` is ${em("remote")}: it's chapter 2's app,
+                reached cross-origin over the MCP-B bridge.
             `}
           />
           <${DemoSlide}
-            chapter=${4}
+            chapter=${3}
             label="Live demo"
             app="Nearform research agents"
             url="nearform.github.io/web-agents"
@@ -644,69 +628,96 @@
               "Searching our vector app over the bridge.",
               "Taking and reading notes as they go.",
             ]}
-            backup=${`TODO: VIDEO BACKUP???`}
+            backup=${`TODO: RECORD A VIDEO. This is the one demo with no
+              fallback -- it is the longest, the most moving parts, and the only
+              one that can strand us.`}
             notes=${`
-              * 2 min of clicking, max. Show it working, then show it straining.
-                Don't oversell.
+              * 90 sec. Show it working, then show it straining. Don't oversell.
               * Say it out loud: this is a ${em("stress test")}, not an architecture I'd
                 recommend. WebMCP is just as good in an app with a backend.
               * Going pure frontend just shows us where the limits are.
               * https://nearform.com/digital-community/webmcp-turning-web-pages-into-tools-for-ai-agents/
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps(4)}>
+          <${MarkdownSlideSet} ...${mdSlideProps(3)}>
             ${`
               ---
               # ... but then we hit the hard parts
 
               * **Tool calling**: we prompt, parse, dispatch, repeat
-              * Browser updates break things
-              * Coordination eats context, and we do not have much
-              * Small models are challenging to get sensible results.
+              * Coordination eats the context we were trying to save
+              * Small models are hard to steer
+              * Browser updates move under us
 
               Notes: \
                 The shim is unglamorous engineering. Show it as a workaround, not a \
-                clever trick. TODO: your line for why we still shipped it anyway.
+                clever trick. TODO: your line for why we shipped it anyway.
             `}
           </${MarkdownSlideSet}>
           <${TakeawaySlide}
-            chapter=${4}
-            title="Takeaway"
-            items=${byChapter(4)}
+            chapter=${3}
+            title="Verdict"
+            items=${byChapter(3)}
             notes=${`
               * ${em("Early days")}, clear direction.
-              * A few years ago we were here with backend AI too.
+              * A few years ago we were here with backend agents too, and that
+                went somewhere.
             `}
           />
-          ${"" /* --- 5. Start building today --- */}
-          <${TopicSlide} chapter=${chapter(5)} />
-          <${TakeawaySlide}
-            chapter=${5}
-            title="The frontend-for-agents landscape"
-            items=${takeaways}
-            detail=${false}
-            columns=${2}
-            compact=${true}
+          ${
+            "" /* --- Advice, and the close ---
+             *
+             * No divider and no chapter prop from here on. These slides fall back to
+             * the deck's default green (`:root` in styles.css), which is the one
+             * accent the three chapters deliberately left unspent -- so the closing
+             * run reads as its own stretch of the talk without a fourth chapter
+             * existing in the data, the harvest, or the outline the chat is given. */
+          }
+          <${SeamSlide}
+            title="Tools are the seam"
+            points=${[
+              "Build the agent against WebMCP tools, not against a backend.",
+              "The same tool can be served by the page, a local index, or your API.",
+              "Move work in or out of the tab without rewriting the agent.",
+            ]}
+            agent="agent"
+            agentNote="Claude Desktop, an extension, or in-page"
+            boundary="WebMCP tools"
+            tools=${["search_docs", "take_notes"]}
+            caption="the boundary is what moves"
+            impls=${[
+              { name: "in-tab index", note: "private, offline, 13 MB" },
+              { name: "your API", note: "big models, big data" },
+            ]}
             notes=${`
-              * 20 sec. They've seen each of these twice. Just read them.
-              * This is the "landscape" the abstract promised, plus the runtimes table.
+              * ${em("This is how it all fits together.")} If they remember one slide,
+                this one.
+              * Everything in the talk has been one tool surface with different
+                things behind it and different things in front of it. Claude called
+                it, I called it, a 2B model called it, three agents called it.
+              * So the frontend/backend question stops being an architecture you
+                commit to and becomes a line you can move later.
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps(5)}>
+          <${MarkdownSlideSet} ...${mdSlideProps()}>
             ${`
               ---
-              # TODO: Your next steps (Monday!)
+              # Evals with the big models
 
-              1. TODO
-              2. TODO
-              3. TODO
+              * Your product ships a small model. Your **test harness** doesn't have to.
+              * Drive the real browser: **CDP** or **Playwright**
+              * Judge with a **frontier model**
+              * Record every failure as a fixture. This deck has 16.
 
               Notes: \
-                Small and concrete. Nobody rewrites an app after a talk, but anyone can \
-                register three tools in an afternoon.
+                This is the least glamorous slide in the talk and the one that makes \
+                the rest of it survivable. You cannot eyeball whether a 2B model got \
+                a tool call right; you can have a big model check, in a real browser, \
+                on every commit. Every fixture in this repo started as something that \
+                broke on me.
             `}
           </${MarkdownSlideSet}>
-          <${DeckSlide} className=${chapterClass(5)}>
+          <${DeckSlide}>
             <${SlideHeading} textAlign="left" margin="0 0 30px">
               So, what now?
             </${SlideHeading}>
@@ -714,7 +725,9 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * TODO: Callback to the cold open: one takeaway for each half of the room.
+                  * Callback to the cold open: same two cards, now with the instruction.
+                  * Both are an afternoon's work, which is the whole point. Nobody
+                    rewrites an app after a talk.
                   * TODO: your closing line on the title. Then stop and let it sit.
                 `}
               </${Markdown}>
@@ -745,25 +758,14 @@
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
-          <${MarkdownSlideSet} ...${mdSlideProps(5)}>
+          ${
+            "" /* One closing slide, not two. The deck-links slide and the thanks
+                  slide were both mostly QR code, and at 25 minutes including Q&A the
+                  last thing the room needs is to be shown the same square twice. The
+                  demo apps join the list here rather than living only in the notes. */
+          }
+          <${MarkdownSlideSet} ...${mdSlideProps()}>
             ${`
-              --- { "layout" : "columns" }
-
-              ::section
-
-              # This deck!
-
-              ${"" /* TODO: Add web-agents, vector-search-web too? */}
-              ${icon("browser")} See the deck at:
-              [ryan-roemer.github.io/the-frontend-strikes-back](https://ryan-roemer.github.io/the-frontend-strikes-back/)
-
-              ${icon("github-logo")} ...and check out the code at:
-              [ryan-roemer/the-frontend-strikes-back](https://github.com/ryan-roemer/the-frontend-strikes-back)
-
-              ::section
-
-              ${qrCodeImg}
-
               --- { "layout": "columns" }
 
               ::section
@@ -777,10 +779,17 @@
 
               ::section
 
-              ${qrCodeImg}
+              ${qrCodeImgTight}
+
+              ${icon("browser")} Slides & code:
+              [ryan-roemer.github.io/the-frontend-strikes-back](https://ryan-roemer.github.io/the-frontend-strikes-back/)
+
+              ${icon("magnifying-glass")} [nearform.github.io/vector-search-web](https://nearform.github.io/vector-search-web/)
+              ${icon("users-three")} [nearform.github.io/web-agents](https://nearform.github.io/web-agents/)
 
               Notes: \
-                Find me in the hall! Love to talk agents, the web platform, and code. Stickers and t-shirts.
+                Find me in the hall! Love to talk agents, the web platform, and code. \
+                Stickers and t-shirts. TODO: add the article link here once it is up.
             `}
           </${MarkdownSlideSet}>
         </${Deck}>

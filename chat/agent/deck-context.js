@@ -11,7 +11,7 @@
  * climbed to only 4,338 of 8,192 tokens -- half a window, and the model was already
  * answering the pile instead of the question (`chat-handoff.md` §6).
  *
- * BOUNDED BY THE DECK, not by a cap: 35 slides is a hard ceiling of 35 blocks whatever
+ * BOUNDED BY THE DECK, not by a cap: one block per slide is a hard ceiling whatever
  * anyone types, and a real talk asks about five to a dozen (~325-780 tokens). Eviction is
  * deliberately absent -- silently dropping content the model has been TOLD it was shown
  * leaves a dangling reference, which is the failure this module exists to prevent.

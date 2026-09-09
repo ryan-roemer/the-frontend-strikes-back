@@ -73,7 +73,7 @@ const EXPECTED_BYTES = 2008432640;
  *
  * 8,192 is chosen so the context meter stays meaningful, and because nothing can spend more.
  * `MAX_HISTORY_MESSAGES` caps the transcript at three exchanges and `deck-context.js` offers
- * each slide once, so the ceiling is a conversation that asks about all 35 slides: measured
+ * each slide once, so the ceiling is a conversation that asks about every slide: measured
  * at 5,239 tokens, 64% of this window. A real talk sits at 2,000-2,700.
  *
  * 16,384 IS AN OPTION, NOT A FIX. Re-measured against the live deck, it is free -- same ttft,

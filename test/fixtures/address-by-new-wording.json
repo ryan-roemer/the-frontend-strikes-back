@@ -1,55 +1,50 @@
 {
   "meta": {
-    "at": "TODO: Your next steps (Monday!)",
+    "at": "The wrinkles",
     "kind": "recorded",
     "about": "Addressing a node by the wording an edit gave it one turn earlier — the case every other reader of slide text already handled and `locate()` did not.",
-    "recorded-outcome": "\"Replace Monday with Tuesday\" worked. \"Make Tuesday yellow\" then went to the three bullets: locate() matched the raw harvest, which still said Monday, so the heading did not match at all while the phrase's own \"TODO\" matched every bullet. The refusal offered 31.2/31.3/31.4 as the candidates and the model picked 31.2, so the first bullet turned yellow and the receipt said so.",
-    "guards": "both halves of the fix. Drop `asShown` from locate() and turn 2 refuses instead of styling — reported as a receipt that no longer says `on slide 31, title`. Drop the `{ text: was }` argument describeNode now takes and turn 1's receipt reads `\"…(Tuesday!)\" → \"…(Tuesday!)\"`, a rename reported as a no-op."
+    "recorded-outcome": "\"Replace Monday with Tuesday\" worked. \"Make Tuesday yellow\" then went to the three bullets: locate() matched the raw harvest, which still said Monday, so the heading did not match at all while the phrase's own \"TODO\" matched every bullet. The refusal offered the bullets as the candidates and the model picked the first, so the first bullet turned yellow and the receipt said so.",
+    "retargeted": "recorded against the placeholder slide \"TODO: Your next steps (Monday!)\", which the re-outline folded into the closing audience cards. Now on \"The wrinkles\", whose title is renamed and then styled by its new wording. One assertion did not survive the move and is gone rather than faked: the original slide's bullets all contained the word \"TODO\", so the second turn was also ambiguous, and `!matches 3 nodes` pinned that it resolved anyway. \"Snags\" collides with nothing, so there is no ambiguity left to assert. The `asShown` half — the actual subject — is unchanged and still fails if the lookup goes to the raw harvest.",
+    "guards": "both halves of the fix. Drop `asShown` from locate() and turn 2 refuses instead of styling — the raw harvest still says \"The wrinkles\", so \"The snags\" matches nothing at all — reported as a receipt that no longer says `on slide {at}, title`. Drop the `{ text: was }` argument describeNode now takes and turn 1's receipt reads `\"The snags\" → \"The snags\"`, a rename reported as a no-op."
   },
   "turns": [
     {
-      "ask": "Replace Monday with Tuesday",
+      "ask": "Replace wrinkles with snags",
       "replies": [
-        "```tool edit_text\n{\"target\": \"TODO: Your next steps (Monday!)\", \"text\": \"TODO: Your next steps (Tuesday!)\"}\n```"
+        "```tool edit_text\n{\"target\": \"The wrinkles\", \"text\": \"The snags\"}\n```"
       ],
       "expect": {
         "calls": [
           {
             "name": "edit_text",
             "args": {
-              "target": "TODO: Your next steps (Monday!)",
-              "text": "TODO: Your next steps (Tuesday!)"
+              "target": "The wrinkles",
+              "text": "The snags"
             }
           }
         ],
-        "receipt": [
-          "— \"TODO: Your next steps (Monday!)\" → \"TODO: Your next steps (Tuesday!)\""
-        ],
+        "receipt": ["— \"The wrinkles\" → \"The snags\""],
         "slides": {
-          "{at}": ["...", "title: TODO: Your next steps (Tuesday!)", "..."]
+          "{at}": ["...", "title: The snags", "..."]
         }
       }
     },
     {
-      "ask": "Make Tuesday yellow",
+      "ask": "Make snags yellow",
       "replies": [
-        "```tool style_node\n{\"target\": \"TODO: Your next steps (Tuesday!)\", \"style\": \"color: yellow\"}\n```"
+        "```tool style_node\n{\"target\": \"The snags\", \"style\": \"color: yellow\"}\n```"
       ],
       "expect": {
         "calls": [
           {
             "name": "style_node",
             "args": {
-              "target": "TODO: Your next steps (Tuesday!)",
+              "target": "The snags",
               "style": "color: yellow"
             }
           }
         ],
-        "receipt": [
-          "color: yellow on slide {at}, title",
-          "!bullet",
-          "!matches 3 nodes"
-        ]
+        "receipt": ["color: yellow on slide {at}, title", "!bullet"]
       }
     }
   ]

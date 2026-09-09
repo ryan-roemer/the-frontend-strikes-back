@@ -202,7 +202,7 @@ await deckMcp.call("edit_text", {
 
 Replacing a phrase beats rewriting a whole node wherever the text has inline code or emphasis in it:
 a third of this deck's nodes do, and rewriting one of those can only replace its longest text run.
-All 35 slides are in the DOM at once, so editing a slide you are not looking at needs no navigation.
+Every slide is in the DOM at once, so editing a slide you are not looking at needs no navigation.
 
 Edits are live-only — they change the running deck, not the source — and `undo_edits` puts them
 back, by the last change, by slide, or all of them. A replace across many nodes counts as **one**

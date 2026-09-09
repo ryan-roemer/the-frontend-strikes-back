@@ -50,10 +50,16 @@ const tagged = (tag, lines) => [`<${tag}>`, ...lines, `</${tag}>`].join("\n");
  */
 const factsText = () =>
   tagged("deck-facts", [
-    "This is a conference talk. Its five chapters:",
-    ...chapters.map(({ n, title }) => `  ${n}. ${title}`),
+    // Counted, not typed. The deck went from five chapters and six takeaways to
+    // three and three in one afternoon, and a hardcoded number in the system
+    // prompt is a lie the model will repeat confidently to a room.
+    `This is a conference talk. Its ${chapters.length} chapters:`,
+    ...chapters.map(
+      ({ n, pillar, title }) =>
+        `  ${n}. ${title}${pillar ? ` (${pillar})` : ""}`,
+    ),
     "",
-    "The six takeaways the talk exists to land:",
+    `The ${takeaways.length} verdicts the talk exists to land:`,
     ...takeaways.map(({ n, text, detail, verdict }) => {
       const mark = verdict ? ` [${VERDICTS[verdict]?.title ?? verdict}]` : "";
       return `  ${n}. ${text}${mark}${detail ? ` -- ${detail}` : ""}`;

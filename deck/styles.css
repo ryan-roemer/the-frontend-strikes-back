@@ -569,6 +569,153 @@ body::after {
   font-size: 24px;
 }
 
+/*
+ * A verdict alone on its slide.
+ *
+ * Every chapter now closes on exactly one of these, so the card is the slide
+ * rather than the first row of a list -- bigger type, more air, and a badge
+ * scaled to match. `TakeawaySlide` centres it in the space under the heading.
+ */
+.takeaway--solo {
+  padding: 40px 44px;
+  gap: 28px;
+}
+
+#root .takeaway--solo .takeaway__badge {
+  width: 60px;
+  height: 60px;
+  font-size: 32px;
+  line-height: 56px;
+}
+
+#root .takeaway--solo .takeaway__verdict {
+  font-size: 44px;
+}
+
+/* --- The seam ------------------------------------------------------------
+ *
+ * One tool interface, two implementations, drawn in boxes so every label stays a
+ * real text node the harvest can read. See `SeamDiagram` in components.js for
+ * why that matters more than the connectors being pretty.
+ *
+ * The two connector shapes are the only interesting part:
+ *
+ *   .seam__link   a single 2px drop, agent down to the boundary bar
+ *   .seam__fork   a horizontal bar with a drop at each column centre. Built from
+ *                 two spans rather than one rule plus two ticks, so each half
+ *                 measures itself against its own column and the fork stays
+ *                 centred no matter how the impl boxes size.
+ */
+
+.seam {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 52%;
+  flex: 0 0 auto;
+}
+
+.seam__points {
+  width: 42%;
+  flex: 0 0 auto;
+}
+
+.seam__box {
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 16px 20px;
+  text-align: center;
+}
+
+#root .seam__name {
+  font-weight: 700;
+  color: #fff;
+}
+
+#root .seam__note {
+  color: var(--muted);
+}
+
+/*
+ * The boundary itself, and the only accented thing in the picture. It is what
+ * the slide is about, so it is the one element that does not read as neutral
+ * furniture.
+ */
+.seam__bar {
+  border: 2px solid var(--chapter-accent);
+  border-radius: 12px;
+  padding: 14px 20px;
+  text-align: center;
+  background: color-mix(in srgb, var(--chapter-accent) 10%, transparent);
+}
+
+#root .seam__bar-label {
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--chapter-accent);
+}
+
+#root .seam__bar-tools {
+  font-family: var(--mono);
+  color: #fff;
+}
+
+#root .seam__caption {
+  color: var(--chapter-accent);
+  text-align: center;
+}
+
+.seam__link {
+  width: 2px;
+  height: 26px;
+  margin: 0 auto;
+  background: var(--hairline);
+}
+
+.seam__fork {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 30px;
+  margin-top: 14px;
+}
+
+.seam__fork span {
+  position: relative;
+}
+
+/* Each span draws its half of the horizontal bar... */
+.seam__fork span::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  height: 2px;
+  background: var(--hairline);
+}
+
+.seam__fork span:first-child::before {
+  left: 50%;
+  right: 0;
+}
+
+.seam__fork span:last-child::before {
+  left: 0;
+  right: 50%;
+}
+
+/* ...and its own drop, down to the box below it. */
+.seam__fork span::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--hairline);
+}
+
 /* --- The two halves of the room ------------------------------------------ */
 
 .audience {
@@ -1051,8 +1198,26 @@ body::after {
 .print-mode #root .roadmap__title,
 .print-mode #root .takeaway__text,
 .print-mode #root .matrix__note,
-.print-mode #root .audience__claim {
+.print-mode #root .audience__claim,
+.print-mode #root .seam__name,
+.print-mode #root .seam__bar-tools {
   color: var(--nf-midnight-base, #000e38);
+}
+
+/*
+ * The seam on paper. `--hairline` is white at 10%, so every connector and box
+ * edge in the diagram vanishes on a white sheet -- the one slide in the deck
+ * that is nothing but lines needs its own ink.
+ */
+.print-mode .seam__box {
+  background: none;
+  border-color: rgba(0, 14, 56, 0.28);
+}
+
+.print-mode .seam__link,
+.print-mode .seam__fork span::before,
+.print-mode .seam__fork span::after {
+  background: rgba(0, 14, 56, 0.35);
 }
 
 .print-mode #root p,
@@ -1110,6 +1275,10 @@ body::after {
   #root .takeaway-grid,
   #root .takeaway__body,
   #root .matrix,
+  #root .seam,
+  #root .seam__box,
+  #root .seam__impls,
+  #root .seam__points,
   #root .card {
     height: auto;
   }
@@ -1121,6 +1290,19 @@ body::after {
 
   #root .takeaway--compact .takeaway__badge {
     height: 34px;
+  }
+
+  #root .takeaway--solo .takeaway__badge {
+    height: 60px;
+  }
+
+  /* Both connectors are fixed-height Boxes, so both swell without this. */
+  #root .seam__link {
+    height: 26px;
+  }
+
+  #root .seam__fork {
+    height: 30px;
   }
 
   #root .accent-rule {

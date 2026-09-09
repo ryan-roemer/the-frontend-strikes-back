@@ -1,14 +1,21 @@
 /**
- * Takeaway identity: the single source of truth for the talk's six claims.
+ * Takeaway identity: the single source of truth for the talk's three verdicts.
  *
- * Deliberately shaped like `chapters.js`, and for the same reason. Each takeaway
- * appears THREE times in the deck -- on the roadmap slide up front, as its own
- * chapter's closing beat, and in the recap at the end -- which is exactly the
- * arrangement where three hand-typed copies drift apart and nobody notices until
- * a projector is involved. Edit the claim here and all three move together.
+ * Deliberately shaped like `chapters.js`, and for the same reason.
  *
- * The talk is built so every slide lands one of these; a slide that lands none
- * is a slide to cut.
+ * This used to be six claims, each rendered three times -- on a roadmap slide up
+ * front, at its chapter's close, and again in a recap at the end. In a 25-minute
+ * slot that arrangement spent about four slides restating things nobody had
+ * forgotten, so the roadmap and the recap are gone. What is left is one verdict
+ * per chapter, shown once, where the chapter has just earned it.
+ *
+ * The file name and the `takeaways` export stay as they are. `verdicts` reads
+ * better now, but the name is referenced from `chat/agent/prompt.js`,
+ * `chat/harvest/` and the provenance pointers, and this was a content revision
+ * rather than a rename.
+ *
+ * The talk is built so every chapter lands one of these; a chapter that lands
+ * none is a chapter to cut.
  */
 
 /**
@@ -29,7 +36,8 @@
  * They take `--chapter-accent` instead of a color of their own. Nearform's palette
  * has no amber, and inventing one for a single warning icon would put a hue in the
  * deck the brand does not have. The confidence progression is already carried by
- * the chapter accents (green -> darkGreen -> purple, see `chapters.js`).
+ * the chapter accents (darkGreen -> purple, see `chapters.js`; chapter 1 sits
+ * outside that gradient in blue, and takes `ready` on its own).
  */
 export const VERDICTS = {
   ready: { icon: "check-circle", title: "Ready to use" },
@@ -38,120 +46,81 @@ export const VERDICTS = {
 };
 
 /**
- * The two halves of the talk -- which are the two halves of its title.
- *
- * "WebMCP and The Agent-Ready Browser" is already a pair joined by "and", so the
- * 3/3 split of the takeaways maps straight onto it and the roadmap slide reads as
- * the accepted title expanded into six claims.
- *
- * Earlier drafts named these as transformations ("your app becomes callable" /
- * "the browser becomes the runtime"). Accurate, but abstract, and they sat at a
- * different altitude from the plain-noun chapter dividers.
- */
-export const PARTS = {
-  A: { key: "A", title: "WebMCP", icon: "plugs-connected" },
-  B: { key: "B", title: "The agent-ready browser", icon: "browser" },
-};
-
-/**
- * The six.
+ * The three.
  *
  * `text` and `detail` render as plain text, NOT markdown -- they go straight into
  * a Spectacle `Text`. Markdown here shows up literally, asterisks and all.
  *
- *   text    -- the claim, short enough to be a tile on the roadmap slide
- *   detail  -- the evidence or the caveat; dropped on dense slides
+ *   text    -- the verdict, short enough to read from the back of the room
+ *   detail  -- the evidence or the caveat that keeps the verdict honest
  *   chapter -- where this one is earned, and therefore which accent it takes
- *   verdict -- a key into VERDICTS, for the three that are assessments rather
- *              than instructions
+ *   verdict -- a key into VERDICTS
+ *
+ * Every one of them now carries a `verdict`, which the six did not. That is the
+ * point of the shape: each chapter ends by saying how far along its subject
+ * actually is, and the three answers are different.
  */
 export const takeaways = [
   {
     n: 1,
-    part: "A",
     chapter: 1,
-    text: "You can add WebMCP today",
-    detail: "Declarative or functional. It's a function you already have.",
+    verdict: "ready",
+    text: "WebMCP is ready",
+    detail: "If you ship a web app, you can be agent-ready in an afternoon.",
   },
   {
     n: 2,
-    part: "A",
-    chapter: 1,
-    text: "Agent-enable the apps you already have",
-    detail: "TODO: DETAIL",
+    chapter: 2,
+    verdict: "constrained",
+    text: "In-browser AI is real, but constrained",
+    detail: "Classifiers, rerankers, extractors: yes. Product core: not yet.",
   },
   {
     n: 3,
-    part: "A",
-    chapter: 1,
-    text: "TODO: REMOVE",
-    detail: "TODO: REMOVE",
-  },
-  {
-    n: 4,
-    part: "B",
-    chapter: 2,
-    verdict: "ready",
-    text: "Vector search in the browser works really well",
-    detail: "Fast, private, no backend required.",
-  },
-  {
-    n: 5,
-    part: "B",
     chapter: 3,
-    verdict: "constrained",
-    text: "On-device models: powerful but constrained",
-    detail: "Starting to become usable.",
-  },
-  {
-    n: 6,
-    part: "B",
-    chapter: 4,
     verdict: "early",
-    text: "A full agent workflow runs in a browser tab",
-    detail: "Can even get full agents going.",
+    text: "Web agents are early",
+    detail: "We were here with backend agents not long ago.",
   },
 ];
 
 /**
  * The two halves of the room, and what each should leave repeating.
  *
- * This is where the six roll up. The talk is aimed at two audiences sitting in
- * the same room -- people who build AI systems and never think about the
- * frontend, and people who build frontends and never think about agents -- and
- * each gets exactly one instruction.
+ * These are the talk's two pillars stated as people rather than as topics: the
+ * browser as an agent INTERFACE is what the frontend half is being told about,
+ * and the browser as an agent RUNTIME is what the AI half is. The same pair
+ * names the chapters (`chapters.js` -> `pillar`), so the cold-open card and the
+ * divider it points at say the same thing.
  *
- * `rollUp` names the takeaways that earn each instruction, so the closing slide
+ * `rollUp` names the verdicts that earn each instruction, so the closing slide
  * can be checked against the evidence rather than asserted.
  *
- * ORDER MATTERS: frontends first, because their takeaways (1-3, Part A / WebMCP)
- * come first in the talk. Both the cold-open seed slide and the closing payoff
- * render this array as-is, so the cards always follow the running order.
+ * ORDER MATTERS: frontends first, because chapter 1 is theirs. Both the cold-open
+ * seed slide and the closing payoff render this array as-is, so the cards always
+ * follow the running order.
  */
 export const AUDIENCES = [
   {
     key: "frontend",
     icon: "browser",
     who: "If you build frontends",
-    claim: "Agents are increasingly users of your browser apps.",
-    action: "Register a few tools and see what happens.",
-    rollUp: [1, 2, 3],
+    claim: "Agents are increasingly your users.",
+    action: "Register three tools on the thing you already ship.",
+    rollUp: [1],
   },
   {
     key: "ai",
     icon: "brain",
     who: "If you build AI systems",
-    claim: "Agents (or parts) can run in your browser apps.",
-    action: "Ask which parts of your stack could move to the browser.",
-    rollUp: [4, 5, 6],
+    claim: "A lot of the agent now fits in a tab.",
+    action: "Move one piece into the tab: the index, a reranker, an extractor.",
+    rollUp: [2, 3],
   },
 ];
 
-/** One takeaway by its number, for `takeaway(4)` lookups in the deck. */
+/** One takeaway by its number, for `takeaway(2)` lookups in the deck. */
 export const takeaway = (n) => takeaways.find((t) => t.n === n);
-
-/** Every takeaway in one half of the talk, e.g. `byPart("A")`. */
-export const byPart = (part) => takeaways.filter((t) => t.part === part);
 
 /**
  * Every takeaway a chapter is responsible for.

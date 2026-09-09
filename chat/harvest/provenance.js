@@ -6,7 +6,7 @@
  * source:
  *
  *   interpolation         `The frontend is ${em("back")}.` renders as one run
- *   runtime composition   "Part A · WebMCP" is built from `PARTS`
+ *   runtime composition   "01 · Interface" is built from `chapters.js`
  *   structural flattening `<br />` and nested lists join text the source keeps apart
  *
  * No amount of searching beats those, so this emits a TIER and names it. The consumer is a
@@ -23,7 +23,7 @@
  * nothing.
  */
 import { chapters } from "../../deck/chapters.js";
-import { AUDIENCES, PARTS, VERDICTS, takeaways } from "../../deck/takeaways.js";
+import { AUDIENCES, VERDICTS, takeaways } from "../../deck/takeaways.js";
 
 /**
  * Shorter than this and a string match means nothing.
@@ -55,17 +55,15 @@ const dataPointers = () => {
     add(text, `deck/takeaways.js -> takeaways[${i}].text`);
     add(detail, `deck/takeaways.js -> takeaways[${i}].detail`);
   });
-  chapters.forEach(({ title }, i) => {
+  chapters.forEach(({ pillar, title }, i) => {
     add(title, `deck/chapters.js -> chapters[${i}].title`);
+    add(pillar, `deck/chapters.js -> chapters[${i}].pillar`);
   });
   AUDIENCES.forEach(({ who, claim, action }, i) => {
     add(who, `deck/takeaways.js -> AUDIENCES[${i}].who`);
     add(claim, `deck/takeaways.js -> AUDIENCES[${i}].claim`);
     add(action, `deck/takeaways.js -> AUDIENCES[${i}].action`);
   });
-  for (const [key, { title }] of Object.entries(PARTS)) {
-    add(title, `deck/takeaways.js -> PARTS.${key}.title`);
-  }
   for (const [key, { title }] of Object.entries(VERDICTS)) {
     add(title, `deck/takeaways.js -> VERDICTS.${key}.title`);
   }
@@ -202,10 +200,10 @@ export const provenanceOf = async (node, slide) => {
 
   const run = longestRun(node.text, html);
   if (run.length < MIN_SEARCHABLE) {
-    // Genuinely composed at runtime -- "Part A - WebMCP" is assembled from
-    // `PARTS` and is not a string anywhere. The slide number and the role are
-    // the whole answer, and saying so is better than shipping a search key that
-    // sends the reader to the wrong file.
+    // Genuinely composed at runtime -- a divider's "01 · Interface" is assembled
+    // from `chapters.js` and is not a string anywhere. The slide number and the
+    // role are the whole answer, and saying so is better than shipping a search
+    // key that sends the reader to the wrong file.
     return { ...base, match: "not-found", count: 0, search: null };
   }
   return {

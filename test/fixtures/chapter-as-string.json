@@ -4,29 +4,30 @@
       "chapter": 1
     },
     "anchors": {
-      "ch4": {
-        "chapter": 4
+      "webAgents": {
+        "chapter": 3
       }
     },
     "kind": "recorded",
     "about": "`chapter` arriving as a string. Pins the coercion `go_to_slide` already does, because nothing else states that the deck accepts it.",
-    "recorded-outcome": "not a failure — it worked. Asked to jump to the chapter about web agents, Gemma emitted go_to_slide({\"chapter\": \"4\"}) against a schema declaring `chapter` an integer, and landed on 24. It survives on `Number(chapter)` alone, with no test anywhere saying that is deliberate; a tidy-up to `s.chapter === chapter` would look correct and break it silently.",
-    "guards": "drop the `Number()` in go_to_slide's chapter branch and the strict compare finds nothing, turning this into `There is no chapter 4.` — a refusal, and a deck that never moves."
+    "recorded-outcome": "not a failure — it worked. Asked to jump to the chapter about web agents, Gemma emitted go_to_slide({\"chapter\": \"4\"}) against a schema declaring `chapter` an integer, and landed on the divider. It survives on `Number(chapter)` alone, with no test anywhere saying that is deliberate; a tidy-up to `s.chapter === chapter` would look correct and break it silently.",
+    "retargeted": "web agents was chapter 4 when this was recorded, and is chapter 3 since the deck went from five chapters to three. The string is now \"3\" and the anchor is named rather than numbered, so the next reshuffle moves one line instead of four. What is under test is unchanged: a quoted integer reaching a schema that declares an integer.",
+    "guards": "drop the `Number()` in go_to_slide's chapter branch and the strict compare finds nothing, turning this into `There is no chapter 3.` — a refusal, and a deck that never moves."
   },
   "turns": [
     {
       "ask": "jump to the chapter about web agents",
-      "replies": ["```tool go_to_slide\n{\"chapter\": \"4\"}\n```"],
+      "replies": ["```tool go_to_slide\n{\"chapter\": \"3\"}\n```"],
       "expect": {
         "calls": [
           {
             "name": "go_to_slide",
             "args": {
-              "chapter": "4"
+              "chapter": "3"
             }
           }
         ],
-        "receipt": ["slide {ch4} of {total}"]
+        "receipt": ["slide {webAgents} of {total}"]
       }
     }
   ]

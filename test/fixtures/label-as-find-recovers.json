@@ -1,7 +1,7 @@
 {
   "meta": {
     "at": {
-      "text": "MORE POINTS",
+      "text": "redeploy",
       "nodes": {
         "bullet": 4
       }
@@ -9,11 +9,12 @@
     "kind": "recorded",
     "about": "A `find` that names a node instead of quoting one. The refusal says which argument the phrase belongs in, and the model takes the advice on a second reply.",
     "recorded-outcome": "asked to delete the MORE POINTS bullet, Gemma emitted edit_text({\"find\": \"bullet 4\", \"text\": \"\"}) — the label off the slide readout `22.5 bullet 4: TODO: MORE POINTS`, put where wording goes. `Nothing in range contains \"bullet 4\".` named no alternative and carried no `retry`, so the turn ended there.",
+    "retargeted": "the `TODO: MORE POINTS` bullet it was recorded against was a placeholder, and the re-outline replaced it with real copy. Moved to the fourth bullet of \"How agents use your app today\", which is the same shape: a four-bullet markdown slide where `bullet 4` is a label the readout prints and not a phrase the slide contains. The ask names the bullet by a word in it, exactly as before.",
     "guards": "two replies for one ask. Drop the `resolveTarget(needle)` branch from edit_text's failure path, or its `retry: true`, and this turn consumes one reply — reported as an unused reply AND as one call where two were expected."
   },
   "turns": [
     {
-      "ask": "delete the MORE POINTS bullet",
+      "ask": "delete the redeploy bullet",
       "replies": [
         "```tool edit_text\n{\"find\": \"bullet 4\", \"text\": \"\"}\n```",
         "```tool style_node\n{\"target\": \"bullet 4\", \"style\": \"display: none\"}\n```"

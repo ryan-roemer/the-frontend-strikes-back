@@ -20,52 +20,49 @@ const ACCENTS = {
 };
 
 /**
- * The five chapters, and why they are these colors.
+ * The three chapters, and why they are these colors.
  *
- * The palette has four accents for five chapters, so one has to repeat. Rather
- * than pick the repeat arbitrarily, the assignment carries the talk's argument:
+ * `pillar` is what the divider's eyebrow reads -- "01 · Interface" -- and `title`
+ * is the heading under it. The talk has two pillars, interface and runtime, and
+ * a third chapter where they meet; naming the pillar on the divider is what
+ * keeps a section from reading as one more topic in a list.
  *
- *   1  blue        WebMCP. Held outside the sequence below, because it is the
+ * The color assignment carries the argument:
+ *
+ *   1  blue        WebMCP. Held outside the gradient below, because it is the
  *                  interface chapter rather than a claim about what works.
- *   2  green       The confidence gradient. Vector search is ready, in-browser
- *   3  darkGreen   models are the same green dimmed, and a full agent workflow
- *   4  purple      is further out still.
- *   5  green       Returns to the go-color, because the chapter is "go do this."
+ *   2  darkGreen   The confidence gradient: in-browser AI works with limits,
+ *   3  purple      and a full agent workflow is further out still.
  *
- * So the repeat is green, and it lands where a callback is the point. Changing
- * one of these breaks a claim the slides make out loud -- see the verdict marks
- * in `takeaways.js`, which read `--chapter-accent` straight off the slide.
+ * Green is deliberately unspent. It stays the deck default (see `:root` in
+ * styles.css), which is what gives the advice and closing slides -- the ones
+ * that pass no chapter at all -- their own color without any data behind them.
+ *
+ * Changing one of these breaks a claim the slides make out loud -- see the
+ * verdict marks in `takeaways.js`, which read `--chapter-accent` straight off
+ * the slide.
  */
 export const chapters = [
   {
     n: 1,
+    pillar: "Interface",
     title: "WebMCP",
     accent: ACCENTS.blue,
     background: backgrounds.networkCables,
   },
   {
     n: 2,
-    title: "Vector search",
-    accent: ACCENTS.green,
-    background: backgrounds.bookStacks,
-  },
-  {
-    n: 3,
-    title: "Models in the browser",
+    pillar: "Runtime",
+    title: "AI in the browser",
     accent: ACCENTS.darkGreen,
     background: backgrounds.oldComputer,
   },
   {
-    n: 4,
-    title: "Web agents",
+    n: 3,
+    pillar: "Web agents",
+    title: "Trading time for limits",
     accent: ACCENTS.purple,
     background: backgrounds.postits,
-  },
-  {
-    n: 5,
-    title: "Start building today",
-    accent: ACCENTS.green,
-    background: backgrounds.mopop,
   },
 ];
 

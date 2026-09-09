@@ -1,50 +1,52 @@
 {
   "meta": {
     "at": {
+      "text": "hard parts",
       "nodes": {
-        "takeaway": 6
+        "bullet": 4
       }
     },
     "kind": "recorded",
     "about": "A target naming SEVERAL positions of one role styles all of them. Asserted on the receipt, because a style changes no wording and the call is identical either way.",
     "recorded-outcome": "asked to make the takeaways yellow and bold, Gemma emitted style_node({\"target\": \"takeaway 1, takeaway 2, takeaway 3, takeaway 4, takeaway 5, takeaway 6\", ...}). `byOrdinal` read the first number in the phrase and nothing else, so ONE takeaway went yellow and the receipt reported success. Acting on a sixth of what was named, and saying it worked.",
-    "guards": "the receipt line. Revert `byOrdinal` to `words.match(/\\b(\\d{1,2})\\b/)` and the call is byte-identical — only the receipt changes, to \"color: yellow; font-weight: bold on slide 6, takeaway 1 — ...\". A fixture asserting on `calls` alone could not fail here, which is why `expect.receipt` exists."
+    "retargeted": "recorded on the six-takeaway recap slide, which the re-outline cut — the six takeaways are three verdicts now, one per chapter, so no slide anywhere carries more than one. Moved to the four bullets of \"... but then we hit the hard parts\". `byOrdinal` does not care which role it is counting, so the bug and its fix are the same; only the count changed, six to four.",
+    "guards": "the receipt line. Revert `byOrdinal` to `words.match(/\\b(\\d{1,2})\\b/)` and the call is byte-identical — only the receipt changes, to \"color: yellow; font-weight: bold on slide {at}, bullet 1 — ...\". A fixture asserting on `calls` alone could not fail here, which is why `expect.receipt` exists."
   },
   "turns": [
     {
-      "ask": "make the takeaways yellow and bold",
+      "ask": "make the bullets yellow and bold",
       "replies": [
-        "```tool style_node\n{\"target\": \"takeaway 1, takeaway 2, takeaway 3, takeaway 4, takeaway 5, takeaway 6\", \"style\": \"color: yellow; font-weight: bold\"}\n```"
+        "```tool style_node\n{\"target\": \"bullet 1, bullet 2, bullet 3, bullet 4\", \"style\": \"color: yellow; font-weight: bold\"}\n```"
       ],
       "expect": {
         "calls": [
           {
             "name": "style_node",
             "args": {
-              "target": "takeaway 1, takeaway 2, takeaway 3, takeaway 4, takeaway 5, takeaway 6",
+              "target": "bullet 1, bullet 2, bullet 3, bullet 4",
               "style": "color: yellow; font-weight: bold"
             }
           }
         ],
-        "receipt": ["color: yellow; font-weight: bold on 6 nodes"]
+        "receipt": ["color: yellow; font-weight: bold on 4 nodes"]
       }
     },
     {
-      "ask": "now just make takeaway 2 red",
+      "ask": "now just make bullet 2 red",
       "replies": [
-        "```tool style_node\n{\"target\": \"takeaway 2\", \"style\": \"color: red\"}\n```"
+        "```tool style_node\n{\"target\": \"bullet 2\", \"style\": \"color: red\"}\n```"
       ],
       "expect": {
         "calls": [
           {
             "name": "style_node",
             "args": {
-              "target": "takeaway 2",
+              "target": "bullet 2",
               "style": "color: red"
             }
           }
         ],
-        "receipt": ["color: red on slide {at}, takeaway 2"]
+        "receipt": ["color: red on slide {at}, bullet 2"]
       }
     }
   ]

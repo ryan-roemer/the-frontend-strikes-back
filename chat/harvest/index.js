@@ -14,7 +14,7 @@
  */
 import { DeckContext, Slide } from "spectacle";
 import { chapters } from "../../deck/chapters.js";
-import { AUDIENCES, PARTS, VERDICTS, takeaways } from "../../deck/takeaways.js";
+import { AUDIENCES, VERDICTS, takeaways } from "../../deck/takeaways.js";
 import { findAll, rootFiber } from "./fiber.js";
 import { serializeSlide } from "./serialize.js";
 import { elementOf, normalize } from "./nodes.js";
@@ -329,12 +329,13 @@ export const harvestDeck = () => {
 
   return {
     meta: deckMeta(slides.length, fromFiber ? "fiber" : "dom-fallback"),
-    parts: Object.values(PARTS).map(({ key, title }) => ({ key, title })),
-    chapters: chapters.map(({ n, title }) => ({ n, title })),
+    // `pillar` is what the divider actually says ("01 · Interface"), so it goes
+    // out alongside the title -- an outline that only carried titles would leave
+    // the reader unable to match a slide to the section they saw on screen.
+    chapters: chapters.map(({ n, pillar, title }) => ({ n, pillar, title })),
     takeaways: takeaways.map(
-      ({ n, part, chapter, text: claim, detail, verdict }) => ({
+      ({ n, chapter, text: claim, detail, verdict }) => ({
         n,
-        part,
         chapter,
         text: claim,
         detail,
@@ -368,12 +369,9 @@ const frontMatter = (meta) =>
  * modules rather than from a rendering of them.
  */
 const facts = (deck) => {
-  const lines = ["## Deck facts", "", "### Halves", ""];
-  for (const { key, title } of deck.parts)
-    lines.push(`* **${key}** — ${title}`);
-
-  lines.push("", "### Chapters", "");
-  for (const { n, title } of deck.chapters) lines.push(`${n}. ${title}`);
+  const lines = ["## Deck facts", "", "### Chapters", ""];
+  for (const { n, pillar, title } of deck.chapters)
+    lines.push(`${n}. ${title}${pillar ? ` *(${pillar})*` : ""}`);
 
   lines.push("", "### Takeaways", "");
   for (const { n, chapter, text: claim, detail, verdict } of deck.takeaways) {

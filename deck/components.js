@@ -162,7 +162,12 @@ export const mdSlideProps = (chapter) => ({
   ...animateListItems,
   componentProps: { textAlign: "left" },
   componentMap: MARKDOWN_COMPONENTS,
-  className: `slide md ${chapterClass(chapter)}`,
+  // No chapter is a real case, not a mistake: the advice and closing slides sit
+  // outside the three chapters and take the deck's default green. Omitting the
+  // class is what lets them, where a `ch-undefined` would just be dead markup.
+  className: ["slide md", chapter ? chapterClass(chapter) : null]
+    .filter(Boolean)
+    .join(" "),
 });
 
 /**
@@ -511,10 +516,18 @@ export const JsSlide = ({
  *
  * Left-aligned against a scrimmed photo, with the chapter number ghosted in
  * behind the title so the section reads as an arrival rather than another
- * slide. `EPISODE NN` is the nod the deck's title has earned.
+ * slide.
+ *
+ * The eyebrow is `NN · <pillar>`, not the chapter title again. The talk is built
+ * on two pillars -- the browser as an agent interface and as an agent runtime --
+ * and naming the pillar here is what stops a divider from reading as one more
+ * topic in a list. It falls back to the title for a chapter that declares no
+ * pillar. (This line used to read `EPISODE NN`, a nod to the deck's own title;
+ * it went because the numeral is already ghosted in behind the heading and the
+ * pillar is the thing the room actually needs.)
  */
 export const TopicSlide = ({ chapter, fontSize = "88px", ...rest }) => {
-  const { n, title, background } = chapter;
+  const { n, pillar, title, background } = chapter;
 
   return html`
     <${DeckSlide}
@@ -526,7 +539,7 @@ export const TopicSlide = ({ chapter, fontSize = "88px", ...rest }) => {
         <${Box} className="divider__numeral" aria-hidden="true">
           ${chapterNumber(n)}
         <//>
-        <${Eyebrow}>Episode ${chapterNumber(n)}</${Eyebrow}>
+        <${Eyebrow}>${chapterNumber(n)} · ${pillar ?? title}</${Eyebrow}>
         <${SlideHeading}
           className="divider__title"
           fixed=${true}
@@ -664,7 +677,7 @@ export const RowsSlide = ({
 };
 
 /**
- * One of the six takeaways.
+ * One of the three verdicts.
  *
  * The number is a plain digit inside a circle drawn in CSS, not a dingbat
  * (U+279A-279F, the ➊-➏ the outline drafts in). Inter has no coverage there, so
@@ -673,12 +686,18 @@ export const RowsSlide = ({
  * could not.
  *
  * `detail` is a prop rather than a property of the takeaway so the same data can
- * be a dense tile on the roadmap slide and a full callout at a chapter's close.
+ * be a dense tile and a full callout without a second copy of the text.
+ *
+ * `solo` is the treatment used by every verdict slide in the deck as it now
+ * stands: one card, alone, sized to be the whole slide rather than the first row
+ * of a list. It is a class rather than a size prop because what changes is the
+ * badge, the two type sizes and the padding together, and CSS says that once.
  */
 export const TakeawayCard = ({
   takeaway,
   detail = true,
   compact = false,
+  solo = false,
   className = "",
 }) => {
   const { n, text, detail: detailText, verdict } = takeaway;
@@ -686,7 +705,7 @@ export const TakeawayCard = ({
 
   return html`
     <${FlexBox}
-      className=${`card takeaway ${compact ? "takeaway--compact" : ""} ${className}`
+      className=${`card takeaway ${compact ? "takeaway--compact" : ""} ${solo ? "takeaway--solo" : ""} ${className}`
         .replace(/\s+/g, " ")
         .trim()}
       alignItems="start"
@@ -694,12 +713,12 @@ export const TakeawayCard = ({
     >
       <${Box} className="takeaway__badge">${n}<//>
       <${Box} className="takeaway__body">
-        <${Text} className="takeaway__text" fontSize=${compact ? "22px" : "30px"} margin="0px">
+        <${Text} className="takeaway__text" fontSize=${compact ? "22px" : solo ? "44px" : "30px"} margin="0px">
           ${text}
         </${Text}>
         ${
           detail && detailText
-            ? html`<${Text} className="takeaway__detail" fontSize=${compact ? "20px" : "24px"} margin="8px 0 0">
+            ? html`<${Text} className="takeaway__detail" fontSize=${compact ? "20px" : solo ? "30px" : "24px"} margin=${solo ? "16px 0 0" : "8px 0 0"}>
                 ${detailText}
               </${Text}>`
             : null
@@ -721,15 +740,17 @@ export const TakeawayCard = ({
 /**
  * A column (or grid) of takeaway cards.
  *
- * `compact` is needed wherever more than three cards share a slide: the roadmap
- * and the closing recap both show all six, and at full size six cards plus their
- * part labels run off the bottom of the canvas.
+ * `compact` shrinks the cards for any slide carrying more than about three of
+ * them. Nothing in the deck does at the moment -- the roadmap and the recap that
+ * needed it are gone -- but the prop stays because the closing audience slides
+ * still roll several claims together and a future summary slide is one line away.
  */
 export const TakeawayList = ({
   items = [],
   detail = true,
   columns = 1,
   compact = false,
+  solo = false,
 }) => html`
   <${Grid}
     className="takeaway-grid"
@@ -743,16 +764,23 @@ export const TakeawayList = ({
           takeaway=${item}
           detail=${detail}
           compact=${compact}
+          solo=${solo}
         />`,
     )}
   </${Grid}>
 `;
 
 /**
- * A chapter's closing beat.
+ * A chapter's closing beat: the verdict it just earned.
  *
  * Built from `byChapter(n)` at the call site rather than from hand-written copy,
- * so a takeaway cannot be declared in `takeaways.js` and then never land.
+ * so a verdict cannot be declared in `takeaways.js` and then never land.
+ *
+ * A single item gets the `solo` treatment and is CENTRED IN THE REMAINING SPACE
+ * rather than stacked under the heading. Without that, one card renders as a
+ * short strip glued below the title with 400px of empty slide beneath it -- the
+ * layout reads as a list that lost its other rows, which is precisely the
+ * impression a verdict slide must not give.
  */
 export const TakeawaySlide = ({
   chapter,
@@ -762,18 +790,36 @@ export const TakeawaySlide = ({
   columns = 1,
   compact = false,
   notes,
-}) => html`
-  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
-    <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
-    <${TakeawayList}
-      items=${items}
-      detail=${detail}
-      columns=${columns}
-      compact=${compact}
-    />
-    <${MdNotes} notes=${notes} />
-  </${DeckSlide}>
-`;
+}) => {
+  const solo = items.length === 1 && !compact;
+
+  const list = html`<${TakeawayList}
+    items=${items}
+    detail=${detail}
+    columns=${columns}
+    compact=${compact}
+    solo=${solo}
+  />`;
+
+  return html`
+    <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
+      <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
+      ${
+        solo
+          ? html`<${FlexBox}
+              flex="1"
+              minHeight="0"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <${Box} width="100%">${list}<//>
+            <//>`
+          : list
+      }
+      <${MdNotes} notes=${notes} />
+    </${DeckSlide}>
+  `;
+};
 
 /**
  * The two halves of the room, side by side.
@@ -848,6 +894,120 @@ export const MatrixSlide = ({ chapter, title, rows = [], notes }) => html`
         `,
       )}
     </${Grid}>
+    <${MdNotes} notes=${notes} />
+  </${DeckSlide}>
+`;
+
+/**
+ * The seam: one tool interface, two interchangeable implementations.
+ *
+ * This is the talk's argument in a picture -- build the agent against WebMCP
+ * tools and the tool boundary becomes the thing you move, so work can shift
+ * between the tab and a backend without the agent being rewritten.
+ *
+ * BOXES AND BORDERS, NOT AN SVG, and not only because the layout is orthogonal.
+ * Every label here is a real text node, so `chat/harvest/` can read it and the
+ * deck's own WebMCP tools can address and edit it. `<svg><text>` is invisible to
+ * the fiber walk, and this is the one slide the talk asks the room to remember;
+ * it should not also be the one slide the deck assistant cannot see. HTML also
+ * inherits `--chapter-accent`, the type scale and print mode for free, each of
+ * which an SVG would need handling for by hand.
+ *
+ * The connectors are `.seam__link` (a single drop) and `.seam__fork` (a bar with
+ * two drops), both drawn in CSS from borders -- see styles.css.
+ */
+export const SeamDiagram = ({
+  agent,
+  agentNote,
+  boundary,
+  tools = [],
+  caption,
+  impls = [],
+}) => html`
+  <${Box} className="seam">
+    <${Box} className="seam__box seam__box--agent">
+      <${Text} className="seam__name" fontSize="28px" margin="0px">${agent}</${Text}>
+      ${
+        agentNote
+          ? html`<${Text} className="seam__note" fontSize="19px" margin="6px 0 0">
+              ${agentNote}
+            </${Text}>`
+          : null
+      }
+    <//>
+
+    <${Box} className="seam__link" aria-hidden="true" />
+
+    <${Box} className="seam__bar">
+      <${Text} className="seam__bar-label" fontSize="20px" margin="0px">${boundary}</${Text}>
+      <${Text} className="seam__bar-tools" fontSize="24px" margin="4px 0 0">
+        ${tools.join("  ·  ")}
+      </${Text}>
+    <//>
+
+    ${
+      caption
+        ? html`<${Text} className="seam__caption" fontSize="19px" margin="10px 0 0">
+            ${caption}
+          </${Text}>`
+        : null
+    }
+
+    ${
+      "" /* Two spans, not two rules: each draws half the horizontal bar plus its
+            own drop, so the fork stays centred whatever the column widths do. */
+    }
+    <${Box} className="seam__fork" aria-hidden="true">
+      <span /><span />
+    <//>
+
+    <${Grid} className="seam__impls" gridTemplateColumns="1fr 1fr" gridGap="24px">
+      ${impls.map(
+        (impl, i) => html`
+          <${Box} key=${i} className="seam__box">
+            <${Text} className="seam__name" fontSize="26px" margin="0px">${impl.name}</${Text}>
+            ${
+              impl.note
+                ? html`<${Text} className="seam__note" fontSize="19px" margin="6px 0 0">
+                    ${impl.note}
+                  </${Text}>`
+                : null
+            }
+          <//>
+        `,
+      )}
+    </${Grid}>
+  <//>
+`;
+
+/**
+ * The seam slide: the claims on the left, the picture on the right.
+ *
+ * Two columns because neither half works alone at this size. The diagram without
+ * the bullets is a shape the room has to decode mid-sentence; the bullets without
+ * the diagram are three abstractions about indirection. Side by side, each one is
+ * the caption for the other.
+ */
+export const SeamSlide = ({
+  chapter,
+  title,
+  points = [],
+  notes,
+  ...diagram
+}) => html`
+  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
+    <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
+    <${FlexBox} flex="1" minHeight="0" alignItems="center" justifyContent="space-between">
+      <${Box} className="seam__points">
+        <${UnorderedList} margin="0px">
+          ${points.map(
+            (point, i) =>
+              html`<${ListItem} key=${i} fontSize="26px">${point}</${ListItem}>`,
+          )}
+        </${UnorderedList}>
+      <//>
+      <${SeamDiagram} ...${diagram} />
+    <//>
     <${MdNotes} notes=${notes} />
   </${DeckSlide}>
 `;

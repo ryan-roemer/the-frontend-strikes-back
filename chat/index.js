@@ -106,7 +106,7 @@ export const mountChat = () => {
   // reversal of what the Prompt API version did: there, warming up meant promoting
   // ON_DISK to READY so the first question streamed immediately. The same promotion
   // under LiteRT claims ~2 GB of GPU memory during page load, racing Spectacle's
-  // 35-slide portal mount and react-spring's animations -- and Safari enforces
+  // whole-deck portal mount and react-spring's animations -- and Safari enforces
   // per-tab memory limits by KILLING THE TAB rather than throwing, so the worst case
   // is not a slow deck but no deck at all, before slide 1. The engine loads in ~1.2s
   // from a warm cache, so the first question pays almost nothing for this.
