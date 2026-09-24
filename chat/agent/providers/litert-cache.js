@@ -307,6 +307,7 @@ export const getModelSource = async (
     if (!retry.ok) {
       throw new Error(
         `Could not download the model (${retry.status} ${retry.statusText}).`,
+        { cause: err },
       );
     }
     return withProgress(retry.body, totalBytes, onProgress);

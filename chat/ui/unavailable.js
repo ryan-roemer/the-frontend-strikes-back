@@ -27,14 +27,16 @@ export const Unavailable = ({ status, error }) => {
         <i className="ph-fill ph-plugs" aria-hidden="true"></i>
         ${lead}
       </p>
-      ${bullets.length
-        ? html`<ul>
-            ${bullets.map((line, i) => html`<li key=${i}>${line}</li>`)}
-          </ul>`
-        : null}
-      ${error
-        ? html`<p className="chat-unavailable__error">${error}</p>`
-        : null}
+      ${
+        bullets.length
+          ? html`<ul>
+              ${bullets.map((line, i) => html`<li key=${i}>${line}</li>`)}
+            </ul>`
+          : null
+      }
+      ${
+        error ? html`<p className="chat-unavailable__error">${error}</p>` : null
+      }
     </div>
   `;
 };

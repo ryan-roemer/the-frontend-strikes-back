@@ -243,7 +243,7 @@ export const streamAnswer = async ({
   } catch (err) {
     // CHECKED BEFORE THE ABORT CASE, because it looks exactly like one from here, and a
     // session that stopped producing tokens must not be swallowed as a user stop.
-    if (guard.timedOut()) throw new Error(IDLE_MESSAGE);
+    if (guard.timedOut()) throw new Error(IDLE_MESSAGE, { cause: err });
     // A user abort mid-stream is not an error to report; the caller keeps the
     // partial text.
     if (signal?.aborted || err.name === "AbortError") throw aborted();

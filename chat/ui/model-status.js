@@ -101,20 +101,22 @@ const InfoModal = ({ onClose }) => {
               in `providers/index.js`. */
       }
       <p className="chat-modal__note">
-        ${info?.manageNote
-          ? html`${info.manageNote.text} <code>${info.manageNote.url}</code>.`
-          : info?.canDelete
-            ? html`This deck downloaded the model, so it can delete it too.
-                <button
-                  type="button"
-                  className="chat-text-button"
-                  onClick=${onDelete}
-                  disabled=${busy}
-                >
-                  ${busy ? "deleting…" : `delete ${info.size ?? "it"}`}
-                </button>`
-            : html`The model is fetched on first use and cached in this browser.
-              Nothing is sent anywhere.`}
+        ${
+          info?.manageNote
+            ? html`${info.manageNote.text} <code>${info.manageNote.url}</code>.`
+            : info?.canDelete
+              ? html`This deck downloaded the model, so it can delete it too.
+                  <button
+                    type="button"
+                    className="chat-text-button"
+                    onClick=${onDelete}
+                    disabled=${busy}
+                  >
+                    ${busy ? "deleting…" : `delete ${info.size ?? "it"}`}
+                  </button>`
+              : html`The model is fetched on first use and cached in this
+                browser. Nothing is sent anywhere.`
+        }
       </p>
     </div>
   `;
@@ -196,42 +198,48 @@ export const ModelControls = () => {
               while downloading, and the icons after it do not move when it goes --
               they are already right-aligned as a block. */
       }
-      ${percent != null
-        ? html`<span
-            className="chat-model__progress"
-            title=${state.progressText ?? ""}
-            >${percent}%</span
-          >`
-        : null}
-      ${meta.action
-        ? html`<button
-            type="button"
-            className=${`chat-icon-button chat-model__state chat-model__state--${meta.tone}`}
-            onClick=${onPrimary}
-            title=${statusLabel}
-            aria-label=${statusLabel}
-          >
-            <i className=${`ph-fill ${meta.icon}`} aria-hidden="true"></i>
-          </button>`
-        : html`<span
-            className=${`chat-icon-button chat-model__state chat-model__state--${meta.tone}`}
-            title=${statusLabel}
-            aria-label=${statusLabel}
-            role="img"
-          >
-            <i className=${`ph-fill ${meta.icon}`} aria-hidden="true"></i>
-          </span>`}
-      ${canDiscard
-        ? html`<button
-            type="button"
-            className="chat-icon-button chat-model__trash"
-            onClick=${discard}
-            title="Discard session and conversation"
-            aria-label="Discard session and conversation"
-          >
-            <i className="ph ph-trash" aria-hidden="true"></i>
-          </button>`
-        : null}
+      ${
+        percent != null
+          ? html`<span
+              className="chat-model__progress"
+              title=${state.progressText ?? ""}
+              >${percent}%</span
+            >`
+          : null
+      }
+      ${
+        meta.action
+          ? html`<button
+              type="button"
+              className=${`chat-icon-button chat-model__state chat-model__state--${meta.tone}`}
+              onClick=${onPrimary}
+              title=${statusLabel}
+              aria-label=${statusLabel}
+            >
+              <i className=${`ph-fill ${meta.icon}`} aria-hidden="true"></i>
+            </button>`
+          : html`<span
+              className=${`chat-icon-button chat-model__state chat-model__state--${meta.tone}`}
+              title=${statusLabel}
+              aria-label=${statusLabel}
+              role="img"
+            >
+              <i className=${`ph-fill ${meta.icon}`} aria-hidden="true"></i>
+            </span>`
+      }
+      ${
+        canDiscard
+          ? html`<button
+              type="button"
+              className="chat-icon-button chat-model__trash"
+              onClick=${discard}
+              title="Discard session and conversation"
+              aria-label="Discard session and conversation"
+            >
+              <i className="ph ph-trash" aria-hidden="true"></i>
+            </button>`
+          : null
+      }
       <button
         type="button"
         className="chat-icon-button chat-model__info"
@@ -242,9 +250,11 @@ export const ModelControls = () => {
       >
         <i className="ph ph-info" aria-hidden="true"></i>
       </button>
-      ${showInfo
-        ? html`<${InfoModal} onClose=${() => setShowInfo(false)} />`
-        : null}
+      ${
+        showInfo
+          ? html`<${InfoModal} onClose=${() => setShowInfo(false)} />`
+          : null
+      }
     <//>
   `;
 };

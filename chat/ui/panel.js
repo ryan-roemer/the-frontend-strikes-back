@@ -259,15 +259,17 @@ export const Panel = ({ enabled }) => {
         <${ContextUnderline} />
       </header>
 
-      ${dead
-        ? html`<${Unavailable} status=${model.status} error=${model.error} />`
-        : html`<${Transcript}
-            entries=${entries}
-            streaming=${streaming}
-            busy=${busy}
-            error=${error}
-            empty=${html`<${EmptyState} onSend=${send} />`}
-          />`}
+      ${
+        dead
+          ? html`<${Unavailable} status=${model.status} error=${model.error} />`
+          : html`<${Transcript}
+              entries=${entries}
+              streaming=${streaming}
+              busy=${busy}
+              error=${error}
+              empty=${html`<${EmptyState} onSend=${send} />`}
+            />`
+      }
 
       <${Composer}
         onSend=${send}

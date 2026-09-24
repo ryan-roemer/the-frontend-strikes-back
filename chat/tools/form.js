@@ -64,8 +64,12 @@ export const toArgs = (fields, args) => {
 const Label = ({ field }) => html`
   <span className="chat-tools__label">
     ${field.name}
-    ${field.required &&
-    html`<span className="chat-tools__required" aria-label="required">*</span>`}
+    ${
+      field.required &&
+      html`<span className="chat-tools__required" aria-label="required"
+        >*</span
+      >`
+    }
   </span>
 `;
 
@@ -96,9 +100,11 @@ const Field = ({ field, value, onChange }) => {
           onChange=${(event) => onChange(field.name, event.target.value)}
         >
           ${!field.required && html`<option value="">(unset)</option>`}
-          ${field.required &&
-          value === "" &&
-          html`<option value="" disabled>Choose one…</option>`}
+          ${
+            field.required &&
+            value === "" &&
+            html`<option value="" disabled>Choose one…</option>`
+          }
           ${field.options.map(
             (option) =>
               html`<option key=${option} value=${option}>${option}</option>`,

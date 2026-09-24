@@ -173,6 +173,7 @@ const wasmUrl = () => {
   } catch (err) {
     throw new Error(
       `No import map entry for "@litert-lm/core" -- add it to index.html. (${err.message})`,
+      { cause: err },
     );
   }
   if (!resolved.includes("@litert-lm/core@")) {

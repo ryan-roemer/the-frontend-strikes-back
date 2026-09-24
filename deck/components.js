@@ -211,9 +211,9 @@ export const icon = (args) => {
 
 export const Icon = ({ name, fill = true, color, className, style, title }) =>
   html`<i
-    class="ph${fill ? "-fill" : ""} ph-${name}${className
-      ? ` ${className}`
-      : ""}"
+    class="ph${fill ? "-fill" : ""} ph-${name}${
+      className ? ` ${className}` : ""
+    }"
     style=${{ color, ...style }}
     title=${title}
   ></i>`;
@@ -1197,44 +1197,46 @@ export const SpectacleBadge = () => {
       >
         <${SpectacleLogo} size=${64} />
       </button>
-      ${open &&
-      createPortal(
-        html`<div
-          ref=${sheet}
-          className="chat-sheet"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Spectacle"
-          tabindex=${-1}
-          onKeyDown=${onKeyDown}
-          onMouseDown=${(event) => {
-            if (event.target === event.currentTarget) close();
-          }}
-        >
-          <div
-            className="spectacle-card"
-            style=${{ backgroundImage: `url(${images.spectacle})` }}
+      ${
+        open &&
+        createPortal(
+          html`<div
+            ref=${sheet}
+            className="chat-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Spectacle"
+            tabindex=${-1}
+            onKeyDown=${onKeyDown}
+            onMouseDown=${(event) => {
+              if (event.target === event.currentTarget) close();
+            }}
           >
-            <${Link}
-              href="https://nearform.com/open-source/spectacle"
-              target="_blank"
+            <div
+              className="spectacle-card"
+              style=${{ backgroundImage: `url(${images.spectacle})` }}
             >
-              <${SpectacleLogo} size=${280} />
-            <//>
-            <${Text} className="spectacle-card__url" margin="0px">
               <${Link}
-                href="https://nearform.com/open-source"
-                color=${SPECTACLE_ROSE}
-                textDecoration="none"
+                href="https://nearform.com/open-source/spectacle"
                 target="_blank"
               >
-                nearform.com/open-source
+                <${SpectacleLogo} size=${280} />
               <//>
-            <//>
-          </div>
-        </div>`,
-        document.body,
-      )}
+              <${Text} className="spectacle-card__url" margin="0px">
+                <${Link}
+                  href="https://nearform.com/open-source"
+                  color=${SPECTACLE_ROSE}
+                  textDecoration="none"
+                  target="_blank"
+                >
+                  nearform.com/open-source
+                <//>
+              <//>
+            </div>
+          </div>`,
+          document.body,
+        )
+      }
     <//>
   `;
 };

@@ -23,12 +23,13 @@ const Bubble = ({ role, text, stopped, prompt }) => html`
       dangerouslySetInnerHTML=${{ __html: renderMarkdown(text) }}
     ></div>
     ${stopped ? html`<span className="chat-bubble__flag">stopped</span>` : null}
-    ${prompt
-      ? html`<button
-          type="button"
-          className="chat-bubble__context"
-          ${
-            "" /* THE ANSWER RIDES ALONG WITH THE CONTEXT, added HERE rather than by either
+    ${
+      prompt
+        ? html`<button
+            type="button"
+            className="chat-bubble__context"
+            ${
+              "" /* THE ANSWER RIDES ALONG WITH THE CONTEXT, added HERE rather than by either
                   provider, because `onPrompt` fires before the first delta and there is no
                   answer yet when the capture is made. This bubble is the first place both
                   halves of a turn exist at once.
@@ -37,14 +38,15 @@ const Bubble = ({ role, text, stopped, prompt }) => html`
                   chose the wrong tool" cannot be judged from the prompt alone, and pairing
                   the two by hand from a screenshot is where that goes wrong. `stopped` too
                   -- a truncated answer pasted without it reads as a short one. */
-          }
-          onClick=${() => showContext({ ...prompt, answer: text, stopped })}
-          title="Show the context sent to the model"
-          aria-label="Show the context sent to the model"
-        >
-          <i className="ph ph-brackets-curly" aria-hidden="true"></i>
-        </button>`
-      : null}
+            }
+            onClick=${() => showContext({ ...prompt, answer: text, stopped })}
+            title="Show the context sent to the model"
+            aria-label="Show the context sent to the model"
+          >
+            <i className="ph ph-brackets-curly" aria-hidden="true"></i>
+          </button>`
+        : null
+    }
   </div>
 `;
 
@@ -84,16 +86,20 @@ export const Transcript = ({ entries, streaming, busy, error, empty }) => {
     <div className="chat-transcript">
       ${showEmpty ? empty : null}
       ${entries.map((entry, i) => html`<${Bubble} key=${i} ...${entry} />`)}
-      ${streaming
-        ? html`<${Bubble} role="assistant" text=${streaming} />`
-        : null}
+      ${
+        streaming
+          ? html`<${Bubble} role="assistant" text=${streaming} />`
+          : null
+      }
       ${busy && !streaming ? html`<${Typing} />` : null}
-      ${error
-        ? html`<div className="chat-error" role="alert">
-            <i className="ph-fill ph-warning-circle" aria-hidden="true"></i>
-            <span>${error}</span>
-          </div>`
-        : null}
+      ${
+        error
+          ? html`<div className="chat-error" role="alert">
+              <i className="ph-fill ph-warning-circle" aria-hidden="true"></i>
+              <span>${error}</span>
+            </div>`
+          : null
+      }
       <div ref=${endRef}></div>
     </div>
   `;

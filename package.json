@@ -17,13 +17,15 @@
     "format": "npm run lint && npm run pretty",
     "demo:relay": "npx @mcp-b/webmcp-local-relay@5.1.0 --port 9333",
     "demo:relay:ps": "ps -o pid,ppid,user,etime,%cpu,%mem,command -p $(lsof -ti :9333 | tr '\n' ',' | sed 's/,$//')",
-    "demo:relay:stop": "lsof -ti :9333 | xargs kill -9"
+    "demo:relay:stop": "lsof -ti :9333 | xargs kill -9",
+    "dep:check": "npx npm-check-updates"
   },
   "license": "MIT",
   "devDependencies": {
-    "eslint": "^9.30.0",
-    "eslint-config-prettier": "^10.1.5",
-    "prettier": "^3.6.2",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
     "uqr": "^0.1.3"
   }
 }

@@ -204,28 +204,30 @@ export const Composer = ({
           onKeyDown=${onKeyDown}
           aria-label="Message the deck assistant"
         ></textarea>
-        ${busy
-          ? html`<button
-              type="button"
-              className="chat-composer__button chat-composer__button--stop"
-              onClick=${onStop}
-              title="Stop generating"
-              aria-label="Stop generating"
-            >
-              <i className="ph-fill ph-stop-circle" aria-hidden="true"></i>
-            </button>`
-          : html`<button
-              type="submit"
-              className="chat-composer__button"
-              disabled=${disabled}
-              title="Send"
-              aria-label="Send"
-            >
-              <i
-                className="ph-fill ph-paper-plane-right"
-                aria-hidden="true"
-              ></i>
-            </button>`}
+        ${
+          busy
+            ? html`<button
+                type="button"
+                className="chat-composer__button chat-composer__button--stop"
+                onClick=${onStop}
+                title="Stop generating"
+                aria-label="Stop generating"
+              >
+                <i className="ph-fill ph-stop-circle" aria-hidden="true"></i>
+              </button>`
+            : html`<button
+                type="submit"
+                className="chat-composer__button"
+                disabled=${disabled}
+                title="Send"
+                aria-label="Send"
+              >
+                <i
+                  className="ph-fill ph-paper-plane-right"
+                  aria-hidden="true"
+                ></i>
+              </button>`
+        }
       </div>
     </form>
   `;

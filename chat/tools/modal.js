@@ -110,35 +110,43 @@ const ToolDetail = ({ tool }) => {
         <div className="chat-tools__doc">
           <h3 className="chat-tools__name">${tool.name}</h3>
           <p className="chat-tools__desc">${tool.description}</p>
-          ${fields.length > 0 &&
-          html`
-            <table className="chat-tools__schema">
-              <thead>
-                <tr>
-                  <th>Parameter</th>
-                  <th>Type</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${fields.map(
-                  (field) => html`
-                    <tr key=${field.name}>
-                      <td>
-                        <code>${field.name}</code>
-                        ${field.required &&
-                        html`<span className="chat-tools__required">*</span>`}
-                      </td>
-                      <td>${field.options ? "enum" : field.type}</td>
-                      <td>${summarize(field.description)}</td>
-                    </tr>
-                  `,
-                )}
-              </tbody>
-            </table>
-          `}
-          ${fields.length === 0 &&
-          html`<p className="chat-tools__none">Takes no arguments.</p>`}
+          ${
+            fields.length > 0 &&
+            html`
+              <table className="chat-tools__schema">
+                <thead>
+                  <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${fields.map(
+                    (field) => html`
+                      <tr key=${field.name}>
+                        <td>
+                          <code>${field.name}</code>
+                          ${
+                            field.required &&
+                            html`<span className="chat-tools__required"
+                              >*</span
+                            >`
+                          }
+                        </td>
+                        <td>${field.options ? "enum" : field.type}</td>
+                        <td>${summarize(field.description)}</td>
+                      </tr>
+                    `,
+                  )}
+                </tbody>
+              </table>
+            `
+          }
+          ${
+            fields.length === 0 &&
+            html`<p className="chat-tools__none">Takes no arguments.</p>`
+          }
         </div>
 
         <form className="chat-tools__form" onSubmit=${execute}>
@@ -151,10 +159,12 @@ const ToolDetail = ({ tool }) => {
             >
               ${busy ? "Executing…" : "Execute"}
             </button>
-            ${incomplete &&
-            html`<span className="chat-tools__hint"
-              >Fill the required fields.</span
-            >`}
+            ${
+              incomplete &&
+              html`<span className="chat-tools__hint"
+                >Fill the required fields.</span
+              >`
+            }
           </div>
         </form>
       </div>
@@ -162,26 +172,28 @@ const ToolDetail = ({ tool }) => {
       <div className="chat-tools__output">
         <div className="chat-tools__output-head">
           <span
-            >Result${failed &&
-            html` <span className="chat-tools__error-chip"
-              >isError</span
-            >`}</span
+            >Result${
+              failed &&
+              html` <span className="chat-tools__error-chip">isError</span>`
+            }</span
           >
-          ${result != null &&
-          html`
-            <button
-              type="button"
-              className="chat-icon-button"
-              onClick=${copy}
-              title=${copied ? "Copied" : "Copy result"}
-              aria-label=${copied ? "Copied" : "Copy result"}
-            >
-              <i
-                className=${`ph ph-${copied ? "check" : "copy"}`}
-                aria-hidden="true"
-              ></i>
-            </button>
-          `}
+          ${
+            result != null &&
+            html`
+              <button
+                type="button"
+                className="chat-icon-button"
+                onClick=${copy}
+                title=${copied ? "Copied" : "Copy result"}
+                aria-label=${copied ? "Copied" : "Copy result"}
+              >
+                <i
+                  className=${`ph ph-${copied ? "check" : "copy"}`}
+                  aria-hidden="true"
+                ></i>
+              </button>
+            `
+          }
         </div>
         ${
           "" /* The RAW MCP result, not a friendlier rendering of it. `content`
@@ -194,12 +206,13 @@ const ToolDetail = ({ tool }) => {
           ref=${output}
           className=${`chat-tools__result${failed ? " chat-tools__result--error" : ""}`}
         >
-${result == null
-            ? busy
-              ? "Running…"
-              : "Nothing yet. Execute the tool to see what an agent gets back."
-            : JSON.stringify(result, null, 2)}</pre
-        >
+${
+            result == null
+              ? busy
+                ? "Running…"
+                : "Nothing yet. Execute the tool to see what an agent gets back."
+              : JSON.stringify(result, null, 2)
+          }</pre>
       </div>
     <//>
   `;
@@ -299,8 +312,10 @@ const ToolInspector = () => {
                     telling about, because it is why the edit tools are missing
                     from the list they are looking at. */
             }
-            ${!writesEnabled() &&
-            html`<span className="chat-sheet__badge">read-only</span>`}
+            ${
+              !writesEnabled() &&
+              html`<span className="chat-sheet__badge">read-only</span>`
+            }
           </span>
           <button
             type="button"
@@ -319,13 +334,15 @@ const ToolInspector = () => {
                   in practice means paged mode -- worth a sentence rather than a
                   blank pane. */
           }
-          ${tool
-            ? html`<${ToolDetail} key=${tool.name} tool=${tool} />`
-            : html`<div className="chat-tools__pane">
-                <div className="chat-tools__doc">
-                  <p className="chat-tools__none">No tools are registered.</p>
-                </div>
-              </div>`}
+          ${
+            tool
+              ? html`<${ToolDetail} key=${tool.name} tool=${tool} />`
+              : html`<div className="chat-tools__pane">
+                  <div className="chat-tools__doc">
+                    <p className="chat-tools__none">No tools are registered.</p>
+                  </div>
+                </div>`
+          }
         </div>
       </div>
     </div>

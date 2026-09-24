@@ -186,11 +186,13 @@ const ContextModal = ({ context }) => {
             <span
               >${`${exchanges} prior ${exchanges === 1 ? "exchange" : "exchanges"}`}</span
             >
-            ${pinned.length
-              ? html`<span
-                  >${`${pinned.length} pinned ${pinned.length === 1 ? "block" : "blocks"}`}</span
-                >`
-              : null}
+            ${
+              pinned.length
+                ? html`<span
+                    >${`${pinned.length} pinned ${pinned.length === 1 ? "block" : "blocks"}`}</span
+                  >`
+                : null
+            }
             <span>${size(context)} chars</span>
           </span>
           <button
@@ -252,19 +254,21 @@ const ContextModal = ({ context }) => {
                   the reply look like one more thing that was sent. Absent when the
                   context was opened from somewhere with no answer to show. */
           }
-          ${context.answer
-            ? html`
-                <div className="chat-context__rule" role="separator">
-                  <span>replied</span>
-                </div>
-                <${Message}
-                  role="assistant"
-                  content=${context.answer}
-                  note=${context.stopped ? "stopped early" : "this answer"}
-                  live
-                />
-              `
-            : null}
+          ${
+            context.answer
+              ? html`
+                  <div className="chat-context__rule" role="separator">
+                    <span>replied</span>
+                  </div>
+                  <${Message}
+                    role="assistant"
+                    content=${context.answer}
+                    note=${context.stopped ? "stopped early" : "this answer"}
+                    live
+                  />
+                `
+              : null
+          }
         </div>
 
         ${
@@ -276,14 +280,18 @@ const ContextModal = ({ context }) => {
         <footer className="chat-context__foot">
           The runtime wraps these in the model's own turn template before
           decoding, so the final string is never a value this page can
-          read.${pinned.length
-            ? html` Deck blocks are sent the first time you ask from a slide and
-              kept for the rest of the conversation, so each slide appears at
-              most once.`
-            : null}${dropped
-            ? html` Older exchanges are dropped: this provider keeps the last
-              ${context.historyLimit / 2} and no more.`
-            : null}
+          read.${
+            pinned.length
+              ? html` Deck blocks are sent the first time you ask from a slide
+                and kept for the rest of the conversation, so each slide appears
+                at most once.`
+              : null
+          }${
+            dropped
+              ? html` Older exchanges are dropped: this provider keeps the last
+                ${context.historyLimit / 2} and no more.`
+              : null
+          }
         </footer>
       </div>
     </div>
