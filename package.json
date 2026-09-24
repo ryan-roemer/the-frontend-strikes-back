@@ -15,7 +15,9 @@
     "lint": "eslint . --fix",
     "pretty": "prettier . --write",
     "format": "npm run lint && npm run pretty",
-    "demo:relay": "npx @mcp-b/webmcp-local-relay@5.1.0 --port 9333"
+    "demo:relay": "npx @mcp-b/webmcp-local-relay@5.1.0 --port 9333",
+    "demo:relay:ps": "ps -o pid,ppid,user,etime,%cpu,%mem,command -p $(lsof -ti :9333 | tr '\n' ',' | sed 's/,$//')",
+    "demo:relay:stop": "lsof -ti :9333 | xargs kill -9"
   },
   "license": "MIT",
   "devDependencies": {
