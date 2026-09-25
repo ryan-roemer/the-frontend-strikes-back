@@ -347,7 +347,11 @@ const doLoad = async () => {
   try {
     const handle = await Promise.race([
       provider.acquire({
-        system: systemPromptFn(),
+        // Built for THIS provider: one that runs tools natively gets a prompt without the
+        // fenced-block catalog. See `systemPrompt` in `prompt.js`.
+        system: systemPromptFn({
+          nativeTools: Boolean(provider.capabilities.nativeTools),
+        }),
         signal: downloadAbort?.signal ?? null,
         onPhase: (ev) => {
           if (superseded()) return;

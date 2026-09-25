@@ -67,6 +67,32 @@ const withIdleTimeout = (signal) => {
 const aborted = () => new DOMException("Aborted", "AbortError");
 
 /**
+ * A tool the runtime calls counts as the model talking.
+ *
+ * With native tools, a turn can be a call and an empty reply: no delta ever arrives, so
+ * the two things the first delta normally does here would never happen. The idle timer
+ * would fire on a turn that is busy running a tool, and the slide pin would never commit,
+ * so the next question would send the same slide again.
+ *
+ * COMMIT BEFORE THE TOOL RUNS. An edit's `invalidate()` forgets the pin of the slide it
+ * changed, and committing after it would mark that slide as held again, with the old text.
+ * The prompted path gets this order for free, because its first delta arrives before the
+ * call is parsed.
+ */
+const acceptedBy = (guard, commit) => (tool) => ({
+  ...tool,
+  execute: async (args) => {
+    guard.arm();
+    commit();
+    try {
+      return await tool.execute(args);
+    } finally {
+      guard.arm();
+    }
+  },
+});
+
+/**
  * Say that a download started, and keep saying how it is going, in the answer bubble.
  *
  * WHAT MAKES AUTOLOADING HONEST. A question that silently begins a 2 GB fetch is a
@@ -125,6 +151,7 @@ export const streamAnswer = async ({
   onStatus,
   signal,
   onPrompt,
+  tools = null,
 }) => {
   if (!isReady()) {
     // RE-SAMPLE BEFORE REFUSING, but only where the status is not a fact. On LiteRT a
@@ -214,7 +241,17 @@ export const streamAnswer = async ({
   const guard = withIdleTimeout(signal);
   let accumulated = "";
 
-  const { pin, note, commit } = nextContext();
+  const context = nextContext();
+  const { pin, note } = context;
+  // ONCE PER TURN. A native tool turn commits when its first tool runs, and that tool may
+  // `invalidate()` the very slide it pinned; a second commit on the reply's first delta
+  // would then mark the edited slide as held again, with its old text.
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    context.commit();
+  };
 
   try {
     // The question goes verbatim; deck context rides alongside it as separate arguments
@@ -223,11 +260,15 @@ export const streamAnswer = async ({
     //
     // `onPrompt` fires only from here down: every refusal above returned before the model
     // was reached, so those turns have no context to show and their bubbles get no button.
+    //
+    // `tools` is only ever set for a provider with `capabilities.nativeTools`; the others
+    // ignore it.
     const stream = session.stream(text, {
       pin,
       note,
       signal: guard.signal,
       onPrompt,
+      tools: tools && tools.map(acceptedBy(guard, commit)),
     });
     for await (const chunk of stream) {
       if (signal?.aborted) throw aborted();

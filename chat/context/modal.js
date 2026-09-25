@@ -43,7 +43,41 @@ const ROLES = {
   user: "User",
   assistant: "Assistant",
   deck: "Deck",
+  tool: "Tool",
+  tools: "Tools",
+  receipt: "Receipt",
 };
+
+/**
+ * The tool declarations, as text.
+ *
+ * ONLY LITERT REPORTS THESE, because only there are they a separate input. The runtime
+ * receives them beside the messages and renders them into the preface with Gemma's own
+ * tool template, so the exact text the model reads is, like the rest of the prompt, not a
+ * value this page can see. What is shown is what was declared: name, description, schema.
+ * On Chrome the tools are prose inside the system prompt and already shown there.
+ */
+const toolsText = (context) =>
+  (context.tools ?? [])
+    .map(
+      ({ name, description, inputSchema }) =>
+        `${name}\n  ${description}\n  ${JSON.stringify(inputSchema)}`,
+    )
+    .join("\n\n");
+
+/**
+ * The reply of a native tool turn, split by who wrote it.
+ *
+ * The bubble shows receipts and the model's reply as one string. Here they are two
+ * things, because they are: a receipt is written by the code that made the change, and
+ * the model's own reply after a tool call is often empty. `turn` is attached by
+ * `act/respond.js` on LiteRT only; everywhere else the answer is shown whole.
+ */
+const nativeTurnOf = (context) =>
+  context.turn?.receipts?.length ? context.turn : null;
+
+const RECEIPT_NOTE = "written by the deck, not the model";
+const NO_REPLY = "(no text: the receipt above is the whole answer)";
 
 /**
  * Tolerates a capture from before the pinned region existed, and Chrome, which has no
@@ -64,13 +98,14 @@ const pinnedOf = (context) => context.pinned ?? [];
  * paste explains its own shape with no covering note.
  */
 const ANSWER_RULE =
-  "————— everything above was sent to the model; below is what it replied —————";
+  "————— everything above was sent to the model; below is what came back —————";
 
 /** Characters, not tokens. A token count would have to come from the runtime, and
  *  asking it now would answer for the context it holds NOW, not the one shown. */
 const size = (context) =>
   [
     context.system,
+    toolsText(context),
     ...pinnedOf(context).map((m) => m.content),
     ...context.history.map((m) => m.content),
     context.message,
@@ -127,6 +162,11 @@ const ContextModal = ({ context }) => {
     () =>
       [
         `[${ROLES.system}]\n${context.system}`,
+        ...(context.tools?.length
+          ? [
+              `[${ROLES.tools}] (declared to the runtime)\n${toolsText(context)}`,
+            ]
+          : []),
         ...pinnedOf(context).map((m) => `[${ROLES.deck}]\n${m.content}`),
         ...context.history.map(
           (m) => `[${ROLES[m.role] ?? m.role}]\n${m.content}`,
@@ -135,7 +175,16 @@ const ContextModal = ({ context }) => {
         ...(context.answer
           ? [
               ANSWER_RULE,
-              `[${ROLES.assistant}]${context.stopped ? " (stopped early)" : ""}\n${context.answer}`,
+              ...(nativeTurnOf(context)
+                ? [
+                    ...context.turn.receipts.map(
+                      (r) => `[${ROLES.receipt}] (${RECEIPT_NOTE})\n${r}`,
+                    ),
+                    `[${ROLES.assistant}]${context.stopped ? " (stopped early)" : ""}\n${context.turn.reply.trim() || NO_REPLY}`,
+                  ]
+                : [
+                    `[${ROLES.assistant}]${context.stopped ? " (stopped early)" : ""}\n${context.answer}`,
+                  ]),
             ]
           : []),
       ].join("\n\n"),
@@ -145,12 +194,13 @@ const ContextModal = ({ context }) => {
   const { copied, copy } = useCopy(asText, body);
 
   // History arrives as a flat message list; a person counts it in question-and-
-  // answer pairs, and so does the provider's own limit.
-  const exchanges = Math.floor(context.history.length / 2);
+  // answer pairs, and so does the provider's own limit. Counted by QUESTIONS, not
+  // halved: a native tool turn on LiteRT is four messages -- the question, the call,
+  // the tool's response, the reply -- and is still one exchange.
+  const exchanges = context.history.filter((m) => m.role === "user").length;
 
   const dropped =
-    context.historyLimit != null &&
-    context.history.length >= context.historyLimit;
+    context.historyLimit != null && exchanges >= context.historyLimit / 2;
 
   const pinned = pinnedOf(context);
 
@@ -193,6 +243,13 @@ const ContextModal = ({ context }) => {
                   >`
                 : null
             }
+            ${
+              context.tools?.length
+                ? html`<span
+                    >${`${context.tools.length} ${context.tools.length === 1 ? "tool" : "tools"}`}</span
+                  >`
+                : null
+            }
             <span>${size(context)} chars</span>
           </span>
           <button
@@ -220,6 +277,15 @@ const ContextModal = ({ context }) => {
 
         <div className="chat-context__body-scroll" ref=${body}>
           <${Message} role="system" content=${context.system} />
+          ${
+            context.tools?.length
+              ? html`<${Message}
+                  role="tools"
+                  content=${toolsText(context)}
+                  note="declared to the runtime, which renders them into the prompt"
+                />`
+              : null
+          }
           ${
             "" /* Between the preface and the turns, which is where they are in the
                   preface the provider built -- and reading order is the only cue a
@@ -260,12 +326,36 @@ const ContextModal = ({ context }) => {
                   <div className="chat-context__rule" role="separator">
                     <span>replied</span>
                   </div>
-                  <${Message}
-                    role="assistant"
-                    content=${context.answer}
-                    note=${context.stopped ? "stopped early" : "this answer"}
-                    live
-                  />
+                  ${
+                    nativeTurnOf(context)
+                      ? html`
+                          ${context.turn.receipts.map(
+                            (receipt, i) =>
+                              html`<${Message}
+                                key=${`receipt-${i}`}
+                                role="receipt"
+                                content=${receipt}
+                                note=${RECEIPT_NOTE}
+                              />`,
+                          )}
+                          <${Message}
+                            role="assistant"
+                            content=${context.turn.reply.trim() || NO_REPLY}
+                            note=${
+                              context.stopped
+                                ? "stopped early"
+                                : "the model's own reply"
+                            }
+                            live
+                          />
+                        `
+                      : html`<${Message}
+                          role="assistant"
+                          content=${context.answer}
+                          note=${context.stopped ? "stopped early" : "this answer"}
+                          live
+                        />`
+                  }
                 `
               : null
           }

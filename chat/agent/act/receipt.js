@@ -30,7 +30,7 @@
  */
 
 /** The text blocks of an MCP result, joined. The shape `examples/tool-handler.js` defines. */
-const textOf = (result) =>
+export const textOf = (result) =>
   (result?.content ?? [])
     .filter((block) => block?.type === "text" && block.text)
     .map((block) => block.text)

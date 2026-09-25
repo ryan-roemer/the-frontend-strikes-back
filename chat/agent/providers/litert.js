@@ -1,4 +1,4 @@
-import { Backend, Engine, loadLiteRtLm } from "@litert-lm/core";
+import { AutoToolChat, Backend, Engine, LiteRtLm } from "@litert-lm/core";
 import {
   cacheAvailable,
   deleteCached,
@@ -10,15 +10,32 @@ import {
 import { STATES } from "../states.js";
 
 /**
- * The model itself: wasm, WebGPU, engine, conversations. The one module that knows about
- * LiteRT-LM; everything above it is provider-shaped.
+ * Model calls allowed in one tool turn, counting the final answer.
+ *
+ * `AutoToolChat`'s `recurringToolCallLimit` counts model calls, not tool calls, and three
+ * matches the prompted path in `act/respond.js`: a call, one retry after a refusal that
+ * named what to pick, then the answer. Past that the runtime throws "Tool calling exceeded
+ * the recurring limit" -- after running the last round's tools -- and `respond.js` shows
+ * the receipts of the calls that did run instead of the error.
+ */
+const TOOL_ROUNDS = 3;
+
+/**
+ * The model itself: WebGPU, engine, conversations, and native tool calls. The one module
+ * that knows about LiteRT-LM (`@litert-lm/core`, not LiteRT.js); everything above it is
+ * provider-shaped.
  *
  * Requires only `navigator.gpu` -- no `SharedArrayBuffer`, so no COOP/COEP headers, which
  * is what usually stops wasm ML from working on a static host.
  *
- * Three things are load-bearing and easy to break by tidying, each commented where it
- * lives: `Backend.GPU_ARTISAN` is the only usable backend, `stream()` must stay an async
- * generator over an explicit reader, and generation must stay serialized.
+ * Three things are easy to break by tidying, each commented where it lives:
+ * `Backend.GPU_ARTISAN` is the only usable backend, `stream()` must stay an async generator
+ * over an explicit reader, and generation must stay serialized.
+ *
+ * TOOLS ARE NATIVE HERE, unlike on Chrome. When a turn passes `tools`, the conversation is
+ * an `AutoToolChat`: the runtime parses calls out of Gemma's own tool template, runs them
+ * between decode rounds, and feeds each result back. See `capabilities.nativeTools` and
+ * `act/native.js`.
  */
 
 /**
@@ -72,7 +89,7 @@ const EXPECTED_BYTES = 2008432640;
  *        131,072      1033ms       865ms     37 tps    59 tps
  *
  * 8,192 is chosen so the context meter stays meaningful, and because nothing can spend more.
- * `MAX_HISTORY_MESSAGES` caps the transcript at three exchanges and `deck-context.js` offers
+ * `MAX_HISTORY_TURNS` caps the transcript at three exchanges and `deck-context.js` offers
  * each slide once, so the ceiling is a conversation that asks about every slide: measured
  * at 5,239 tokens, 64% of this window. A real talk sits at 2,000-2,700.
  *
@@ -154,54 +171,50 @@ const explain = (err) => {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The wasm directory URL, DERIVED from the import map rather than pinned again.
+ * The runtime loads its own wasm now, so this module no longer does.
  *
- * `@litert-lm/core` loads its wasm separately from its JS and the two must be the same
- * version, so deriving keeps the import map as the single pin (see `docs/dependencies.md`).
+ * `Engine.create()` calls `getOrLoadGlobalLiteRtLm()`, which loads from
+ * `LiteRtLm.DEFAULT_WASM_PATH` -- and since 0.17.0 that path is written into the library
+ * at its own version (`…/@litert-lm/core@0.17.1/wasm`). The JS and the wasm therefore
+ * cannot disagree, which is what the old derivation from the import map existed to
+ * guarantee. 0.15.0 pinned the path in source too; 0.16.0 shipped with no wasm at all.
  *
- * This couples to jsDelivr's URL LAYOUT -- `+esm` and `wasm/` both sit at the package root,
- * so `./wasm` resolves. Point the import map at another CDN or a `/dist/index.mjs`-style
- * path and the derivation would silently be wrong, hence the assertion below.
+ * It still loads after the model download and not before, because `Engine.create()` is
+ * the first thing that needs it -- so a download the presenter cancels does not also pay
+ * for 19-31 MiB of wasm.
  */
-let wasmUrlCache = null;
-
-const wasmUrl = () => {
-  if (wasmUrlCache) return wasmUrlCache;
-  let resolved;
-  try {
-    resolved = import.meta.resolve("@litert-lm/core");
-  } catch (err) {
-    throw new Error(
-      `No import map entry for "@litert-lm/core" -- add it to index.html. (${err.message})`,
-      { cause: err },
-    );
-  }
-  if (!resolved.includes("@litert-lm/core@")) {
-    throw new Error(
-      `Cannot derive the wasm URL from "${resolved}": it does not look like a versioned ` +
-        "jsDelivr path. Update wasmUrl() in chat/agent/providers/litert.js to match.",
-    );
-  }
-  wasmUrlCache = new URL("./wasm", resolved).href;
-  return wasmUrlCache;
-};
+const WASM_URL = LiteRtLm.DEFAULT_WASM_PATH;
 
 /**
- * The wasm module is a singleton for the whole page -- `loadLiteRtLm()` throws if called
- * twice. Nulled on failure so a retry is possible, and wrapping ONLY `loadLiteRtLm` is
- * deliberate: widen this and a retry hits "already loaded" instead of retrying.
+ * Async iteration on ReadableStream, where the browser lacks it.
+ *
+ * THIS MODULE NEVER USES `for await` ON A STREAM (see `streamFrom`), but `AutoToolChat`
+ * does, inside the library, on every tool round. On a browser without
+ * `ReadableStream.prototype[Symbol.asyncIterator]` -- Safari, at the time of writing --
+ * the first native tool turn would throw "is not async iterable". Installed only when
+ * missing, and it follows the spec's behaviour on an early `break`: the stream is
+ * cancelled, which is what `AutoToolChat` relies on to stop decoding.
  */
-let wasmPromise = null;
-
-const ensureWasm = () => {
-  if (!wasmPromise) {
-    wasmPromise = loadLiteRtLm(wasmUrl()).catch((err) => {
-      wasmPromise = null;
-      throw err;
-    });
-  }
-  return wasmPromise;
-};
+const StreamClass = globalThis.ReadableStream;
+if (StreamClass && !StreamClass.prototype[Symbol.asyncIterator]) {
+  StreamClass.prototype[Symbol.asyncIterator] = async function* () {
+    const reader = this.getReader();
+    let done = false;
+    try {
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) {
+          done = true;
+          return;
+        }
+        yield next.value;
+      }
+    } finally {
+      if (!done) await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+  };
+}
 
 /* -------------------------------------------------------------------------- */
 /* WebGPU                                                                    */
@@ -375,10 +388,7 @@ const ensureEngine = async ({ onProgress = null, signal = null } = {}) => {
         progress: null,
       });
 
-      // The wasm is fetched here rather than earlier so a download that the presenter
-      // cancels does not also pay for it.
-      await ensureWasm();
-
+      // Loads the wasm on first use -- see WASM_URL above.
       const created = await Engine.create({
         model: source,
         // Do not change this. GPU_ARTISAN is the only backend the web wasm actually
@@ -460,8 +470,12 @@ const TEMPERATURE = 0.7;
  * That is what makes rebuilding one per turn affordable, and why nothing here caches or
  * clones conversations.
  */
-const newConversation = (system, pinned, history, { temperature }) =>
-  engine.createConversation({
+const newConversation = (system, pinned, history, { temperature, tools }) => {
+  // A FRESH OBJECT EVERY CALL, and with tools that is required rather than tidy.
+  // `AutoToolChat` shallow-copies this config and then writes `preface.tools` into the
+  // `preface` it shares with the caller, so a second `AutoToolChat` built from the same
+  // object throws "AutoToolChat handles tools itself" (0.17.1). Measured, not read.
+  const config = {
     // Gemma has no true system role, so the runtime folds the preface into its prompt
     // template. That works, but it does mean an instruction here binds a little less
     // firmly than the same words did as a Prompt API `initialPrompts` system message.
@@ -469,16 +483,57 @@ const newConversation = (system, pinned, history, { temperature }) =>
     // THREE REGIONS, IN THIS ORDER, and the middle one is the point. `pinned` holds
     // deck context -- a slide's text, sent the first time a question is asked from
     // it. It sits OUTSIDE `history` because history is trimmed to
-    // `MAX_HISTORY_MESSAGES` and this must not be: a slide pinned six messages ago
+    // `MAX_HISTORY_TURNS` and this must not be: a slide pinned three turns ago
     // is still a slide a later turn may say the model has already been shown, and
     // trimming it away turns that into a reference to nothing.
     preface: {
       messages: [{ role: "system", content: system }, ...pinned, ...history],
+      // Not on the JS docs page; this is how Google's own chat demo turns thinking off,
+      // and `web-ai-demo` measured Gemma 4 E2B honouring it. A reasoning pass would spend
+      // the reply budget on `channels.thought`, which this module never shows.
+      extra_context: { enable_thinking: false },
     },
     sessionConfig: {
       samplerParams: { temperature },
     },
+  };
+
+  if (!tools?.length) return engine.createConversation(config);
+
+  // THE SAME INTERFACE, so everything downstream treats the two alike: `sendMessageStreaming`,
+  // `cancel`, `getHistory`, `getTokenCount`, `getBenchmarkInfo` and `delete` all exist on
+  // both. The base conversation is created lazily, on the first send.
+  //
+  // ONE `AutoToolChat` PER TURN, like the plain conversation. That also sidesteps a defect
+  // in it: a cancelled stream never clears its `isBusy`, so a stopped tool turn would leave
+  // the wrapper refusing every later send. Nothing here reuses one after a cancel.
+  return new AutoToolChat({
+    engine,
+    config,
+    tools,
+    recurringToolCallLimit: TOOL_ROUNDS,
   });
+};
+
+/**
+ * The text of a message's `content`, which is `string | ContentPart[]`.
+ *
+ * BOTH SHAPES TURN UP. Gemma 4 on GPU_ARTISAN streams parts, and `web-ai-demo` saw plain
+ * strings from other models on the same runtime; reading only the array would drop every
+ * token of a string-shaped reply without an error. Non-text parts -- a `tool_response`
+ * echoed in history -- contribute nothing.
+ *
+ * `channels.thought` is not read at all. Thinking is switched off in the preface, and a
+ * reasoning trace is not something to put in the transcript when it leaks through anyway.
+ */
+const textOfContent = (content) => {
+  if (typeof content === "string") return content;
+  let text = "";
+  for (const part of content ?? []) {
+    if (part?.type === "text" && part.text) text += part.text;
+  }
+  return text;
+};
 
 /**
  * The one place that reads a `Conversation`'s stream.
@@ -526,11 +581,7 @@ async function* streamFrom({ text, signal = null, prepare }) {
         drained = true;
         break;
       }
-      // A chunk's `content` is an array of parts; only text exists on the web today.
-      let delta = "";
-      for (const part of value?.content ?? []) {
-        if (part.type === "text" && part.text) delta += part.text;
-      }
+      const delta = textOfContent(value?.content);
       // Skip empty chunks. Not merely an optimisation: an empty yield rearms the idle
       // timeout in `session.js`, so a model emitting nothing forever would never trip it.
       if (delta) yield delta;
@@ -579,16 +630,93 @@ async function* streamFrom({ text, signal = null, prepare }) {
  *
  * The transcript is BOUNDED because prefill is re-paid each turn; an unbounded one makes
  * every turn slower than the last.
+ *
+ * KEPT AS TURNS, NOT MESSAGES, because a tool turn is more than two messages: the question,
+ * the model's `tool_calls`, the `tool` response, and the reply. Trimming by message count
+ * could cut a call away from its response and leave the preface holding a response to a
+ * call it never shows, which the model's tool template has no way to render sensibly.
  */
 
-/** Exchanges kept for continuity. 6 messages = 3 question/answer pairs. */
-const MAX_HISTORY_MESSAGES = 6;
+/** Turns kept for continuity: 3 question/answer exchanges, with any tool calls in them. */
+const MAX_HISTORY_TURNS = 3;
+
+/**
+ * The messages of the turn that just ran, read back from the runtime.
+ *
+ * ONLY FOR TOOL TURNS. A plain turn is recorded as the question and the answer, as before.
+ * A tool turn is recorded as the runtime saw it, calls and responses included, so a later
+ * "undo that" or "make it bigger" is asked of a model that can see what it did last time.
+ * Rebuilt from our own bookkeeping instead, the shapes would be a guess at what Gemma's
+ * template expects; `getHistory()` returns the shapes it produced itself.
+ *
+ * The turn starts at the LAST user message carrying exactly what was sent. That holds
+ * whether or not the runtime includes the preface in its history, and the message is then
+ * rewritten to the bare question, so the position `note` is not remembered -- the same rule
+ * the plain path follows. Null when anything does not line up, and the caller falls back to
+ * the plain pair.
+ */
+const toolTurnFrom = async (chat, sent, text) => {
+  try {
+    const history = await chat.getHistory();
+    let start = -1;
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+      if (history[i]?.role === "user" && history[i].content === sent) {
+        start = i;
+        break;
+      }
+    }
+    if (start < 0) return null;
+    const turn = history.slice(start);
+    turn[0] = { role: "user", content: text };
+    return turn.length > 1 ? turn : null;
+  } catch {
+    // Deleted underneath us by the next turn's rebuild, most likely.
+    return null;
+  }
+};
+
+/**
+ * A message as the context viewer shows it: `content` as text.
+ *
+ * The viewer renders `content` in a `<pre>`, and a tool turn's messages hold arrays and
+ * call objects there. This keeps the same roles and order and writes each one out the way
+ * `receipt.js` writes a call, so what is shown is still what was sent.
+ */
+const forViewer = (message) => {
+  if (message.tool_calls?.length) {
+    const calls = message.tool_calls
+      .map(
+        ({ function: fn }) =>
+          `${fn?.name}(${JSON.stringify(fn?.arguments ?? {})})`,
+      )
+      .join("\n");
+    return { role: message.role, content: calls };
+  }
+  if (Array.isArray(message.content)) {
+    const content = message.content
+      .map((part) =>
+        part?.type === "text"
+          ? part.text
+          : part?.type === "tool_response"
+            ? `${part.name}: ${JSON.stringify(part.response)}`
+            : "",
+      )
+      .filter(Boolean)
+      .join("\n");
+    return { role: message.role, content };
+  }
+  return { ...message };
+};
 
 const createChat = async ({ system }) => {
   await ensureEngine();
 
-  /** The transcript WE keep. The `Conversation` is disposable; this is not. */
-  let transcript = [];
+  /**
+   * The transcript WE keep, one array of messages per turn. The `Conversation` is
+   * disposable; this is not.
+   */
+  let turns = [];
+  const history = () => turns.flat();
 
   /**
    * Deck context already handed to the model, in the order it was sent.
@@ -607,10 +735,11 @@ const createChat = async ({ system }) => {
   let tokens = 0;
   let sampling = false;
 
-  const rebuild = async () => {
+  const rebuild = async (tools = null) => {
     const dead = conversation;
-    conversation = await newConversation(system, pinned, transcript, {
+    conversation = await newConversation(system, pinned, history(), {
       temperature: TEMPERATURE,
+      tools,
     });
     try {
       dead.cancel();
@@ -634,21 +763,44 @@ const createChat = async ({ system }) => {
      * the transcript, so it is gone next turn. A position line is false as soon as the deck
      * moves, and pinning one puts it in the preface above the exchange it describes -- the
      * model then answers about the previous slide.
+     *
+     * `tools`, when given, makes this turn an `AutoToolChat` over those declarations. The
+     * runtime calls their `execute` between decode rounds, so a tool turn can finish
+     * without yielding anything: the receipt is painted by `act/respond.js`, not here.
      */
     async *stream(
       text,
-      { pin = "", note = "", signal = null, onPrompt = null } = {},
+      {
+        pin = "",
+        note = "",
+        signal = null,
+        onPrompt = null,
+        tools = null,
+      } = {},
     ) {
       let answer = "";
+      // What is SENT. `text` alone is what gets remembered, below.
+      const outgoing = note ? `${note}\n\n${text}` : text;
       // Whether this turn actually reached the model. Everything in `prepare` can throw --
       // a rebuild, a lock teardown, an engine error -- and a turn that died there was never
       // sent, so recording it below would put a question and an empty answer into the
       // model's own history and prefix the next preface with them.
       let sent = false;
+      // The conversation this turn ran on, and whether it ran a tool: both are needed after
+      // the stream ends, when `conversation` may already be the next turn's.
+      let used = null;
+      let ranTool = false;
+      let finished = false;
+      const counted = tools?.map((tool) => ({
+        ...tool,
+        execute: (args) => {
+          ranTool = true;
+          return tool.execute(args);
+        },
+      }));
       try {
         for await (const delta of streamFrom({
-          // What is SENT. `text` alone is what gets remembered, below.
-          text: note ? `${note}\n\n${text}` : text,
+          text: outgoing,
           signal,
           // Inside the lock, so the rebuild can never race a live generation.
           prepare: async () => {
@@ -662,32 +814,44 @@ const createChat = async ({ system }) => {
             const pinnedBefore = pinned.length;
             if (pin) pinned.push({ role: "user", content: pin });
             try {
-              await rebuild();
+              await rebuild(counted);
             } catch (err) {
               pinned.length = pinnedBefore;
               throw err;
             }
             // Reported after the rebuild that consumed it, so this is the preface the
-            // conversation was actually built from -- trimmed to `MAX_HISTORY_MESSAGES`,
-            // unlike the panel's transcript. Copied, not passed by reference: `transcript`
-            // is reassigned by the slice below on the next turn.
+            // conversation was actually built from -- trimmed to `MAX_HISTORY_TURNS`,
+            // unlike the panel's transcript. Copied, not passed by reference: `turns` is
+            // reassigned by the slice below on the next turn.
             onPrompt?.({
               provider: "litert",
               system,
               pinned: pinned.map((message) => ({ ...message })),
-              history: transcript.map((message) => ({ ...message })),
+              history: history().map(forViewer),
               // What was SENT, note and all -- the viewer's job is to show what
               // actually went, not the tidier thing the transcript will keep.
-              message: note ? `${note}\n\n${text}` : text,
-              historyLimit: MAX_HISTORY_MESSAGES,
+              message: outgoing,
+              // In messages, as the contract has it: two per exchange.
+              historyLimit: MAX_HISTORY_TURNS * 2,
+              // The declarations handed to `AutoToolChat`, which puts them in the preface
+              // through Gemma's tool template. Not messages, so without this the viewer
+              // would leave out the largest block the model reads. `execute` stripped: it
+              // is a function, and it is not what the model sees.
+              tools: tools?.map(({ name, description, inputSchema }) => ({
+                name,
+                description,
+                inputSchema: JSON.parse(JSON.stringify(inputSchema ?? {})),
+              })),
             });
             sent = true;
+            used = conversation;
             return conversation;
           },
         })) {
           answer += delta;
           yield delta;
         }
+        finished = true;
       } finally {
         // Recorded even on abort -- the presenter saw a partial answer and the transcript
         // should match the screen -- but NOT when the turn never reached the model.
@@ -695,13 +859,20 @@ const createChat = async ({ system }) => {
         // BARE `text`, not the sent string: `note` is dropped here on purpose. A position
         // line is true for one turn, and a transcript accumulating five contradictory ones
         // is the accumulation failure in miniature.
+        //
+        // A tool turn that FINISHED is read back from the runtime instead, calls and all
+        // -- see `toolTurnFrom`. One that was stopped keeps the plain pair: its history
+        // may end mid-round, with a call and no response.
         if (sent) {
-          transcript.push(
+          const turn = (ranTool &&
+            finished &&
+            (await toolTurnFrom(used, outgoing, text))) || [
             { role: "user", content: text },
             { role: "assistant", content: answer },
-          );
-          if (transcript.length > MAX_HISTORY_MESSAGES) {
-            transcript = transcript.slice(-MAX_HISTORY_MESSAGES);
+          ];
+          turns.push(turn);
+          if (turns.length > MAX_HISTORY_TURNS) {
+            turns = turns.slice(-MAX_HISTORY_TURNS);
           }
         }
       }
@@ -764,7 +935,7 @@ const createChat = async ({ system }) => {
      * copies of one slide in a single preface.
      */
     async restart() {
-      transcript = [];
+      turns = [];
       pinned = [];
       tokens = 0;
       await rebuild();
@@ -772,7 +943,7 @@ const createChat = async ({ system }) => {
     },
 
     destroy() {
-      transcript = [];
+      turns = [];
       pinned = [];
       tokens = null;
       try {
@@ -799,9 +970,13 @@ const createChat = async ({ system }) => {
  */
 export const provider = {
   id: "litert",
-  label: "Gemma",
+  label: "LiteRT",
 
   capabilities: {
+    // The runtime parses and runs tool calls itself (`AutoToolChat`), so `act/respond.js`
+    // hands it declarations instead of prompting for fenced blocks, and `prompt.js` leaves
+    // the fenced-block catalog out of this provider's system prompt.
+    nativeTools: true,
     // We fetched the bytes, so progress is real and cancel is a real abort.
     ownsBytes: true,
     canDelete: true,
@@ -881,13 +1056,6 @@ export const provider = {
     const cached = await isModelCached().catch(() => false);
     const storage = await storageRoom(EXPECTED_BYTES).catch(() => null);
 
-    let wasm;
-    try {
-      wasm = wasmUrl();
-    } catch (err) {
-      wasm = `unresolved: ${err.message}`;
-    }
-
     return [
       ["Model", `${MODEL.label} · ${MODEL.quantization}`],
       ["File", `${MODEL.file} (${gb(EXPECTED_BYTES)} GB)`],
@@ -918,7 +1086,11 @@ export const provider = {
             ],
           ]
         : []),
-      ["wasm", wasm],
+      [
+        "Tools",
+        "native · AutoToolChat, up to " + TOOL_ROUNDS + " model calls a turn",
+      ],
+      ["wasm", WASM_URL],
     ];
   },
 

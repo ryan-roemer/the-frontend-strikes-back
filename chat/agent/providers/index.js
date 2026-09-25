@@ -9,8 +9,9 @@ import { provider as replay } from "./replay.js";
  * almost everything. WHERE THE ABSTRACTION LEAKS is the useful part:
  *
  *   ------------------------  ----------------------------  ----------------------------
- *                             LiteRT.js / Gemma 4 E2B       Chrome Prompt API
+ *                             LiteRT-LM / Gemma 4 E2B       Chrome Prompt API
  *   ------------------------  ----------------------------  ----------------------------
+ *   tool calls                native, `AutoToolChat`        prompted fenced blocks
  *   who owns the bytes        the page                      the browser
  *   download progress         real, in bytes                a number the browser reports
  *   cancel a download         yes, it is our `fetch`        no
@@ -24,7 +25,9 @@ import { provider as replay } from "./replay.js";
  *
  *   id            "litert" | "chrome"
  *   label         what the switcher pill says
- *   capabilities  { ownsBytes, canDelete, downloadBytes, authoritativeStatus, cheapRestart }
+ *   capabilities  { nativeTools, ownsBytes, canDelete, downloadBytes, authoritativeStatus,
+ *                   cheapRestart }. `nativeTools` picks the tool path in `act/respond.js`
+ *                   and the tool section of the system prompt in `prompt.js`.
  *   timings       { stallMs, createCeilingMs }
  *   stateMeta     PARTIAL overrides, merged over BASE_STATE_META in model-state.js
  *   offered()     boolean, sync. False hides it from the switcher entirely.
@@ -40,10 +43,11 @@ import { provider as replay } from "./replay.js";
  *
  * THE CHAT HANDLE that `acquire()` resolves to:
  *
- *   stream(text, { pin, note, signal, onPrompt })
+ *   stream(text, { pin, note, signal, onPrompt, tools })
  *                 Async generator over DELTAS. MUST be a generator: Safari has no
  *                 `Symbol.asyncIterator` on ReadableStream and `session.js` uses
- *                 `for await`.
+ *                 `for await`. `tools` is WebMCP-shaped declarations with `execute`,
+ *                 passed only to a `nativeTools` provider; a tool turn may yield nothing.
  *   context()     SYNC { used, total, pct } | null.
  *   sampleContext()  Promise. Refreshes what `context()` returns; may be a no-op.
  *   restart()     Promise. Empty the context window, keep talking.

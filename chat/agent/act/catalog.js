@@ -94,7 +94,7 @@ const argText = (field) => {
  * this constant is measured rather than guessed, and worth re-running if descriptions
  * change.
  */
-const MIN_SUMMARY = 60;
+export const MIN_SUMMARY = 60;
 
 /**
  * The signature line, then the purpose.

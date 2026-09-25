@@ -80,8 +80,25 @@ const startPoll = () => {
  *  disposable conversations -- so there is nothing to rebuild per turn here. */
 let session = null;
 
+/**
+ * Say when Chrome evicts history.
+ *
+ * Past the context window, Chrome's first move is to drop the oldest turn pairs, silently
+ * -- the system prompt is kept, the rest of the conversation just gets shorter. Without
+ * this listener a presenter sees the model forget a slide it was shown and nothing says
+ * why. The meter's broom is the fix; this is how anyone knows to reach for it.
+ */
+const watchOverflow = (raw) => {
+  raw.addEventListener?.("contextoverflow", () => {
+    console.warn(
+      "[chat] Prompt API contextoverflow: Chrome dropped the oldest turns to make room. Clear the context to start fresh.",
+    );
+  });
+};
+
 /** Wraps a Chrome `LanguageModel` session in the shared chat-handle contract. */
 const wrap = (raw, system) => {
+  watchOverflow(raw);
   /**
    * What this page has handed the session, kept only so `onPrompt` can report it.
    *
@@ -203,6 +220,7 @@ const wrap = (raw, system) => {
       }
       raw = next;
       session = next;
+      watchOverflow(next);
       // The new session starts with an empty history, so the mirror must too.
       sent = [];
     },
@@ -223,6 +241,11 @@ export const provider = {
   label: "Chrome",
 
   capabilities: {
+    // PROMPTED, NOT NATIVE. The spec's `tools` option exists, but Chrome only has it behind
+    // a flag, and an unknown create() option is dropped silently rather than rejected. The
+    // deck bets on that not shipping in time, so tools go through the fenced-block catalog
+    // and `act/respond.js`'s parser, the same path the replay fixtures test.
+    nativeTools: false,
     // The model is the browser's. We cannot watch it, stop it, or remove it.
     ownsBytes: false,
     canDelete: false,
@@ -385,9 +408,9 @@ export const provider = {
       ? {
           lead: "This browser doesn't expose the Prompt API, so there is no built-in model to talk to.",
           bullets: [
-            "It ships in Chrome 138+ on desktop, and only on supported hardware.",
-            "Some builds still need the flag at chrome://flags/#prompt-api-for-gemini-nano.",
-            "Switch to the Gemma provider to run a model this page downloads itself.",
+            "The web Prompt API ships in Chrome 148+ on desktop — Windows, macOS 13+, Linux, Chromebook Plus — and only on supported hardware.",
+            "Chrome for Android and every iOS browser don't have it.",
+            "Switch to the LiteRT provider to run a model this page downloads itself.",
           ],
         }
       : {
@@ -395,7 +418,7 @@ export const provider = {
           bullets: [
             "Chrome declines on low disk space, on metered connections, and on unsupported GPUs.",
             "chrome://on-device-internals shows what it decided and why.",
-            "Switch to the Gemma provider to run a model this page downloads itself.",
+            "Switch to the LiteRT provider to run a model this page downloads itself.",
           ],
         },
 

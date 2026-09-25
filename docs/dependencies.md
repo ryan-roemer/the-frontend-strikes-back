@@ -120,7 +120,7 @@ nobody else. See [§5](#5-the-react-19-compat-shim).
 | `styled-system`                  | 5.1.5         | Latest — see [§6](#6-things-deliberately-not-upgraded)                                                                     |
 | `use-resize-observer`            | 9.1.0         | Deliberately **not** bumped — see [§6](#6-things-deliberately-not-upgraded)                                                |
 | `@emotion/is-prop-valid`         | 1.4.0         | Only for the styled-components v6 bridge                                                                                   |
-| `@litert-lm/core`                | 0.15.0        | The deck assistant's on-device model. Loads a wasm runtime — see below                                                     |
+| `@litert-lm/core`                | 0.17.1        | The deck assistant's on-device model, with native tool calls. Loads a wasm runtime — see below                             |
 
 ### `react-live` loads on demand
 
@@ -149,27 +149,17 @@ the browser's. What it costs instead is everything the page gives up by not owni
 progress, no cancel, no delete, and a status that has been measured to flap. See
 [chat-handoff.md](chat-handoff.md) §1.
 
-**It fetches a wasm runtime separately from its JavaScript, and the two must match.** The
-reference implementation this was ported from keeps a second hardcoded URL next to its import
-map entry, with a "bump both together" comment — a rule that works right up until somebody
-forgets. This deck derives it instead, so the claim at the top of this document stays true and
-there is exactly one pin:
+**It fetches a wasm runtime separately from its JavaScript, and the two must match.** Since
+0.17.0 the library guarantees that itself: `LiteRtLm.DEFAULT_WASM_PATH` is written into the
+package at its own version (`…/@litert-lm/core@0.17.1/wasm`), and `Engine.create()` loads from
+it on first use. So the import map entry is still the only pin, and the deck no longer loads or
+derives the wasm URL on its own. (It used to derive `./wasm` from
+`import.meta.resolve("@litert-lm/core")`, because 0.15.0 hardcoded its own version and 0.16.0
+was an empty publish with no wasm at all.) The info modal shows the path it loads from.
 
-```js
-// chat/agent/providers/litert.js
-const LITERT_WASM_URL = new URL(
-  "./wasm",
-  import.meta.resolve("@litert-lm/core"),
-).href;
-```
-
-`import.meta.resolve` returns the import-map-resolved URL, and `+esm` sits at the package root
-alongside `wasm/`, so `./wasm` lands on the right directory. It shipped in Chrome 105, Firefox
-106 and Safari 16.4 — all far older than any browser with WebGPU, so every browser that can
-run the model at all has it. The derivation asserts the resolved URL still looks like a
-versioned jsDelivr path, because the one thing it couples to is that URL _layout_: repointing
-this entry at another CDN, or at a `/dist/index.mjs`-style path, would otherwise silently
-derive a wrong `./wasm`.
+**Tool calls are native on this provider.** `AutoToolChat`, exported by the same package, runs
+the deck's registered tools between decode rounds — see `chat/agent/act/native.js`. The Chrome
+Prompt API provider keeps the prompted fenced-block path in `chat/agent/act/respond.js`.
 
 **It is the deck's only lazily-loaded dependency.** Nothing above is fetched until a presenter
 asks for it: `mountChat()` imports the chat dynamically, and the wasm and the ~2 GB model come

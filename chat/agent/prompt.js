@@ -33,6 +33,7 @@ import { chapters } from "../../deck/chapters.js";
 import { AUDIENCES, takeaways, VERDICTS } from "../../deck/takeaways.js";
 import { outline, outlineText } from "../harvest/views.js";
 import { catalogText } from "./act/catalog.js";
+import { nativeRulesText } from "./act/native.js";
 
 /** Matches the tag-delimiting in `harvest/views.js`, and for the same reason. */
 const tagged = (tag, lines) => [`<${tag}>`, ...lines, `</${tag}>`].join("\n");
@@ -121,7 +122,7 @@ const CAPABILITIES = [
  * LAST IN THE PROMPT, DELIBERATELY. The instruction most likely to be ignored by a small
  * model is "emit a tool block and nothing else", and it sits closest to the exchange.
  */
-export const systemPrompt = () =>
+export const systemPrompt = ({ nativeTools: native = false } = {}) =>
   [
     ...IDENTITY,
     ...CAPABILITIES,
@@ -129,7 +130,10 @@ export const systemPrompt = () =>
     factsText(),
     "",
     outlineText(outline()),
-    catalogText(),
+    // A provider that declares tools to its runtime gets the rules without the catalog:
+    // the runtime renders the declarations itself, and a fenced-block format here would
+    // teach the model a second way to call them. See `act/native.js`.
+    native ? nativeRulesText() : catalogText(),
   ]
     .filter((part) => part !== null)
     .join("\n");

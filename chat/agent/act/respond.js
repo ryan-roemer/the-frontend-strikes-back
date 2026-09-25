@@ -25,6 +25,12 @@
  * session layer (`docs/chat-handoff.md` §10). Sitting above it means every call in a tool
  * turn gets the readiness gate and the idle timeout for free, with no new state.
  *
+ * TWO PATHS, CHOSEN BY THE PROVIDER. Where the runtime runs tools itself (LiteRT-LM, via
+ * `capabilities.nativeTools`), `respondNative` hands it the declarations from `native.js`
+ * and paints receipts as the tools run. Everywhere else -- Chrome's Prompt API, and the
+ * replay provider the fixtures drive -- the model is prompted for a fenced block and this
+ * module parses and dispatches it. The rest of this header describes that prompted path.
+ *
  * AT MOST TWO MODEL CALLS, and the second is a retry rather than a loop. See
  * `receipt.js` `retryable`: a refusal carrying candidates is the one case where the model
  * has learned something it can act on. There is no `while`, and that is deliberate -- an
@@ -32,11 +38,78 @@
  * front of a room, and every case that would need a third call is one where the tools
  * should be taking a phrase instead.
  */
+import { activeProvider } from "../model-state.js";
 import { streamAnswer } from "../session.js";
 import { byName, toolNames } from "./catalog.js";
 import { invalidate } from "./invalidate.js";
+import { nativeTools } from "./native.js";
 import { parseCall, sniff } from "./parse.js";
 import { callLine, receiptText, retryable, retryText } from "./receipt.js";
+
+/** What `AutoToolChat` throws when the model is still calling tools on its last round. */
+const OVER_LIMIT = /exceeded the recurring limit/i;
+
+/**
+ * One turn on a provider whose runtime runs the tools itself.
+ *
+ * NO SNIFFING, NO PARSER, NO CORRECTION PASS. The runtime reads calls out of the model's
+ * own tool template, runs them between decode rounds, and hands each result back as a tool
+ * response. A refusal carrying candidates is simply the next round's input, so the retry
+ * that `respond()` below spends a second model call on happens inside one stream here.
+ *
+ * THE RECEIPT IS STILL THE ANSWER. Each call's receipt is painted as soon as the tool
+ * returns, from the same `receiptText()` the prompted path uses, and whatever the model
+ * says afterwards goes underneath it. Measured on Gemma 4 E2B, a successful action is
+ * usually followed by an empty reply, so the receipt is often all there is -- which keeps
+ * the property `receipt.js` argues for: the part of the turn a presenter trusts was
+ * written by the code that made the change.
+ *
+ * `onChunk` gets the whole bubble every time, receipts first, the same accumulate-and-
+ * replace contract `streamAnswer` has.
+ */
+const respondNative = async ({ text, onChunk, signal, onPrompt }) => {
+  // Which part of the bubble the deck wrote and which part the model wrote, for the
+  // context viewer. The bubble joins them into one string, so this is the only place the
+  // split still exists.
+  //
+  // FILLED IN AFTER IT IS REPORTED. `onPrompt` fires before the first tool runs, and the
+  // capture is kept by reference until the viewer opens -- `use-conversation.js` stores the
+  // object, `ui/transcript.js` spreads it on click -- so both fields are complete by the
+  // time anyone reads them.
+  const turn = { receipts: [], reply: "" };
+  const bubble = () =>
+    [...turn.receipts, turn.reply.trim()].filter(Boolean).join("\n\n");
+
+  const tools = nativeTools({
+    onCall: ({ name, args, result }) => {
+      turn.receipts.push(receiptText(name, args, result));
+      onChunk?.(bubble());
+    },
+  });
+
+  try {
+    await streamAnswer({
+      text,
+      signal,
+      onPrompt: onPrompt && ((context) => onPrompt({ ...context, turn })),
+      tools,
+      onStatus: (line) => onChunk?.(line),
+      onChunk: (accumulated) => {
+        turn.reply = accumulated;
+        onChunk?.(bubble());
+      },
+    });
+  } catch (err) {
+    // The tools of the last round DID run before the runtime gave up, and they changed the
+    // deck. Throwing now would put an error row under a slide that visibly moved, so the
+    // receipts are the honest answer. Any other failure is still a failure.
+    if (!(OVER_LIMIT.test(String(err?.message)) && turn.receipts.length)) {
+      throw err;
+    }
+  }
+
+  return bubble();
+};
 
 /**
  * Run one model call, deciding as it streams whether it is an answer or a call.
@@ -119,6 +192,12 @@ const badCall = (call) =>
  * abandoned model call still has to actually stop decoding.
  */
 export const respond = async ({ text, onChunk, signal, onPrompt }) => {
+  // Decided per turn, not at import: the provider can be switched between questions, and
+  // the two paths must never mix within one turn.
+  if (activeProvider()?.capabilities.nativeTools) {
+    return respondNative({ text, onChunk, signal, onPrompt });
+  }
+
   const first = await ask({ text, onChunk, signal, onPrompt });
   if (!first.call) return first.answer;
 
