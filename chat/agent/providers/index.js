@@ -91,7 +91,7 @@ import { provider as replay } from "./replay.js";
  * satisfy the same interface -- see `replay.js` for why that is the seam rather than a
  * mock.
  */
-const ALL = [chrome, litert, replay];
+const ALL = [litert, chrome, replay];
 
 export const byId = (id) => ALL.find((p) => p.id === id) ?? null;
 
@@ -105,13 +105,14 @@ export const offered = () => ALL.filter((p) => p.offered());
 const STORAGE_KEY = "chat:provider";
 
 /**
- * Which provider to start with: whatever was last chosen EXPLICITLY, then Chrome, then
- * LiteRT.
+ * Which provider to start with: whatever was last chosen EXPLICITLY, then LiteRT, even
+ * where the Prompt API is available.
  *
- * Preferring Chrome looks reckless given how it behaves (see `chrome.js`) and would be if
- * selecting a provider loaded it. It does not -- the mount-time `refresh()` stops at
- * ON_DISK -- so this costs one `availability()` call, and the zero-download option is the
- * right default when picking it is free.
+ * LiteRT FIRST because it is the provider with native tool calls (see `act/native.js`),
+ * and it is the one the deck demos. Chrome costs no download, but its tools go through the
+ * prompted path and its `availability()` flaps (see `chrome.js`). Selecting a provider does
+ * not load it -- the mount-time `refresh()` stops at ON_DISK -- so defaulting to LiteRT
+ * starts no 2 GB fetch by itself; that still waits for a question or a click.
  *
  * A stale stored id falls back rather than throwing: a provider can stop being offered
  * between reloads, and a deck that will not boot because of last week's localStorage key
@@ -131,16 +132,17 @@ export const pick = () => {
   if (remembered) return remembered;
 
   // REPLAY WINS WHENEVER IT IS OFFERED, which is only under `?replay`. Left to the
-  // preference below, a machine with the Prompt API would start a replay run on Chrome's
-  // model and the fixture would never be read.
+  // preference below, a replay run would start on LiteRT's model and the fixture would
+  // never be read.
   const replaying = available.find((p) => p.id === "replay");
   if (replaying) return replaying;
 
-  return available.find((p) => p.id === "chrome") ?? available[0];
+  return available.find((p) => p.id === "litert") ?? available[0];
 };
 
-/** Written only on an explicit switch, never on the fallback path -- otherwise the first
- *  load on a Chrome-less browser would silently pin the choice to LiteRT forever. */
+/** Written only on an explicit switch, never on the fallback path -- otherwise the default
+ *  would be saved as though someone had chosen it, and a later change of default (like the
+ *  move from Chrome to LiteRT) would never reach a browser that had loaded the deck once. */
 export const remember = (id) => {
   try {
     localStorage.setItem(STORAGE_KEY, id);

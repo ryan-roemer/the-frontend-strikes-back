@@ -25,7 +25,18 @@ const html = htm.bind(createElement);
  * Rendered as static text when only one provider is offered. A segmented control with one
  * segment is a button that does nothing, and on a browser with no Prompt API the absent
  * pill is itself the honest report.
+ *
+ * TWO LABELS PER PILL, and CSS picks one. In a narrow panel the pills shorten to their
+ * first letter -- "L" and "C" -- through the `@container` rules at the foot of `chat.css`,
+ * rather than disappearing, so the switch stays reachable in a panel dragged small. The
+ * full name stays the button's accessible name and tooltip either way.
  */
+const Label = ({ label }) => html`
+  <span className="chat-provider__full">${label}</span>
+  <span className="chat-provider__short" aria-hidden="true"
+    >${label.slice(0, 1)}</span
+  >
+`;
 export const ProviderSwitch = () => {
   const state = useModelState();
 
@@ -35,9 +46,12 @@ export const ProviderSwitch = () => {
   if (!providers.length) return null;
 
   if (providers.length === 1) {
-    return html`<span className="chat-provider chat-provider--single"
-      >${providers[0].label}</span
-    >`;
+    return html`<span
+      className="chat-provider chat-provider--single"
+      title=${providers[0].label}
+      aria-label=${providers[0].label}
+      ><${Label} label=${providers[0].label}
+    /></span>`;
   }
 
   return html`
@@ -56,8 +70,9 @@ export const ProviderSwitch = () => {
             className=${`chat-provider__pill${p.id === providerId ? " chat-provider__pill--on" : ""}`}
             onClick=${() => onPick(p.id)}
             title=${`Answer with ${p.label}`}
+            aria-label=${p.label}
           >
-            ${p.label}
+            <${Label} label=${p.label} />
           </button>
         `,
       )}

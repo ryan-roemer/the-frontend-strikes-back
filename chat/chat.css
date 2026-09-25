@@ -228,13 +228,22 @@
   color: #0b1020;
 }
 
+/* The one-letter label, shown only by the narrow-panel rule at the foot of this file. */
+.chat-provider__short {
+  display: none;
+}
+
 .chat-provider__pill:focus-visible {
   outline: 2px solid var(--chapter-accent, #78eec5);
   outline-offset: 2px;
 }
 
 /* One provider is not a choice, so it renders as a label rather than a control. */
+/* No pill inside the outline, so the label takes the pill's inset itself: the outline's
+ * 2px plus a pill's 3px 10px. Otherwise the text sits against the border, which only shows
+ * on a browser without the Prompt API. */
 .chat-provider--single {
+  padding: 5px 12px;
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -1499,9 +1508,10 @@
  * ORDERED BY WHAT YOU LOSE, not by width. A panel gets dragged small to keep it out of the
  * way of a slide while staying able to ask it something -- so the last things standing are
  * the ones that keep it usable as a chat (the broom and the close button) and the first to
- * go are the ones that are really about the demo (the provider pills) or about diagnosis
- * (trash, info). Everything dropped here comes back by widening the panel, and none of it
- * is the only way to reach anything.
+ * go are the ones about diagnosis (trash, info). The provider pills are never dropped, only
+ * shortened to "L" and "C": at 55px they fit in the 180px minimum, and the switch is the
+ * one control the demo cannot do without. Everything dropped here comes back by widening
+ * the panel, and none of it is the only way to reach anything.
  *
  * AT THE BOTTOM OF THE FILE, AND THAT IS NOT TIDINESS. A container query adds NO
  * specificity -- `@container … { .chat-provider { display: none } }` is a plain `0-1-0`
@@ -1513,9 +1523,24 @@
  * `display: none` rather than shrinking them. Icons that scale down stop being legible
  * from the back of a room well before they stop taking up space.
  */
+/* The provider pills SHORTEN before anything is dropped: "LiteRT" and "Chrome" become "L"
+ * and "C", which keeps the switch -- the demo's one variable -- reachable in a panel dragged
+ * small. The full name is still the tooltip and the accessible name. */
 @container (max-width: 340px) {
-  .chat-provider {
+  .chat-provider__full {
     display: none;
+  }
+
+  .chat-provider__short {
+    display: inline;
+  }
+
+  .chat-provider__pill {
+    padding: 3px 8px;
+  }
+
+  .chat-provider--single {
+    padding: 5px 10px;
   }
 }
 
