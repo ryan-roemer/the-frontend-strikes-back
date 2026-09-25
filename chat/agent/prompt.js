@@ -20,6 +20,11 @@
  *   <deck-outline>           ~270 tok   35 titles
  *   <tools>                  ~722 tok   eight tools; ~315 for the four under `?safe`
  *
+ * On LiteRT, with native tools, `<tools>` is the rules plus the same worked examples, and
+ * no catalog: the whole native system prompt measured 3,792 chars, ~830 tok, of which the
+ * examples are 592 chars, ~130 tok. The declarations are extra and the runtime renders them
+ * itself, so they appear in the context meter but not in this string.
+ *
  * The whole deck as Markdown would be ~4,000 tokens -- 49% of the window and
  * +2.5s per turn -- and would carry the speaker notes, which hold presenter
  * timings and TODOs that must not reach a model answering out loud in a room.

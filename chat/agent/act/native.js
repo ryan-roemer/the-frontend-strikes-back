@@ -17,7 +17,7 @@
  */
 import { getTools } from "../../mcp/index.js";
 import { summarize } from "../../mcp/schema.js";
-import { MIN_SUMMARY } from "./catalog.js";
+import { MIN_SUMMARY, registeredExamples } from "./catalog.js";
 import { invalidate } from "./invalidate.js";
 import { textOf } from "./receipt.js";
 
@@ -84,18 +84,27 @@ export const nativeTools = ({ onCall } = {}) =>
  *
  * NO FORMAT AND NO LIST. The runtime renders the declarations through the model's own tool
  * template, so describing a call syntax here would be a second, conflicting one. What is
- * left is the part a template cannot say: when to reach for a tool at all, and that the
- * result is already on screen.
+ * left is the part a template cannot say: when to reach for a tool at all, that the result
+ * is already on screen, and how requests map to arguments.
+ *
+ * THE CATALOG'S WORKED EXAMPLES COME TOO. The declarations say what each argument is; they
+ * cannot show which one a request fills, and every example in `catalog.js` exists because
+ * a request went wrong without it. Written as `name({...})` -- the shape a receipt shows --
+ * rather than as the prompted path's fenced block, which would teach a second way to call.
  */
-export const nativeRulesText = () =>
-  getTools().length
-    ? [
-        "",
-        "<tools>",
-        "This page gives you tools that read, move and change the deck you are running inside.",
-        "When the user asks you to DO something to the deck — move it, find something, change wording, restyle, undo — call a tool.",
-        "When they ask a question you can answer from the deck outline and slides above, just answer. Do not call a tool for that.",
-        "Anything you change is live on the running deck. The user sees each tool's result as soon as it runs, so after a tool call reply with one short sentence, or nothing.",
-        "</tools>",
-      ].join("\n")
-    : null;
+const exampleLine = ([said, name, args]) => `"${said}" → ${name}(${args})`;
+
+export const nativeRulesText = () => {
+  if (!getTools().length) return null;
+  const examples = registeredExamples();
+  return [
+    "",
+    "<tools>",
+    "This page gives you tools that read, move and change the deck you are running inside.",
+    "When the user asks you to DO something to the deck — move it, find something, change wording, restyle, undo — call a tool.",
+    "When they ask a question you can answer from the deck outline and slides above, just answer. Do not call a tool for that.",
+    "Anything you change is live on the running deck. The user sees each tool's result as soon as it runs, so after a tool call reply with one short sentence, or nothing.",
+    ...(examples.length ? ["", "Examples:", ...examples.map(exampleLine)] : []),
+    "</tools>",
+  ].join("\n");
+};

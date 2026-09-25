@@ -203,6 +203,22 @@ const exampleText = ([said, name, args]) =>
   `"${said}"\n\`\`\`tool ${name}\n${args}\n\`\`\``;
 
 /**
+ * The examples whose tool is registered, as `[said, name, args]`.
+ *
+ * SHARED WITH `native.js`, which shows the same examples to a runtime that calls tools
+ * natively. Leaving them out there was a real failure: on LiteRT with native tools,
+ * `Replace "wrinkles" with "booyah"` on "The wrinkles" came back as
+ * `find: "The wrinkles"` five times in five, and the title became "booyah". The same model
+ * on the prompted path, with these examples, answered `find: "wrinkles"` five in five --
+ * the deck-wide replace example is what shows `find` taking only the word. One list, so
+ * the two paths cannot drift apart.
+ */
+export const registeredExamples = () => {
+  const registered = new Set(getTools().map((tool) => tool.name));
+  return EXAMPLES.filter(([, name]) => registered.has(name));
+};
+
+/**
  * The tool block's opening fence, and the one string that has to agree in three places.
  *
  * The prompt tells the model to emit it, `parse.js` looks for it, and `respond.js` sniffs
@@ -255,8 +271,7 @@ export const catalogText = () => {
   const tools = getTools();
   if (!tools.length) return null;
 
-  const registered = new Set(tools.map((tool) => tool.name));
-  const examples = EXAMPLES.filter(([, name]) => registered.has(name));
+  const examples = registeredExamples();
 
   return [
     ...RULES,
