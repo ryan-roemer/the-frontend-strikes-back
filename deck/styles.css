@@ -793,7 +793,7 @@ body::after {
 }
 
 #root .matrix__name {
-  padding-right: 32px;
+  padding-right: 24px;
   font-family: var(--mono);
   font-weight: 600;
   white-space: nowrap;
@@ -806,7 +806,7 @@ body::after {
 
 #root .matrix__note {
   color: #fff;
-  padding-right: 32px;
+  padding-right: 24px;
 }
 
 #root .matrix__head {
@@ -816,7 +816,7 @@ body::after {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
-  padding: 0 32px 10px 0;
+  padding: 0 24px 10px 0;
   border-bottom: 1px solid var(--hairline);
 }
 

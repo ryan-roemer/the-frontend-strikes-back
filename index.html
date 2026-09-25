@@ -485,7 +485,7 @@
                 cells: [
                   { mark: "manual", text: "Only select models" },
                   { mark: "yes", text: "Runs" },
-                  "1K–4K",
+                  "1K–4K, raisable",
                 ],
               },
               {
@@ -494,7 +494,7 @@
                 cells: [
                   { mark: "manual", text: "You run it" },
                   { mark: "yes", text: "Runs" },
-                  "1K–32K",
+                  "Model max, slow past 32K",
                 ],
               },
               {
@@ -503,16 +503,16 @@
                 cells: [
                   { mark: "manual", text: "Parse it yourself" },
                   { mark: "no", text: "Answers, then dies" },
-                  "Not exposed",
+                  "Model max, slow past 2K",
                 ],
               },
               {
                 icon: "stack",
-                name: "LiteRT.js",
+                name: "LiteRT-LM Web",
                 cells: [
                   { mark: "yes", text: "Runs them for you" },
                   { mark: "no", text: "Tab dies on load" },
-                  "4K–8K",
+                  "4K, raisable",
                 ],
               },
             ]}
@@ -520,7 +520,7 @@
               * 30-40 sec, no demo. Say the article covers this properly and point
                 at the link.
               * Tools: all five take a ${em("tools")} option, and it means three
-                different amounts of work. LiteRT-LM runs your function and hands
+                different amounts of work. LiteRT-LM Web runs your function and hands
                 back the answer. wllama and WebLLM give you the call; you run it and
                 send the result back, and WebLLM only does it on five Hermes 7-8B
                 models. Transformers.js renders tools into the chat template and
@@ -529,13 +529,23 @@
                 desktop only.
               * Mobile is an iPhone 15 Pro, Safari and Chrome for iOS, smallest
                 model. WebLLM and wllama survive. Transformers.js answers, then the
-                tab is killed while idle. LiteRT's smallest web model is 2 GB
+                tab is killed while idle. LiteRT-LM Web's smallest model is 2 GB
                 against a 1 GB buffer limit. Prompt API reports unavailable up front.
               * Context: Chrome's ${em("contextWindow")} read 9,216 and is not
-                settable. WebLLM is whatever the model was compiled with. wllama's
-                ${em("n_ctx")} defaults to 1,024, not the model's trained context,
-                so set it. LiteRT's ${em("maxNumTokens")} defaults to 4,096.
-                Transformers.js does not report one at all.
+                settable. WebLLM's catalog ships 1K, 2K or 4K to save memory, but
+                the models were trained longer (SmolLM2 8K, Llama 3.2 128K) and the
+                override raises it. wllama loads every model up to its trained
+                length on a laptop (256K for Qwen3.5, 128K for Gemma 4), and it
+                loads past that without complaint. But a full context is slow: 67 s
+                to fill 32K on a 0.8B model, four minutes for 64K. LiteRT-LM Web's
+                ${em("maxNumTokens")} defaults to 4,096 and loads up to Gemma 4's
+                128K, but at 128K even a short prompt prefilled at 37 tokens/s.
+              * Transformers.js has no context setting at all. The cache just
+                grows, up to the model's trained length (8K to 256K for the demo's
+                models). But an open upstream bug has WebGPU decode stepping down
+                past 2K, 4K and 6K tokens, to about a sixth of the speed.
+              * So the number that decides it isn't the window; it's how long you
+                wait to fill it.
               * The frontier models you use every day have 250K to 1M.
               * TODO: article title + URL.
             `}
@@ -581,7 +591,7 @@
               "Calling the same tools we clicked a moment ago.",
               "Watch the context meter, not the answer.",
             ]}
-            backup=${`Flip the provider pill: LiteRT (Gemma 4 on WebGPU) and Gemini
+            backup=${`Flip the provider pill: LiteRT-LM Web (Gemma 4 on WebGPU) and Gemini
               Nano via the Prompt API are independent. If both are down, the download row
               and the context meter still tell the story.`}
             notes=${`

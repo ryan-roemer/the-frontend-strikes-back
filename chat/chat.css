@@ -1523,7 +1523,7 @@
  * `display: none` rather than shrinking them. Icons that scale down stop being legible
  * from the back of a room well before they stop taking up space.
  */
-/* The provider pills SHORTEN before anything is dropped: "LiteRT" and "Chrome" become "L"
+/* The provider pills SHORTEN before anything is dropped: "LiteRT-LM Web" and "Chrome" become "L"
  * and "C", which keeps the switch -- the demo's one variable -- reachable in a panel dragged
  * small. The full name is still the tooltip and the accessible name. */
 @container (max-width: 340px) {

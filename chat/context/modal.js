@@ -33,7 +33,7 @@ const html = htm.bind(createElement);
 /** `replay` included so a fixture run is labelled as one rather than as a bare id --
  *  a sheet that says "replay" is the fastest way to notice you are not testing a model. */
 const PROVIDERS = {
-  litert: "LiteRT-LM",
+  litert: "LiteRT-LM Web",
   chrome: "Chrome Prompt API",
   replay: "Replay (fixture)",
 };
