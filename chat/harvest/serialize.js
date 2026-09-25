@@ -106,6 +106,7 @@ const DECORATION_CLASSES = [
  * the slide without being one structurally.
  */
 const CELL_CLASSES = [
+  ["matrix__head", true],
   ["matrix__name", true],
   ["matrix__note", false],
 ];

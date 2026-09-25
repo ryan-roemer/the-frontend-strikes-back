@@ -929,30 +929,76 @@ export const AudienceCards = ({ audiences = [], action = false }) => html`
  *
  * One Grid holds every cell rather than a flex row per line, so the label column
  * stays aligned down the slide for free.
+ *
+ * `columns` adds a header row, and each row's `cells` fill the columns after the
+ * label. A cell is a string, or `{ mark, text }` where `mark` is one of
+ * `MATRIX_MARKS`. The mark is an icon AND the text stays beside it: the harvest
+ * skips icons, so a cell that was only an icon would be empty to the deck's own
+ * assistant.
  */
-export const MatrixSlide = ({ chapter, title, rows = [], notes }) => html`
-  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
-    <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
-    <${Grid} className="matrix" gridTemplateColumns="auto 1fr">
-      ${rows.map(
-        (row, i) => html`
-          <${Fragment} key=${i}>
-            <${Box} className="matrix__name">
-              ${
-                row.icon
-                  ? html`<${Icon} name=${row.icon} className="matrix__icon" />`
-                  : null
-              }
-              ${row.name}
-            <//>
-            <${Box} className="matrix__note">${row.note}<//>
-          </${Fragment}>
-        `,
-      )}
-    </${Grid}>
-    <${MdNotes} notes=${notes} />
-  </${DeckSlide}>
-`;
+const MATRIX_MARKS = {
+  yes: "check-circle",
+  manual: "wrench",
+  no: "x-circle",
+};
+
+const MatrixCell = ({ cell }) => {
+  const { mark, text } = typeof cell === "object" ? cell : { text: cell };
+  return html`
+    <${Box} className="matrix__note">
+      ${
+        mark
+          ? html`<${Icon}
+              name=${MATRIX_MARKS[mark]}
+              className=${`matrix__icon matrix__mark--${mark}`}
+            />`
+          : null
+      }
+      ${text}
+    <//>
+  `;
+};
+
+export const MatrixSlide = ({ chapter, title, columns, rows = [], notes }) => {
+  const width = rows[0]?.cells?.length ?? 1;
+  return html`
+    <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
+      <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
+      <${Grid}
+        className="matrix"
+        gridTemplateColumns=${`auto repeat(${width}, auto)`}
+      >
+        ${columns?.map(
+          (label, i) =>
+            html`<${Box} key=${`head-${i}`} className="matrix__head"
+              >${label}<//
+            >`,
+        )}
+        ${rows.map(
+          (row, i) => html`
+            <${Fragment} key=${i}>
+              <${Box} className="matrix__name">
+                ${
+                  row.icon
+                    ? html`<${Icon}
+                        name=${row.icon}
+                        className="matrix__icon"
+                      />`
+                    : null
+                }
+                ${row.name}
+              <//>
+              ${(row.cells ?? [row.note]).map(
+                (cell, j) => html`<${MatrixCell} key=${j} cell=${cell} />`,
+              )}
+            </${Fragment}>
+          `,
+        )}
+      </${Grid}>
+      <${MdNotes} notes=${notes} />
+    </${DeckSlide}>
+  `;
+};
 
 /**
  * The seam: one tool interface, two interchangeable implementations.

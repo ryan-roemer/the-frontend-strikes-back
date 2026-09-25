@@ -806,6 +806,30 @@ body::after {
 
 #root .matrix__note {
   color: #fff;
+  padding-right: 32px;
+}
+
+#root .matrix__head {
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 32px 10px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+/*
+ * No red: the palette has none, so "no" is muted rather than alarming. "manual"
+ * keeps the cell's white, and no second accent is borrowed from another chapter.
+ */
+#root .matrix__mark--yes {
+  color: var(--chapter-accent);
+}
+
+#root .matrix__mark--no {
+  color: var(--muted);
 }
 
 /* --- Demo hand-off ------------------------------------------------------- */

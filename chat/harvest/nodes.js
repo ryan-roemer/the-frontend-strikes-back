@@ -79,6 +79,7 @@ const ROLES = [
   ["audience__who", "audience"],
   ["audience__claim", "audience claim"],
   ["audience__action", "audience action"],
+  ["matrix__head", "matrix head"],
   ["matrix__name", "matrix row"],
   ["matrix__note", "matrix note"],
   ["demo__url", "demo url"],

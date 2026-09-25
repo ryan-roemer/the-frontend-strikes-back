@@ -468,37 +468,75 @@
           <${MatrixSlide}
             chapter=${2}
             title="What else runs in a tab"
+            columns=${["Runtime", "Tools", "Mobile", "Context"]}
             rows=${[
               {
                 icon: "browser",
                 name: "Chrome Prompt API",
-                note: "TODO: Built in, Chrome-ish only.",
-              },
-              {
-                icon: "cube",
-                name: "transformers.js",
-                note: "TODO: Full HF, crashy.",
+                cells: [
+                  { mark: "no", text: "Behind a flag" },
+                  { mark: "no", text: "Unavailable" },
+                  "~9K, fixed",
+                ],
               },
               {
                 icon: "graphics-card",
-                name: "web-llm",
-                note: "TODO: Tuned web-friendly LLMs, but old",
+                name: "WebLLM",
+                cells: [
+                  { mark: "manual", text: "Only select models" },
+                  { mark: "yes", text: "Runs" },
+                  "1K–4K",
+                ],
               },
               {
                 icon: "cpu",
                 name: "wllama",
-                note: "TODO: llama.cpp in WASM. Run GGUF!",
+                cells: [
+                  { mark: "manual", text: "You run it" },
+                  { mark: "yes", text: "Runs" },
+                  "1K–32K",
+                ],
+              },
+              {
+                icon: "cube",
+                name: "Transformers.js",
+                cells: [
+                  { mark: "manual", text: "Parse it yourself" },
+                  { mark: "no", text: "Answers, then dies" },
+                  "Not exposed",
+                ],
               },
               {
                 icon: "stack",
                 name: "LiteRT.js",
-                note: "TODO: New runtime, Gemma 4, few other models yet",
+                cells: [
+                  { mark: "yes", text: "Runs them for you" },
+                  { mark: "no", text: "Tab dies on load" },
+                  "4K–8K",
+                ],
               },
             ]}
             notes=${`
-              * TODO: tune these one-liners, they're my summary not yours.
               * 30-40 sec, no demo. Say the article covers this properly and point
                 at the link.
+              * Tools: all five take a ${em("tools")} option, and it means three
+                different amounts of work. LiteRT-LM runs your function and hands
+                back the answer. wllama and WebLLM give you the call; you run it and
+                send the result back, and WebLLM only does it on five Hermes 7-8B
+                models. Transformers.js renders tools into the chat template and
+                stops; you parse the call out of the reply text. Chrome specs an
+                ${em("execute()")} the browser calls, but it is behind a flag,
+                desktop only.
+              * Mobile is an iPhone 15 Pro, Safari and Chrome for iOS, smallest
+                model. WebLLM and wllama survive. Transformers.js answers, then the
+                tab is killed while idle. LiteRT's smallest web model is 2 GB
+                against a 1 GB buffer limit. Prompt API reports unavailable up front.
+              * Context: Chrome's ${em("contextWindow")} read 9,216 and is not
+                settable. WebLLM is whatever the model was compiled with. wllama's
+                ${em("n_ctx")} defaults to 1,024, not the model's trained context,
+                so set it. LiteRT's ${em("maxNumTokens")} defaults to 4,096.
+                Transformers.js does not report one at all.
+              * The frontier models you use every day have 250K to 1M.
               * TODO: article title + URL.
             `}
           />
