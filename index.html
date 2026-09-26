@@ -485,7 +485,7 @@
                 cells: [
                   { mark: "manual", text: "Only select models" },
                   { mark: "yes", text: "Runs" },
-                  { text: "1–4K", note: "raisable", value: "128K" },
+                  { text: "1–4K", note: "raisable", value: "16K" },
                 ],
               },
               {
@@ -503,7 +503,7 @@
                 cells: [
                   { mark: "manual", text: "Parse it yourself" },
                   { mark: "no", text: "Answers, then dies" },
-                  { text: "8–256K", note: "slow", value: "2K" },
+                  { text: "~32K", note: "slow", value: "4K" },
                 ],
               },
               {
@@ -532,25 +532,27 @@
                 tab is killed while idle. LiteRT-LM Web's smallest model is 2 GB
                 against a 1 GB buffer limit. Prompt API reports unavailable up front.
               * Context icons: lock is fixed, up arrow is "the default, raisable to
-                this", hourglass is "slows down past this many tokens". The ranges
-                on wllama and Transformers.js are the trained lengths of the models
-                in the demo, not a runtime limit. WebLLM's 128K is Llama 3.2 1B's
-                trained length from its config; the override was only confirmed
-                here at 8K on SmolLM2. LiteRT-LM Web's 128K is measured: Gemma 4
-                E2B loads at 131,072.
-              * Context: Chrome's ${em("contextWindow")} read 9,216 and is not
-                settable. WebLLM's catalog ships 1K, 2K or 4K to save memory, but
-                the models were trained longer (SmolLM2 8K, Llama 3.2 128K) and the
-                override raises it. wllama loads every model up to its trained
-                length on a laptop (256K for Qwen3.5, 128K for Gemma 4), and it
-                loads past that without complaint. But a full context is slow: 67 s
-                to fill 32K on a 0.8B model, four minutes for 64K. LiteRT-LM Web's
-                ${em("maxNumTokens")} defaults to 4,096 and loads up to Gemma 4's
-                128K, but at 128K even a short prompt prefilled at 37 tokens/s.
-              * Transformers.js has no context setting at all. The cache just
-                grows, up to the model's trained length (8K to 256K for the demo's
-                models). But an open upstream bug has WebGPU decode stepping down
-                past 2K, 4K and 6K tokens, to about a sixth of the speed.
+                this", hourglass is "slows down past this many tokens". Every number
+                in the column was measured on this laptop by hiding a code at the
+                top of a long prompt and asking for it back.
+              * Chrome: ${em("contextWindow")} is 9,216 and not settable. An 8,700-token
+                prompt still finds the code at full speed; 11,900 is refused with
+                "The input is too large."
+              * WebLLM: the catalog ships 4K to save memory and the override raises
+                it. Qwen2.5-0.5B found the code at 16K; at 30K it was accepted and
+                answered wrong. The same 8K prompt is refused at the default. Llama
+                3.2 1B accepts a raised window but loses recall just past 4K.
+              * wllama: loads every model to its trained length (256K for Qwen3.5,
+                128K for Gemma 4) and past it without complaint, and recall held to
+                64K. But filling is slow: 67 s for 32K on a 0.8B model, four minutes
+                for 64K.
+              * Transformers.js: no context setting; the cache just grows. On
+                LFM2.5, trained to 128K, ONNX Runtime fails with "Integer overflow"
+                at about 35K tokens, so ~32K is the real ceiling. Decode is flat to
+                3K and slows after: 17% slower at 5K, 43% at 7K. Recall went at 16K.
+              * LiteRT-LM Web: ${em("maxNumTokens")} defaults to 4,096 and refuses a 7K
+                prompt there. Raised to 128K, Gemma 4 E2B found the code in a
+                125,000-token prompt: 65 s to fill, then 38 tokens/s.
               * So the number that decides it isn't the window; it's how long you
                 wait to fill it.
               * The frontier models you use every day have 250K to 1M.
