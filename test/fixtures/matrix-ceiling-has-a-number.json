@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "at": { "nodes": { "matrix head": 4, "matrix row": 5 } },
+    "kind": "recorded",
+    "about": "A context cell that can be raised says how far, and the maximum is called \"max\" on every row, so no cell's ceiling is left to the model's imagination.",
+    "recorded-outcome": "asked \"Which runtime has highest potential context?\", Gemma answered \"The WebLLM has the highest potential context, with a context size of 1–4K raisable.\" The cell said \"1–4K raisable\" with no ceiling, beside wllama's stated 256K, and a literal reader has nothing to rule WebLLM out with. With the ceiling added, the same one-step question still picked WebLLM, now by matching \"max\" to \"raisable to a max of\"; asked to rank the rows first, it ranked them correctly. That remainder is the 2B model. A system-prompt line asking it to list values before comparing fixed two questions and broke a third, so it was not kept.",
+    "guards": "the `value` on the raisable Context cells in index.html, and the `raisable` words in `MATRIX_NOTES` in deck/components.js. Drop either and the `re:` line finds no ceiling. The reply is kept verbatim as the input that exposed it; the assertion is on what the model was told."
+  },
+  "turns": [
+    {
+      "ask": "Which runtime has highest potential context?",
+      "replies": [
+        "The WebLLM has the highest potential context, with a context size of 1–4K raisable."
+      ],
+      "expect": {
+        "calls": [],
+        "slides": {
+          "{at}": [
+            "...",
+            "re:^matrix note \\d+ \\([^,()]+, Context\\): .+ raisable to a max of \\d+K$",
+            "..."
+          ]
+        }
+      }
+    }
+  ]
+}

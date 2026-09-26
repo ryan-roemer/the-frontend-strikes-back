@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "at": { "nodes": { "matrix head": 4, "matrix row": 5 } },
+    "kind": "authored",
+    "about": "A table cell is addressable by the label the model is shown for it: `matrix note N`, bare or with its `(row, column)` pasted along.",
+    "recorded-outcome": "found while triaging the WebLLM-vs-wllama context answer, not seen from a model yet. `locate(\"matrix note 6\")` returned `match: none`: the vocabulary had `row` for `matrix row` and nothing for `note` or `head`, so every cell name the roster printed pointed at nothing. Once the labels carried `(WebLLM, Context)`, the pasted form matched the row and the header by text and came back ambiguous.",
+    "guards": "the `note` alias in chat/harvest/locate.js. Remove it and both turns stop resolving: the first finds nothing, and the second is ambiguous between the Chrome Prompt API row and the Mobile header. The second turn quotes real row and column names on purpose, because those names matching other nodes by text is the failure; if the table's first row or third column is renamed, update them here."
+  },
+  "turns": [
+    {
+      "ask": "make the first cell bold",
+      "replies": [
+        "```tool style_node\n{\"target\": \"matrix note 1\", \"style\": \"font-weight: bold\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "style_node",
+            "args": { "target": "matrix note 1", "style": "font-weight: bold" }
+          }
+        ],
+        "receipt": ["font-weight: bold on slide {at}, matrix note 1"]
+      }
+    },
+    {
+      "ask": "and the Chrome mobile one too",
+      "replies": [
+        "```tool style_node\n{\"target\": \"matrix note 2 (Chrome Prompt API, Mobile)\", \"style\": \"font-weight: bold\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "style_node",
+            "args": {
+              "target": "matrix note 2 (Chrome Prompt API, Mobile)",
+              "style": "font-weight: bold"
+            }
+          }
+        ],
+        "receipt": ["font-weight: bold on slide {at}, matrix note 2"]
+      }
+    }
+  ]
+}

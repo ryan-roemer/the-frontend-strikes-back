@@ -970,7 +970,7 @@ const createChat = async ({ system }) => {
  */
 export const provider = {
   id: "litert",
-  label: "LiteRT-LM Web",
+  label: "LiteRT",
 
   capabilities: {
     // The runtime parses and runs tool calls itself (`AutoToolChat`), so `act/respond.js`

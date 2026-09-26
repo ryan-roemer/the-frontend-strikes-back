@@ -178,10 +178,43 @@ const labelOf = (node, totals) => {
  * spent on something whose only observable effect is a 2B model reading "12.3" out loud.
  * The day the chat can navigate or edit, this flips back to true and nothing else moves.
  */
-const nodeLine = (node, totals, { ids }) => {
+const nodeLine = (node, totals, { ids, where }) => {
   const indent = "  ".repeat(Math.max(0, node.depth - 1));
-  const label = `${indent}${labelOf(node, totals)}: ${node.text}`;
+  const at = where?.get(node);
+  const label = `${indent}${labelOf(node, totals)}${at ? ` (${at})` : ""}: ${node.text}`;
   return ids ? `${node.id} ${label}` : label;
+};
+
+/**
+ * Which row and column each cell of a `MatrixSlide` sits in.
+ *
+ * The roster is flat, so a table arrives as its headers, then each row's name followed by
+ * its cells, numbered across the whole table. "matrix note 6: 1K–4K" does not say it is
+ * WebLLM's Context. Asked which of two runtimes had the larger context, a 2B model compared
+ * the wrong cells and then defended it, because nothing on a cell's line tied it to a row
+ * or a column. Naming both costs a few tokens a cell and leaves the label in front, so
+ * "matrix note 6" still addresses it.
+ *
+ * Relies on reading order, which `MatrixSlide` guarantees: the header row first (its first
+ * header is the name column), then one name and its cells per row.
+ */
+const matrixCells = (nodes) => {
+  const heads = nodes
+    .filter((n) => n.role === "matrix head")
+    .map((n) => n.text);
+  const where = new Map();
+  let row = null;
+  let column = 0;
+  for (const node of nodes) {
+    if (node.role === "matrix row") {
+      row = node.text;
+      column = 0;
+    } else if (node.role === "matrix note" && row) {
+      column += 1;
+      where.set(node, [row, heads[column]].filter(Boolean).join(", "));
+    }
+  }
+  return where;
 };
 
 const nodeLines = (nodes, { ids = true } = {}) => {
@@ -232,8 +265,9 @@ const codeFence = (slide, node) => {
 const slideText = (slide, { ids = true, code = true } = {}) => {
   if (!slide) return "";
   const totals = nameCounts(slide.nodes);
+  const where = matrixCells(slide.nodes);
   const lines = slide.nodes.flatMap((node) => {
-    const line = nodeLine(node, totals, { ids });
+    const line = nodeLine(node, totals, { ids, where });
     return code && node.role === "code"
       ? [line, ...codeFence(slide, node)]
       : [line];

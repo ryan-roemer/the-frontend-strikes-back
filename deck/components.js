@@ -935,6 +935,11 @@ export const AudienceCards = ({ audiences = [], action = false }) => html`
  * `MATRIX_MARKS`. The mark is an icon AND the text stays beside it: the harvest
  * skips icons, so a cell that was only an icon would be empty to the deck's own
  * assistant.
+ *
+ * `note` puts a qualifier AFTER the text, as an icon and an optional short value:
+ * `{ text: "128–256K", note: "slow", value: "32K" }` reads "128–256K ⏳32K". The
+ * qualifier's word ("slow past") is in a visually hidden span, so the slide stays
+ * one line per row while the harvest still reads "128–256K slow past 32K".
  */
 const MATRIX_MARKS = {
   yes: "check-circle",
@@ -942,8 +947,21 @@ const MATRIX_MARKS = {
   no: "x-circle",
 };
 
+// The words say which number is the maximum, in the same word each time. "1–4K
+// raisable" has no ceiling, and asked for the runtime with the most potential context,
+// a 2B model chose it over a cell that said 256K. Given "raisable to 128K" beside
+// "128–256K slow past 32K", it still chose it: it compared the qualifiers, not the
+// numbers. "max" on both sides is what a question about the highest can match.
+const MATRIX_NOTES = {
+  fixed: { icon: "lock-simple", words: "fixed" },
+  raisable: { icon: "arrow-fat-up", words: "default, raisable to a max of" },
+  slow: { icon: "hourglass-medium", words: "max, slow past" },
+};
+
 const MatrixCell = ({ cell }) => {
-  const { mark, text } = typeof cell === "object" ? cell : { text: cell };
+  const { mark, text, note, value } =
+    typeof cell === "object" ? cell : { text: cell };
+  const after = MATRIX_NOTES[note];
   return html`
     <${Box} className="matrix__note">
       ${
@@ -955,6 +973,16 @@ const MatrixCell = ({ cell }) => {
           : null
       }
       ${text}
+      ${
+        after
+          ? html`<span className="matrix__after"
+              ><${Icon} name=${after.icon} title=${after.words} /><span
+                className="sr-only"
+                >${` ${after.words} `}</span
+              >${value ?? ""}</span
+            >`
+          : null
+      }
     <//>
   `;
 };

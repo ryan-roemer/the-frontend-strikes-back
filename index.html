@@ -476,7 +476,7 @@
                 cells: [
                   { mark: "no", text: "Behind a flag" },
                   { mark: "no", text: "Unavailable" },
-                  "~9K, fixed",
+                  { text: "~9K", note: "fixed" },
                 ],
               },
               {
@@ -485,7 +485,7 @@
                 cells: [
                   { mark: "manual", text: "Only select models" },
                   { mark: "yes", text: "Runs" },
-                  "1K–4K, raisable",
+                  { text: "1–4K", note: "raisable", value: "128K" },
                 ],
               },
               {
@@ -494,7 +494,7 @@
                 cells: [
                   { mark: "manual", text: "You run it" },
                   { mark: "yes", text: "Runs" },
-                  "Model max, slow past 32K",
+                  { text: "128–256K", note: "slow", value: "32K" },
                 ],
               },
               {
@@ -503,7 +503,7 @@
                 cells: [
                   { mark: "manual", text: "Parse it yourself" },
                   { mark: "no", text: "Answers, then dies" },
-                  "Model max, slow past 2K",
+                  { text: "8–256K", note: "slow", value: "2K" },
                 ],
               },
               {
@@ -512,7 +512,7 @@
                 cells: [
                   { mark: "yes", text: "Runs them for you" },
                   { mark: "no", text: "Tab dies on load" },
-                  "4K, raisable",
+                  { text: "4K", note: "raisable", value: "128K" },
                 ],
               },
             ]}
@@ -531,6 +531,13 @@
                 model. WebLLM and wllama survive. Transformers.js answers, then the
                 tab is killed while idle. LiteRT-LM Web's smallest model is 2 GB
                 against a 1 GB buffer limit. Prompt API reports unavailable up front.
+              * Context icons: lock is fixed, up arrow is "the default, raisable to
+                this", hourglass is "slows down past this many tokens". The ranges
+                on wllama and Transformers.js are the trained lengths of the models
+                in the demo, not a runtime limit. WebLLM's 128K is Llama 3.2 1B's
+                trained length from its config; the override was only confirmed
+                here at 8K on SmolLM2. LiteRT-LM Web's 128K is measured: Gemma 4
+                E2B loads at 131,072.
               * Context: Chrome's ${em("contextWindow")} read 9,216 and is not
                 settable. WebLLM's catalog ships 1K, 2K or 4K to save memory, but
                 the models were trained longer (SmolLM2 8K, Llama 3.2 128K) and the
@@ -591,7 +598,7 @@
               "Calling the same tools we clicked a moment ago.",
               "Watch the context meter, not the answer.",
             ]}
-            backup=${`Flip the provider pill: LiteRT-LM Web (Gemma 4 on WebGPU) and Gemini
+            backup=${`Flip the provider pill: LiteRT (LiteRT-LM Web, Gemma 4 on WebGPU) and Gemini
               Nano via the Prompt API are independent. If both are down, the download row
               and the context meter still tell the story.`}
             notes=${`

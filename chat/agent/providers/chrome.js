@@ -410,7 +410,7 @@ export const provider = {
           bullets: [
             "The web Prompt API ships in Chrome 148+ on desktop — Windows, macOS 13+, Linux, Chromebook Plus — and only on supported hardware.",
             "Chrome for Android and every iOS browser don't have it.",
-            "Switch to the LiteRT-LM Web provider to run a model this page downloads itself.",
+            "Switch to the LiteRT provider to run a model this page downloads itself.",
           ],
         }
       : {
@@ -418,7 +418,7 @@ export const provider = {
           bullets: [
             "Chrome declines on low disk space, on metered connections, and on unsupported GPUs.",
             "chrome://on-device-internals shows what it decided and why.",
-            "Switch to the LiteRT-LM Web provider to run a model this page downloads itself.",
+            "Switch to the LiteRT provider to run a model this page downloads itself.",
           ],
         },
 

@@ -807,6 +807,28 @@ body::after {
 #root .matrix__note {
   color: #fff;
   padding-right: 24px;
+  /* One line per row. A cell too long for it should be shortened, not wrapped. */
+  white-space: nowrap;
+}
+
+/* The qualifier after a cell's text: an icon, then an optional short value. */
+#root .matrix__after {
+  margin-left: 0.4em;
+  color: var(--muted);
+}
+
+#root .matrix__after i {
+  margin-right: 0.15em;
+}
+
+/* Read by the harvest and screen readers, not drawn. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 #root .matrix__head {

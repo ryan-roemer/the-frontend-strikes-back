@@ -80,6 +80,12 @@ const ALIASES = new Map([
   ["url", ["demo url"]],
   ["link", ["demo url"]],
   ["row", ["matrix row"]],
+  // The roster calls a table's cells "matrix note N" and its headers "matrix head N", and
+  // without these the model's own reading of that label resolved to nothing. Not
+  // "header": people say that for the slide title.
+  ["note", ["matrix note"]],
+  ["cell", ["matrix note"]],
+  ["head", ["matrix head"]],
 ]);
 
 /** Ordinal words, plus `last` as a sentinel resolved against the group size. */

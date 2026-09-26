@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "at": { "nodes": { "matrix head": 4, "matrix row": 5 } },
+    "kind": "recorded",
+    "about": "A comparison table reaches the model with every cell labelled by its row and its column, so a question comparing two rows can find the cells it means.",
+    "recorded-outcome": "on the five-runtime table, asked \"does WebLLM have a smaller or larger context than wllama?\", Gemma answered \"WebLLM has a larger potential context (1K–4K) than wllama (Model max, slow past 32K)\" and then defended it for three turns. The model had been shown `matrix head 1..4`, then `matrix row 2: WebLLM` and `matrix note 4..6` numbered across the whole table. Nothing on a cell's line said which row or column it belonged to, so comparing two rows meant counting cells, and a 2B model does not count.",
+    "guards": "`matrixCells` in chat/harvest/views.js. Without it the cell lines read `matrix note 6: 1K–4K, raisable` and the `re:` line below finds no labelled cell. The reply is kept verbatim as the input that exposed it; the assertion is on what the model was TOLD, because a canned reply cannot show a better answer."
+  },
+  "turns": [
+    {
+      "ask": "OK, so does WebLLM have a smaller or larger context than wllama?",
+      "replies": [
+        "WebLLM has a larger potential context (1K–4K) than wllama (Model max, slow past 32K)."
+      ],
+      "expect": {
+        "calls": [],
+        "slides": {
+          "{at}": [
+            "...",
+            "re:^matrix note 1 \\([^,()]+, [^,()]+\\): .+$",
+            "..."
+          ]
+        }
+      }
+    }
+  ]
+}
