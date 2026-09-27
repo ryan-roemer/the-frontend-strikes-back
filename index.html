@@ -127,6 +127,7 @@
         SlideHeading,
         SpectacleBadge,
         AppearComponent,
+        AppearInline,
         mdSlideProps,
         deckTransition,
         selectSlideFromOverview,
@@ -223,8 +224,9 @@
                     "" /* The Spectacle setup, as a logo instead of a line of its own.
                           It pays off twice -- the deck is a WebMCP server in chapter 1
                           and runs a model in chapter 2 -- so it has to be said here,
-                          but it does not have to cost a whole appear step. Clicking it
-                          puts the banner up, which is the slide this replaced. */
+                          but it does not need a line of its own. The next step puts
+                          the banner up (the slide this replaced) and the one after
+                          takes it down as the last line appears; clicking works too. */
                   }
                   <${SpectacleBadge} />
                 </${Text}>
@@ -241,7 +243,7 @@
                   * Keep it to 30 sec.
                   * We also maintain ${em("Spectacle")}, a presentation library for
                     React. This deck runs on it -- no build step, all in the browser.
-                    Click the logo to put the banner up, Escape to drop it.
+                    Next step puts the banner up, next again drops it (or Escape).
                   * That's the line that matters: it's why the deck can be a demo later.
                 `}
               </${Markdown}>
@@ -250,21 +252,23 @@
           <${DeckSlide}>
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
               <${Eyebrow}>
-                <${Icon} name="robot" /> Agents are already using your app
+                <${Icon} name="robot" /> Our question
               </${Eyebrow}>
-              <${SlideHeading} fontSize="h1" textAlign="left" margin="18px 0 0">
-                The frontend is <u>back</u>.
-              </${SlideHeading}>
-              <${AccentRule} />
+              <${AppearComponent}>
+                <${SlideHeading} fontSize="h1" textAlign="left" margin="18px 0 0">
+                  Where does the browser fit in the AI ecosystem?
+                </${SlideHeading}>
+                <${AccentRule} />
+              </${AppearComponent}>
               <${SlideHeading}
-                variant="subtitle"
-                fixed=${true}
-                fontSize="h3"
-                color="primary"
-                textAlign="left"
-                margin="24px 0 0"
+                  variant="subtitle"
+                  fixed=${true}
+                  fontSize="h3"
+                  color="primary"
+                  textAlign="left"
+                  margin="24px 0 0"
               >
-                An agent <strong>interface</strong> and <strong>runtime</strong>.
+                <${AppearInline}>As an agent <u>interface</u></${AppearInline}><${AppearInline}> and <u>runtime</u>.</${AppearInline}>
               </${SlideHeading}>
             </${FlexBox}>
             <${Notes}>

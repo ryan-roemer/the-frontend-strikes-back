@@ -4,6 +4,7 @@ import {
   createElement,
   lazy,
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -32,6 +33,9 @@ import {
   TableRow,
   TableCell,
   SpectacleLogo,
+  DeckContext,
+  SlideContext,
+  useSteps,
 } from "spectacle";
 import { colors, isPaged, photoBackground, SPECTACLE_ROSE } from "./theme.js";
 import { images } from "./media.js";
@@ -70,6 +74,12 @@ const animationsEnabled =
   urlParams.get("animate") === "false" || prefersReducedMotion ? false : true;
 
 export const AppearComponent = animationsEnabled ? Appear : Fragment;
+
+/** `Appear` as a `<span>`, so it steps in without breaking the line. */
+export const AppearInline = ({ children, ...props }) =>
+  animationsEnabled
+    ? html`<${Appear} tagName="span" ...${props}>${children}</${Appear}>`
+    : children;
 const animateListItems = animationsEnabled ? { animateListItems: true } : {};
 
 /**
@@ -1240,14 +1250,44 @@ export const DemoSlide = ({
  * The scrim, the centering and the z-index above the chat panel are `.chat-sheet`
  * from `chat/chat.css`, shared with the context and tool sheets. Only the card
  * is new.
+ *
+ * ALSO A STEP. With animations on, the banner is its own step on the slide: the
+ * placeholder sits inside the `Appear` row that holds the badge, so Spectacle
+ * orders it after that row and before the next one. Arrow forward and the
+ * banner goes up; arrow again and it comes down as the next row appears. While
+ * a step is holding it open the arrows go through to the deck, which is the
+ * point -- a click-opened banner still keeps them, as before.
+ *
+ * `stepped` is this exact step, not "this step or later": `useSteps` clamps the
+ * relative step at its last value, so `isActive` alone would leave the banner
+ * up for the rest of the slide.
  */
-export const SpectacleBadge = () => {
-  const [open, setOpen] = useState(false);
+const Badge = ({ stepped = false, placeholder = null }) => {
+  const [clicked, setClicked] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const sheet = useRef(null);
-  const close = useCallback(() => setOpen(false), []);
+  const open = clicked || (stepped && !dismissed);
+  const close = useCallback(() => {
+    setClicked(false);
+    setDismissed(true);
+  }, []);
+
+  // Moving on or off the step starts clean: an Escape on the way through does
+  // not stop the banner coming back when you step back onto it.
+  useEffect(() => {
+    setClicked(false);
+    setDismissed(false);
+  }, [stepped]);
 
   /** Escape closes, arrows stay off the deck -- see `use-dismiss-keys.js`. */
-  const onKeyDown = useDismissKeys(close);
+  const blockKeys = useDismissKeys(close);
+  const onKeyDown = stepped
+    ? (event) => {
+        if (event.key !== "Escape") return;
+        event.stopPropagation();
+        close();
+      }
+    : blockKeys;
 
   // Focused on open so Escape has somewhere to land. Lowercase `tabindex` below
   // because prettier formats these html`` templates as HTML -- see the longer
@@ -1256,18 +1296,14 @@ export const SpectacleBadge = () => {
     if (open) sheet.current?.focus();
   }, [open]);
 
-  // Paged output is a stack of static slides: nothing to click, no viewport to
-  // center an overlay in, and a `position: fixed` scrim already cost this deck a
-  // phantom page once. The sentence keeps its logo everywhere else.
-  if (isPaged) return null;
-
   return html`
     <${Fragment}>
+      ${placeholder}
       <button
         type="button"
         className="spectacle-badge"
         aria-label="Show the Spectacle banner"
-        onClick=${() => setOpen(true)}
+        onClick=${() => setClicked(true)}
       >
         <${SpectacleLogo} size=${64} />
       </button>
@@ -1314,3 +1350,34 @@ export const SpectacleBadge = () => {
     <//>
   `;
 };
+
+/**
+ * The badge plus its step. Presenter and overview mode leave the step in place
+ * so the step count matches the audience window, but never raise the banner by
+ * stepping -- it would sit over the notes, or over every slide at once.
+ */
+const inPresenterMode = urlParams.get("presenterMode") === "true";
+
+const SteppedBadge = () => {
+  const { stepId, placeholder } = useSteps(1);
+  const { isSlideActive, activeStepIndex, activationThresholds } =
+    useContext(SlideContext);
+  const { inOverviewMode } = useContext(DeckContext);
+  const stepped =
+    isSlideActive &&
+    !inPresenterMode &&
+    !inOverviewMode &&
+    activeStepIndex === activationThresholds?.[stepId];
+
+  return html`<${Badge} stepped=${stepped} placeholder=${placeholder} />`;
+};
+
+// Paged output is a stack of static slides: nothing to click, no viewport to
+// center an overlay in, and a `position: fixed` scrim already cost this deck a
+// phantom page once. With animations off there are no steps to sit between, so
+// the badge is click-only. The sentence keeps its logo everywhere else.
+export const SpectacleBadge = isPaged
+  ? () => null
+  : animationsEnabled
+    ? SteppedBadge
+    : Badge;
