@@ -24,7 +24,9 @@
  * skips.
  */
 
-const ENDPOINT = process.env.CDP_URL ?? "http://127.0.0.1:9222";
+// Exported, with `attach` below, for `scripts/offline-verify.mjs`, which also has to
+// attach to the deck's service worker target.
+export const ENDPOINT = process.env.CDP_URL ?? "http://127.0.0.1:9222";
 
 /** Where the deck is served. `npm run dev` is `npx serve`, which defaults to :3000. */
 const DECK = process.env.DECK_URL ?? "http://localhost:3000/";
@@ -93,7 +95,7 @@ const deckUrl = () => {
  * the only thing tying one to its call. Small enough not to need a library, and specific
  * enough that a library would hide it.
  */
-const attach = (url) =>
+export const attach = (url) =>
   bounded(
     new Promise((resolve, reject) => {
       const socket = new WebSocket(url);

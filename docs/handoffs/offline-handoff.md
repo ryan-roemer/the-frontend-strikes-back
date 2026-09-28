@@ -203,6 +203,12 @@ non-localhost request failed over CDP on both the page and the service worker ta
 - **`?offline=false`** took the registration count from 1 to 0, and a flagless load
   afterwards didn't register it again.
 
+The first two checks are in [`scripts/offline-verify.mjs`](../../scripts/offline-verify.mjs)
+(`--shots` saves screenshots to `offline/verify/`, `--no-flag` runs the inverse check). It is
+not wired to npm; phase 4 grows it into `offline:check`. On a brand-new profile it passes both
+ways: with the flag, 184 external responses, all from the worker; without it, 10 requests reach
+the network and are blocked.
+
 **`Network.setBlockedURLs` can't test a service worker.** On the page target it blocks
 requests _before_ the worker sees them (`blockedReason: "inspector"`), so the deck fails even
 when every file is on disk. Use `Fetch.enable({ patterns: [{ urlPattern: "*" }] })` on the page
@@ -274,9 +280,13 @@ video, Esc closes it, and slides without a backup show no button.
 
 - `npm run offline:check`. Over CDP, with every external host blocked, it confirms the service
   worker is in control, walks every slide, opens the assistant, loads Gemma, asks one question,
-  and **fails on any blocked or failed request** with a list of the URLs. Block with the
-  `Fetch` domain on the page and service worker targets, **not** `Network.setBlockedURLs`,
-  which blocks before the worker. Phase 1's "Verified" note has the details.
+  and **fails on any blocked or failed request** with a list of the URLs. **Start from
+  `scripts/offline-verify.mjs`**, which already does everything except Gemma and the question.
+  It loads with `?offline`, and blocks with the `Fetch` domain on the page and service worker
+  targets, **not** `Network.setBlockedURLs`, which blocks before the worker (phase 1's
+  "Verified" note has the details). Don't check backgrounds through computed styles: Spectacle
+  puts them on a pseudo-element, so the probe finds nothing. Use the network responses or
+  `--shots`.
 - `serve` and `@mcp-b/webmcp-local-relay@5.1.0` as pinned devDependencies, with `dev` and
   `demo:relay` pointing at the local bins, so neither needs npx over the network.
 - Finish `docs/offline.md`: make every command real, add what to do when `offline:check`
@@ -312,9 +322,10 @@ such apps are usually built, not from reading their code. Verify before relying 
 
 ## 4. Handoff prompts
 
-Paste one per new session. Each assumes the previous phases are merged.
+Paste one per new session. Each assumes the previous phases are committed on the
+`infra/offline` branch, where all of this work stays until it's done.
 
-**Phase 1**
+**Phase 1** ✅ done. The prompt is kept for the record.
 
 > Read `docs/handoffs/offline-handoff.md` §1–§3 (phase 1) and `docs/dependencies.md`. Build `sw.js`
 > (localhost-only registration from `index.html`, synthetic responses, network fall-through)
@@ -325,10 +336,20 @@ Paste one per new session. Each assumes the previous phases are merged.
 
 **Phase 2**
 
-> Read `docs/handoffs/offline-handoff.md` (phase 2) and `chat/agent/providers/litert-cache.js`. Add
-> `npm run offline:model` (resumable, size-checked) and a service worker mapping from the
-> HuggingFace model URL to `offline/models/`, streaming with `content-length`. Add
-> `npm run cdp:talk` with a persistent profile. Verify a wiped profile loads Gemma offline.
+> Read `docs/handoffs/offline-handoff.md` (§2, phase 1's notes, and phase 2),
+> `chat/agent/providers/litert-cache.js`, `sw.js` and `scripts/offline-verify.mjs`.
+>
+> - Add `npm run offline:model`: downloads to `offline/models/`, resumable with `curl -C -`, and
+>   checked against `EXPECTED_BYTES`.
+> - Make `sw.js` map the HuggingFace model URL to that file, piping the body and setting
+>   `content-length`. It must still answer only for `?offline` pages.
+> - Add `npm run cdp:talk`: the same flags and CDP port as `cdp`, with a persistent profile that
+>   `cdp:stop` never deletes.
+> - Verify that a wiped profile loads Gemma from disk with every external host blocked. Extend
+>   `offline-verify.mjs` rather than writing a new check.
+> - In Claude's sandbox: run Node with `NODE_USE_ENV_PROXY=1`, and launch the Chrome binary
+>   directly, because `open` is blocked.
+> - Update phase 2 in the handoff and `docs/offline.md`.
 
 **Phase 3**
 
@@ -339,6 +360,8 @@ Paste one per new session. Each assumes the previous phases are merged.
 
 **Phase 4**
 
-> Read `docs/handoffs/offline-handoff.md` (phase 4). Build `npm run offline:check` (CDP, external hosts
-> blocked, full walk plus a Gemma answer, fails with a list of missed URLs). Pin `serve` and the
-> relay as devDependencies. Finish `docs/offline.md` (presenter-facing, terse). Draft the `offline-prep` skill.
+> Read `docs/handoffs/offline-handoff.md` (phase 1's notes and phase 4). Grow
+> `scripts/offline-verify.mjs` into `npm run offline:check`: `?offline`, external hosts blocked
+> with the `Fetch` domain on the page and worker targets, a full walk plus a Gemma answer, and a
+> failure with a list of missed URLs. Pin `serve` and the relay as devDependencies. Finish
+> `docs/offline.md` (presenter-facing, terse). Draft the `offline-prep` skill.
