@@ -12,12 +12,15 @@
  * why this is a service worker and not a second import map.
  *
  * `offline/manifest.json` maps each URL to a file under `offline/files/`. It is written by
- * `npm run offline:fetch` and is gitignored. A URL that is not in the manifest goes to the
- * network, so a stale or missing `offline/` directory means "online as usual", not a
- * broken deck.
+ * `npm run offline:fetch` and is gitignored. `offline/models.json` has the same shape and
+ * maps the HuggingFace model URL to `offline/models/`; `npm run offline:model` writes it,
+ * and only once the file is complete. They are separate because `offline:fetch` rewrites
+ * its manifest from scratch. A URL in neither goes to the network, so a stale or missing
+ * `offline/` directory means "online as usual", not a broken deck.
  */
 
 const MANIFEST = new URL("offline/manifest.json", self.registration.scope);
+const MODELS = new URL("offline/models.json", self.registration.scope);
 
 /** The same values `chat/url.js` `flag()` accepts: `?offline`, `=true`, `=1`. */
 const isOffline = (href) => {
@@ -26,7 +29,7 @@ const isOffline = (href) => {
 };
 
 /**
- * The manifest, once it has loaded. `null` while a load is in flight.
+ * Both manifests merged, once they have loaded. `null` while a load is in flight.
  *
  * KEPT SYNCHRONOUSLY READABLE so the fetch handler can decide on the spot to leave a
  * request alone. A request the handler does not answer goes to the network untouched,
@@ -35,12 +38,16 @@ const isOffline = (href) => {
 let entries = null;
 let loading = null;
 
+const readJson = (url) =>
+  fetch(url, { cache: "no-store" })
+    .then((res) => (res.ok ? res.json() : {}))
+    .catch(() => ({}));
+
 const loadManifest = () => {
   entries = null;
-  loading = fetch(MANIFEST, { cache: "no-store" })
-    .then((res) => (res.ok ? res.json() : {}))
-    .catch(() => ({}))
-    .then((json) => (entries = json));
+  loading = Promise.all([readJson(MANIFEST), readJson(MODELS)]).then(
+    ([files, models]) => (entries = { ...files, ...models }),
+  );
   return loading;
 };
 
@@ -82,7 +89,9 @@ self.addEventListener("activate", (event) =>
  * Phosphor CSS's relative font paths keep resolving against the CDN. Passing the local
  * response through would make every module's base URL localhost.
  *
- * The body is piped, not buffered: the LiteRT wasm files are 20–35 MB each.
+ * The body is piped, not buffered: the LiteRT wasm files are 20–35 MB each, and the model
+ * is 2 GB. `content-length` must be set: `litert-cache.js` checks the download against
+ * it, and stores it with the cached copy for later loads to check against.
  */
 const answer = async (request, clientId) => {
   if (!(await pageIsOffline(clientId))) return fetch(request);

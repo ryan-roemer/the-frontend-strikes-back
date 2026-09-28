@@ -2,9 +2,11 @@
 
 Present the talk with no network. Works on `localhost` only; the published site is unaffected.
 
-> **Status: partly built.** `npm run offline:fetch` works. The other `offline:*` commands and
-> `cdp:talk` don't exist yet. Until they do, run `offline:fetch` against `npm run cdp`.
-> Implementation notes are in [handoffs/offline-handoff.md](handoffs/offline-handoff.md).
+> **Status: partly built.** `offline:fetch`, `offline:model` and `cdp:talk` work.
+> `offline:check` doesn't exist yet; until it does, run
+> `CDP_URL=http://127.0.0.1:1980 node scripts/offline-verify.mjs --gemma`. The npm install step and the backup videos are
+> still to come. Implementation notes are in
+> [handoffs/offline-handoff.md](handoffs/offline-handoff.md).
 
 ## Before the trip (on good wifi)
 
@@ -24,7 +26,11 @@ In the talk profile, also:
 - Ask one question on **each** provider.
 
 `offline:check` must pass with zero missed URLs. Re-run `offline:fetch` after any
-dependency change. It reuses files it already has; `npm run offline:fetch -- --force`
+dependency change.
+
+`offline:model` resumes where it stopped, so if it fails, run it again. It skips the
+download if the file is already complete. With `?offline`, a profile without the model
+loads it from `offline/models/` instead of downloading it from HuggingFace. It reuses files it already has; `npm run offline:fetch -- --force`
 downloads everything again. It fails, and lists the URLs, if any file couldn't be saved.
 
 Then open **<http://localhost:3000/?offline>** once, while still online, so the service
@@ -51,8 +57,9 @@ the Size column.
 3. Open **<http://localhost:3000/?offline>**. If the deck is blank, reload once.
 4. Walk the deck once. The assistant's status should read "on disk".
 
-`npm run cdp:stop` wipes only the throwaway `cdp` profile. The talk profile, with its cached
-models, survives it.
+`npm run cdp:stop` wipes only the throwaway `cdp` profile. The talk profile
+(`~/.cache/tfsb-chrome-talk`), with its cached models, survives it. `cdp` and `cdp:talk`
+share port 1980, so run only one at a time: `npm run cdp:stop` before `cdp:talk`. Quit the talk Chrome normally.
 
 ## When a live demo fails
 

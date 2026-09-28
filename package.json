@@ -9,10 +9,12 @@
   "scripts": {
     "dev": "npx serve",
     "cdp": "open -na 'Google Chrome' --args --remote-debugging-port=$npm_package_config_cdp_port --remote-allow-origins='*' --user-data-dir=/tmp/tfsb-chrome-cdp --no-first-run --no-default-browser-check http://localhost:3000",
+    "cdp:talk": "open -na 'Google Chrome' --args --remote-debugging-port=$npm_package_config_cdp_port --remote-allow-origins='*' --user-data-dir=$HOME/.cache/tfsb-chrome-talk --no-first-run --no-default-browser-check http://localhost:3000",
     "cdp:stop": "pkill -f tfsb-chrome-cdp; rm -rf /tmp/tfsb-chrome-cdp",
     "test": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_port} node --test \"test/*.test.js\"",
     "qr": "node scripts/gen-qr.mjs",
     "offline:fetch": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_port} node scripts/offline-fetch.mjs",
+    "offline:model": "node scripts/offline-model.mjs",
     "lint": "eslint . --fix",
     "pretty": "prettier . --write",
     "format": "npm run lint && npm run pretty",

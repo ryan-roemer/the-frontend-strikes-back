@@ -5,8 +5,14 @@
 //   node scripts/offline-verify.mjs              # needs `npm run dev`, a CDP Chrome
 //   node scripts/offline-verify.mjs --shots      # also saves offline/verify/slide-N.jpg
 //   node scripts/offline-verify.mjs --no-flag    # the same walk WITHOUT `?offline`
+//   node scripts/offline-verify.mjs --gemma      # then load Gemma and ask it a question
 //
 // Point CDP_URL at the Chrome, as `npm test` does (`npm run cdp` listens on :1980).
+//
+// `--gemma` needs `npm run offline:model` and a GPU. It loads the model with the blocks
+// still on, so on a profile without the model cached, the 2 GB has to come from
+// `offline/models/` through the worker. It reports whether the model was cached before,
+// because a cache hit doesn't test the worker at all: use a fresh profile for that.
 //
 // `--no-flag` is the inverse check. The worker must leave a flagless page alone, so
 // the deck is expected to fail, with its CDN requests reaching the network and getting
@@ -35,9 +41,12 @@ const SHOTS = resolve(ROOT, "offline", "verify");
 
 const FLAG = !process.argv.includes("--no-flag");
 const TAKE_SHOTS = process.argv.includes("--shots");
+const GEMMA = process.argv.includes("--gemma");
 
 // How long to let lazy requests (backgrounds, fonts) land after each slide change.
 const SLIDE_MS = 800;
+// How long the model may take to copy into the cache, load onto the GPU and answer.
+const GEMMA_MS = 5 * 60 * 1000;
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 const isLocal = (url) => /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(url);
@@ -89,6 +98,56 @@ const watch = async (session, label) => {
   await session.send("Network.enable");
 };
 
+/**
+ * Load Gemma through the deck's own provider and ask it one question.
+ *
+ * Started inside the page and then polled, because every CDP call is capped at a few
+ * seconds (`test/cdp.js`) and this takes a minute or more.
+ */
+const askGemma = async (page) => {
+  const started = await page(`
+    const { provider } = await deck("chat/agent/providers/litert.js");
+    const run = (window.__offlineVerifyGemma = { before: await provider.status() });
+    const t0 = performance.now();
+    const ms = () => Math.round(performance.now() - t0);
+    (async () => {
+      try {
+        const chat = await provider.acquire({
+          system: "Answer in one short sentence.",
+          onPhase: ({ phase, text }) => {
+            run[phase] ??= ms();
+            run.progress = text;
+          },
+        });
+        run.loaded = ms();
+        let answer = "";
+        for await (const delta of chat.stream("What is a service worker?")) {
+          answer += delta;
+        }
+        run.answer = answer.trim();
+        run.answered = ms();
+        chat.destroy();
+      } catch (err) {
+        run.error = String(err?.message || err);
+      }
+    })();
+    return run.before;`);
+  if (typeof started !== "string") return { error: JSON.stringify(started) };
+
+  const deadline = Date.now() + GEMMA_MS;
+  let run = {};
+  while (Date.now() < deadline) {
+    run = await page(`return { ...window.__offlineVerifyGemma };`);
+    process.stdout.write(`\rgemma: ${run.progress ?? run.before}`.padEnd(60));
+    if (run.error || run.answer !== undefined) break;
+    await sleep(1000);
+  }
+  process.stdout.write("\n");
+  if (!run.error && run.answer === undefined) run.error = "timed out";
+  delete run.progress;
+  return run;
+};
+
 const main = async () => {
   const deck = await connect();
   if (!deck.session) throw new Error(deck.reason);
@@ -126,9 +185,12 @@ const main = async () => {
   await block(session, "page");
   await session.send("Runtime.enable");
   session.on("Runtime.consoleAPICalled", ({ type, args }) => {
-    if (type === "error") {
-      errors.push(args.map((a) => a.value ?? a.description).join(" "));
-    }
+    if (type !== "error") return;
+    const text = args.map((a) => a.value ?? a.description).join(" ");
+    // LiteRT's wasm writes its INFO and WARNING log lines to stderr, which Emscripten
+    // turns into `console.error`. Its ERROR lines still count.
+    if (/^(INFO|WARNING): \[/.test(text)) return;
+    errors.push(text);
   });
   session.on("Runtime.exceptionThrown", ({ exceptionDetails: d }) =>
     errors.push(d.exception?.description ?? d.text),
@@ -195,6 +257,7 @@ const main = async () => {
       } catch (err) {
         return { ok: false, error: String(err?.message || err) };
       }`);
+    if (GEMMA) report.gemma = await askGemma(page);
     await sleep(1000);
   }
 
@@ -214,6 +277,18 @@ const main = async () => {
   console.log(`  ready: ${report.ready}, slides walked: ${report.slides}`);
   if (report.fonts) console.log(`  fonts loaded: ${report.fonts.join(", ")}`);
   if (report.litert) console.log(`  LiteRT runtime:`, report.litert);
+  const model = [...external].find(([url]) => url.endsWith(".litertlm"));
+  if (GEMMA) {
+    console.log(`  Gemma:`, report.gemma);
+    console.log(
+      `  model response: ${model ? `${model[1].status}, from the service worker: ${model[1].fromServiceWorker}` : "none (cache hit)"}`,
+    );
+    if (report.gemma?.before !== "downloadable") {
+      console.log(
+        "  NOTE: the model was already cached, so this didn't test serving it from offline/models/. Use a fresh profile for that.",
+      );
+    }
+  }
   console.log(
     `  external responses: ${external.size}, not from the service worker: ${notFromWorker.length}`,
   );
@@ -233,7 +308,8 @@ const main = async () => {
     report.ready &&
     leaked.length === 0 &&
     failed.length === 0 &&
-    errors.length === 0;
+    errors.length === 0 &&
+    (!GEMMA || Boolean(report.gemma?.answer));
   const pass = FLAG ? clean : !report.ready && leaked.length > 0;
   console.log(pass ? "PASS" : "FAIL");
   if (!pass) process.exitCode = 1;

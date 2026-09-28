@@ -4,7 +4,8 @@ Goal: present the whole talk with wifi off. The deck, its assistant, its images 
 demo videos all come from the laptop. **Local dev only**: nothing here has to work on GitHub
 Pages, and nothing here may change how the published deck behaves.
 
-Status: **phase 1 built** (service worker and `offline:fetch`). Phases 2–5 are planned. Each phase below is sized for one session and ends with a
+Status: **phases 1 and 2 built and verified** (service worker, `offline:fetch`,
+`offline:model`, `cdp:talk`). Phases 3–5 are planned. Each phase below is sized for one session and ends with a
 handoff prompt you can paste into a new session.
 
 **Two docs, two readers.** This file is for whoever builds the feature.
@@ -31,7 +32,8 @@ its "planned" banner once phase 4 lands.
 Two risks already exist today, before any of the new work:
 
 - **`npm run cdp:stop` runs `rm -rf /tmp/tfsb-chrome-cdp`.** That deletes the cached Gemma
-  model, Gemini Nano, and (once it exists) the service worker. Don't present from that profile.
+  model, Gemini Nano, and (once it exists) the service worker. Don't present from that profile;
+  use `npm run cdp:talk` (phase 2).
 - **`npx serve` without network** only works if npx happens to have it cached.
 
 ---
@@ -82,6 +84,7 @@ separate install and would be tied to one browser profile. It adds nothing here.
 offline/
   manifest.json        { url → { file, type, bytes } }, written by the fetch script
   files/<sha256(url)>  one file per URL, so `+esm`, query strings and hosts need no escaping
+  models.json          the same shape, for the model; written by `offline:model`
   models/gemma-4-E2B-it-web.litertlm
 ```
 
@@ -230,11 +233,79 @@ build has the named exports.
 sandbox blocks. Launching the Chrome binary directly with `--headless=new
 --remote-debugging-port=1980 --user-data-dir=<scratch>` works.
 
-### Phase 2 — models
+### Phase 2 — models ✅ done
 
-**Delivers:** `npm run offline:model` downloads to `offline/models/` with resume (`curl -C -`)
-and a size check against `EXPECTED_BYTES`. The service worker maps the HuggingFace URL in
-`chat/agent/providers/litert.js` to that file.
+**Delivered:**
+
+- `npm run offline:model` (`scripts/offline-model.mjs`). It reads the repo, file name and
+  `EXPECTED_BYTES` out of `chat/agent/providers/litert.js` with regexes, because that module
+  imports `@litert-lm/core` and can't load in Node. Then it runs
+  `curl -L --fail --retry 5 -C - -o offline/models/<file>`. A file that is already the right
+  size is skipped, and one that is too big is deleted and fetched again. Only when the size
+  matches does it write `offline/models.json`; otherwise it deletes that file and exits 1.
+- **`offline/models.json`, not an entry in `manifest.json`.** `offline:fetch` rewrites its
+  manifest from scratch on every run, so it would drop the model. The two files have the same
+  `{ url → { file, type, bytes } }` shape. `sw.js` loads both at startup and on each
+  navigation and merges them, so `answer()` didn't change. The model is served with
+  `content-length` from `bytes` and its body piped, the same as every other entry, and only
+  for `?offline` pages.
+- `npm run cdp:talk`: the `cdp` command with `--user-data-dir=$HOME/.cache/tfsb-chrome-talk`.
+  `cdp:stop` matches `tfsb-chrome-cdp`, so it neither kills nor deletes the talk profile. Both
+  use port 1980, so only one can run at a time. To quit the talk Chrome, close it normally.
+- `scripts/offline-verify.mjs --gemma`: after the walk, with the blocks still on, it imports
+  the deck's `litert.js`, calls `provider.acquire()` and streams one answer. It runs inside the
+  page and is polled, because `test/cdp.js` caps every call at 5 s. It reports the provider's
+  status beforehand (`downloadable` means the 2 GB really came through the worker), the ms at
+  which the download and engine phases started, the answer, and whether the `.litertlm`
+  response came from the service worker. It fails without an answer.
+
+**Tested:**
+
+- The first download took under two minutes (about 20 MB/s) and matched `EXPECTED_BYTES`.
+- A re-run with the file complete skips curl.
+- Cutting the file to 2,008,000,000 bytes and re-running resumed and fetched only the
+  remaining ~430 KB.
+- `serve` answers the model with `Content-Length: 2008432640` and no compression.
+- `npm run format` is clean.
+
+**Verified on a wiped talk profile** (`cdp:talk`, so a headed Chrome), with every external
+host blocked on the page and worker targets:
+
+```sh
+npm run dev
+npm run cdp:stop    # frees :1980; otherwise the check attaches to the old Chrome
+rm -rf ~/.cache/tfsb-chrome-talk && npm run cdp:talk
+CDP_URL=http://127.0.0.1:1980 node scripts/offline-verify.mjs --gemma
+```
+
+- Before the load, the status was `downloadable`: the profile had no cached model.
+- The model's response was a 200 **from the service worker**. The 2 GB copy into the Cache
+  API took **3.4 s**, the GPU load took about 1 s, and the answer came after about 4.8 s in
+  total.
+- All 29 slides walked. 185 external responses (184 plus the model) all came from the worker,
+  with nothing blocked, no failed requests and no console errors.
+- On a profile with the model already cached, the same check loads it in about 1 s. It then
+  prints a note, because a cache hit doesn't touch `offline/models/`.
+
+**Gotchas found while verifying:**
+
+- **`CDP_URL` is required** when running the script with `node`: `test/cdp.js` defaults to
+  :9222, and only the npm scripts point it at :1980. Phase 4's `offline:check` npm script
+  will set it.
+- **Port collision.** If a `cdp` Chrome is still on :1980, `cdp:talk` can't take the port,
+  and the check silently runs against the old profile. The first run did exactly that and
+  reported `before: 'on-disk'`.
+- **LiteRT logs through `console.error`.** Its wasm writes `INFO:`/`WARNING:` lines to
+  stderr, which Emscripten turns into `console.error`. The script ignores those two prefixes
+  and still counts `ERROR:` lines.
+- **Launching Chrome from Claude's sandbox no longer works.** Phase 1 launched the binary
+  directly. This time Chrome aborted with "Failed to create socket directory": its process
+  singleton lives in `/var/folders/…/T`, which the sandbox denies, and `TMPDIR` doesn't change
+  that. Auto mode refused an unsandboxed launch, so the presenter ran the check. For phase 4,
+  either do the same, or allow Chrome launches outside the sandbox (`/sandbox`, or a Bash
+  permission rule).
+
+The original plan, kept for reference:
 
 - Nothing in `litert-cache.js` changes. On a cache miss the page fetches the HF URL, the
   service worker streams the local file back, and the existing path caches it. **The service
@@ -281,7 +352,8 @@ video, Esc closes it, and slides without a backup show no button.
 - `npm run offline:check`. Over CDP, with every external host blocked, it confirms the service
   worker is in control, walks every slide, opens the assistant, loads Gemma, asks one question,
   and **fails on any blocked or failed request** with a list of the URLs. **Start from
-  `scripts/offline-verify.mjs`**, which already does everything except Gemma and the question.
+  `scripts/offline-verify.mjs`**, which already does all of it with `--gemma`. What's left is the npm
+  wiring (with `CDP_URL` set), making Gemma part of the default run, and the missed-URL list.
   It loads with `?offline`, and blocks with the `Fetch` domain on the page and service worker
   targets, **not** `Network.setBlockedURLs`, which blocks before the worker (phase 1's
   "Verified" note has the details). Don't check backgrounds through computed styles: Spectacle
@@ -334,7 +406,7 @@ Paste one per new session. Each assumes the previous phases are committed on the
 > gitignored. Find out what `LiteRtLm.DEFAULT_WASM_PATH` loads and vendor it. Verify with every
 > external host blocked over CDP. Update §3 phase 1 in the handoff doc with what you learned, and `docs/offline.md` if a command changed.
 
-**Phase 2**
+**Phase 2** ✅ done. The prompt is kept for the record.
 
 > Read `docs/handoffs/offline-handoff.md` (§2, phase 1's notes, and phase 2),
 > `chat/agent/providers/litert-cache.js`, `sw.js` and `scripts/offline-verify.mjs`.
