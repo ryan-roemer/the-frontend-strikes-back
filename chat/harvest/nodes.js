@@ -256,7 +256,7 @@ const rendersContent = (fiber) => {
  * Child-only, for the same reason `flattenNode` is: following siblings would
  * hand back the NEXT node's element on any component that renders null first.
  *
- * READ-ONLY, and it must stay that way. `docs/chat-handoff.md` §10: removing or
+ * READ-ONLY, and it must stay that way. `docs/handoffs/chat-handoff.md` §10: removing or
  * rewriting nodes React's fiber still references can throw `NotFoundError` from
  * `removeChild` on the next commit and unmount the root. A blank deck, mid-talk.
  */

@@ -1,6 +1,6 @@
 # Deck assistant — the model layer
 
-The deck has a chat assistant in [`chat/`](../chat/): a sparkle button in the deck chrome opens a
+The deck has a chat assistant in [`chat/`](../../chat/): a sparkle button in the deck chrome opens a
 floating window that answers questions. It runs an on-device model through **either of two
 providers**, switchable live from the panel header:
 
@@ -22,7 +22,7 @@ pass, a patch log). Both were removed to make room for the two-provider work; th
 deliberately deck-unaware. The read-only deck bridge (`bus.js`, `bridge.js`, `use-deck.js`) is
 still wired and still unconsumed, because it is the seam those features come back through.
 
-> **Since then:** deck reading is back, in [`chat/harvest/`](../chat/harvest/) — a fiber-tree walk
+> **Since then:** deck reading is back, in [`chat/harvest/`](../../chat/harvest/) — a fiber-tree walk
 > that emits the whole deck as Markdown, including speaker notes the DOM harvest could not see —
 > **and it is now wired to the model.** The assistant knows the deck's outline and argument, and
 > the full text of any slide a question has been asked from. See
@@ -53,7 +53,7 @@ those things:
 ### The interface
 
 Each provider module exports one `provider` object; the contract is documented in full at the
-top of [`providers/index.js`](../chat/agent/providers/index.js). In outline:
+top of [`providers/index.js`](../../chat/agent/providers/index.js). In outline:
 
 ```
 id · label · capabilities · timings · stateMeta
@@ -85,7 +85,7 @@ Four capability flags carry real weight rather than being descriptive:
 ### Where the eight states strain
 
 The state set fits both, with three seams worth knowing (also commented in
-[`states.js`](../chat/agent/states.js)):
+[`states.js`](../../chat/agent/states.js)):
 
 - **`DOWNLOADING` is two states wearing one name.** Ours is a fact with a cancel button;
   Chrome's is a report whose only action is to look again.
@@ -126,7 +126,7 @@ expensive to diagnose — it reported `"available"` twice and once served a real
 `"available"`, `create()` resolves in 140ms–8.5s, and multi-turn answers are correct. Nothing
 changed on our side. That is the honest state of this API: it is not reliably broken, which is
 worse than being reliably broken, and every defensive mechanism in
-[`providers/chrome.js`](../chat/agent/providers/chrome.js) stays for that reason.
+[`providers/chrome.js`](../../chat/agent/providers/chrome.js) stays for that reason.
 
 **A postscript worth keeping.** `LanguageModel` was still _defined_ while non-functional. A
 `typeof LanguageModel === "undefined"` guard therefore passed, and every turn paid a dead
@@ -197,7 +197,7 @@ check:
   it happily and the engine fails on partial bytes with a message about wasm sections. A short
   entry is deleted rather than reported. The number comes from the server — live on download,
   and off the cached entry's stored headers thereafter — never from the pinned constant, which
-  is a version marker and only warns. See [dependencies.md](dependencies.md).
+  is a version marker and only warns. See [dependencies.md](../dependencies.md).
 - **`navigator.storage.persist()` from any deliberate load, not only a fresh download.** Chrome
   grants it silently; Firefox raises a permission doorhanger, and browser chrome appearing
   mid-talk is worse than the eviction it prevents — so it is never called from the mount-time
@@ -258,7 +258,7 @@ Aborting has to work in three places, and the same trap exists for both provider
   `conversation.cancel()` is the only mechanism, so a signal that does not reach that call does
   nothing — generation continues, burning the GPU, until it finishes on its own. Chrome's
   `create()` takes no signal either, which is why the ceiling exists.
-- **`stop()` does not wait for the responder.** [`use-conversation.js`](../chat/use-conversation.js)
+- **`stop()` does not wait for the responder.** [`use-conversation.js`](../../chat/use-conversation.js)
   bumps a run token, records the partial, and clears `busy` immediately — measured at 11ms.
 
 ### `cancel()` poisons the conversation — and how that is survived
@@ -619,7 +619,7 @@ Panel → useConversation(streamAnswer)
   `INFO:`/`WARNING:` lines per engine create, plus glog-style `W0817 … mel_filterbank.cc` and
   `GetProfileSummary not implemented for backend: GpuArtisan` per turn. Benign, not silenceable.
   Filter both `/^(INFO|WARNING|ERROR):\s*\[/` and `/^[IWEF]\d{4} /` before concluding a console
-  check has failed. Full detail in [dependencies.md](dependencies.md).
+  check has failed. Full detail in [dependencies.md](../dependencies.md).
 - **Exported PDFs have never had page numbers.** Spectacle passes `slideNumber = 1` for every
   slide in paged mode. Pre-existing and unrelated to the assistant.
 
@@ -629,8 +629,8 @@ Panel → useConversation(streamAnswer)
 - **The chat driving the deck.** It can say _which_ slide to go to and cannot go there. The
   outline resolves "which slide covers vector search" today, so what is missing is the action, not
   the context. Neither provider has grammar-constrained decoding (below), so the likely shape is
-  `selectView()` in [`harvest/views.js`](../chat/harvest/views.js) parsing the intent and calling
-  [`nav.js`](../chat/nav.js) — which is why that cascade is kept even though the chat bypasses it.
+  `selectView()` in [`harvest/views.js`](../../chat/harvest/views.js) parsing the intent and calling
+  [`nav.js`](../../chat/nav.js) — which is why that cascade is kept even though the chat bypasses it.
   Read position **after** `nav.settle()` and the rest already works.
 - **Invalidating a pinned slide when the deck is edited.** Nothing in the chat can edit, so there
   is nothing to invalidate yet. When there is: a slide pinned at turn 2 and edited at turn 5 leaves

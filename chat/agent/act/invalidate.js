@@ -2,7 +2,7 @@
  * Telling the model that a slide it holds has changed underneath it.
  *
  * THE FAILURE THIS PREVENTS was written down before it could happen
- * (`docs/chat-handoff.md` §10, "Invalidating a pinned slide when the deck is edited"),
+ * (`docs/handoffs/chat-handoff.md` §10, "Invalidating a pinned slide when the deck is edited"),
  * because nothing in the chat could edit yet. Now it can, so it is live: a slide is pinned
  * into the preface at turn 2, the model changes its wording at turn 5, and at turn 7
  * "what does this slide say?" is answered from the pin -- fluently, confidently, and about
@@ -20,7 +20,7 @@
  * WHAT THIS DOES NOT COVER, stated plainly because it will look like a bug: an edit made by
  * an EXTERNAL host -- a browser extension calling the same registered tools -- does not pass
  * through here, so a pin can still go stale that way. The fix when it matters is the seam
- * `docs/webmcp-handoff.md` §6 already describes: a `subscribe()` on `edit/patches.js` that
+ * `docs/handoffs/webmcp-handoff.md` §6 already describes: a `subscribe()` on `edit/patches.js` that
  * fires on every apply, undo and reset, with this module as its subscriber instead of the
  * call in `respond.js`. It is left undone rather than guessed at, because it only pays off
  * when a host and the in-page model are driving the same deck at once.

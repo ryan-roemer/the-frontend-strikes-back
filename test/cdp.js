@@ -225,7 +225,7 @@ const probe = async (session) => {
  * out made the suite lie. ES modules are cached per page, so a tab that has been open
  * since before your edit is still running the code you just changed — and every fixture
  * goes on passing against it. Caught by reverting a fix on purpose and watching its own
- * regression test stay green; `docs/chat-handoff.md` §10 warns about exactly this, one
+ * regression test stay green; `docs/handoffs/chat-handoff.md` §10 warns about exactly this, one
  * layer up, for hand-driven CDP sessions.
  *
  * `ignoreCache: true` because the dev server is `npx serve`, which is happy to answer a

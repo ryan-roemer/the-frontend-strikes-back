@@ -2,7 +2,7 @@
  * Sized views of the deck, and the rule that picks one.
  *
  * THE BUDGET IS THE DESIGN. Both providers have a real input window around 8-9k tokens,
- * and spending it degrades answers well before filling it (`docs/chat-handoff.md` §6). So
+ * and spending it degrades answers well before filling it (`docs/handoffs/chat-handoff.md` §6). So
  * the question is never "what could the model know" but "what does THIS request need",
  * measured against the deck's own command families:
  *

@@ -35,5 +35,5 @@ coverage
 # Deck
 docs/outline.md
 
-# Offline mode: vendored CDN copies and models (see docs/offline-handoff.md)
+# Offline mode: vendored CDN copies and models (see docs/offline.md)
 offline/

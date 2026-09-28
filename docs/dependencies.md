@@ -147,7 +147,7 @@ point rather than an omission. The Chrome Prompt API provider adds **nothing** t
 table — no import-map entry, no wasm, no model bytes — because the runtime and the weights are
 the browser's. What it costs instead is everything the page gives up by not owning them: no
 progress, no cancel, no delete, and a status that has been measured to flap. See
-[chat-handoff.md](chat-handoff.md) §1.
+[chat-handoff.md](handoffs/chat-handoff.md) §1.
 
 **It fetches a wasm runtime separately from its JavaScript, and the two must match.** Since
 0.17.0 the library guarantees that itself: `LiteRtLm.DEFAULT_WASM_PATH` is written into the

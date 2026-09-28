@@ -39,7 +39,7 @@
  * IN JS, NOT IN THE MODEL, for the same reason `views.js` chooses the view in JS:
  * a deterministic rule cannot hallucinate, and neither provider offers
  * grammar-constrained decoding to keep a 2B model inside the lines
- * (`docs/chat-handoff.md` §10). The model's job is to pick an id off a roster it
+ * (`docs/handoffs/chat-handoff.md` §10). The model's job is to pick an id off a roster it
  * can see; this file's job is to let a HUMAN skip that step and be understood
  * anyway.
  */

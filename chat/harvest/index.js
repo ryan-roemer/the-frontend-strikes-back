@@ -276,7 +276,7 @@ export const resolveNode = (id) => {
  * is kept because an honest degraded dump beats an empty one, and it is stamped
  * `source: "dom-fallback"` so nobody mistakes one for the other.
  *
- * Reads from a CLONE. `docs/chat-handoff.md` §10 records why nothing here may
+ * Reads from a CLONE. `docs/handoffs/chat-handoff.md` §10 records why nothing here may
  * touch the live tree: removing nodes React's fiber still references can throw
  * `NotFoundError` on the next commit and unmount the root -- a blank deck,
  * mid-talk.

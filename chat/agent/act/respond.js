@@ -22,7 +22,7 @@
  * it gone quiet, what deck context does this turn owe. A tool turn is a MULTI-call concern,
  * and folding it downward would put a loop inside the module that owns the idle timeout,
  * which is how the previous attempt at this ended up with a router threaded through the
- * session layer (`docs/chat-handoff.md` §10). Sitting above it means every call in a tool
+ * session layer (`docs/handoffs/chat-handoff.md` §10). Sitting above it means every call in a tool
  * turn gets the readiness gate and the idle timeout for free, with no new state.
  *
  * TWO PATHS, CHOSEN BY THE PROVIDER. Where the runtime runs tools itself (LiteRT-LM, via

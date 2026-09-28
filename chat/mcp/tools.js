@@ -11,7 +11,7 @@
  * EIGHT TOOLS, DOWN FROM FOURTEEN, and the count is the design rather than
  * tidying. The consumer this has to work for is a 2B on-device model choosing a
  * tool and filling its arguments in one shot, with no grammar-constrained
- * decoding to keep it inside the lines (`docs/chat-handoff.md` §10). Every tool
+ * decoding to keep it inside the lines (`docs/handoffs/chat-handoff.md` §10). Every tool
  * that overlaps another is a coin flip that model has to win. So the pairs that
  * differed only in scope were merged into one tool with a scope argument:
  *

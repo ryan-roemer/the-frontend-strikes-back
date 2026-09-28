@@ -1,9 +1,9 @@
 # Deck context — addressing slide content
 
-The deck can already read itself. [`chat/harvest/`](../chat/harvest/) walks React's fiber tree and
+The deck can already read itself. [`chat/harvest/`](../../chat/harvest/) walks React's fiber tree and
 emits the whole deck as one Markdown document — headings, bullets, code panes with their original
 source, and speaker notes. That part is built, verified, and described in
-[README](../README.md#the-deck-as-markdown).
+[README](../../README.md#the-deck-as-markdown).
 
 This document was the handoff for the **next** step, which was not more extraction:
 

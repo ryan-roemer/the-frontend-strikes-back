@@ -31,9 +31,9 @@ export const getModelContext = () =>
 `document` first: it is where the standard is going, `navigator` is the earlier shape. This matches
 the code panes on slides 10–12, so the deck and its own examples agree.
 
-Registration follows [`examples/register-tool.js`](../examples/register-tool.js) —
+Registration follows [`examples/register-tool.js`](../../examples/register-tool.js) —
 `registerTool({ name, description, inputSchema, execute })` — and results follow
-[`examples/tool-handler.js`](../examples/tool-handler.js): `{ content: [{ type: "text", text }] }`,
+[`examples/tool-handler.js`](../../examples/tool-handler.js): `{ content: [{ type: "text", text }] }`,
 or `{ isError: true, content: [...] }`. **If those examples and `chat/mcp/tools.js` ever disagree,
 the examples are the contract and the code is the bug** — they are on screen while it runs.
 

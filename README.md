@@ -29,6 +29,8 @@ Dependencies are pinned and version-deduped entirely through the import map in `
 Before changing any version, read [docs/dependencies.md](docs/dependencies.md) — it covers how
 the remaps and scopes work, which upgrades are deliberately blocked, and how to verify a change.
 
+To present with no network, follow [docs/offline.md](docs/offline.md).
+
 ### Deck URL parameters
 
 | Parameter             | Effect                                                        |
@@ -92,7 +94,7 @@ The crosshair button puts it back. Position and size persist and are re-clamped 
 load, so geometry saved on a laptop cannot strand the panel offscreen on a projector.
 
 > **Before presenting:** fetch the Gemma model on a connection you trust and ask one question on
-> each provider. See the pre-flight in [docs/chat-handoff.md](docs/chat-handoff.md), which is also
+> each provider. See the pre-flight in [docs/handoffs/chat-handoff.md](docs/handoffs/chat-handoff.md), which is also
 > the record of what each provider can and cannot do, and the measured numbers behind those
 > choices.
 
@@ -161,7 +163,7 @@ The assistant reads both halves of this. `chat/agent/prompt.js` puts the outline
 argument in the system prompt once, and `chat/agent/deck-context.js` pins the full text of a slide
 the first time a question is asked from it — once per slide, never re-sent, so context grows with
 slides asked about rather than with turns. The design, the measurements and what is still deferred
-are in [docs/deck-context-handoff.md](docs/deck-context-handoff.md).
+are in [docs/handoffs/deck-context-handoff.md](docs/handoffs/deck-context-handoff.md).
 
 ### The deck is a WebMCP server
 
@@ -222,4 +224,4 @@ so pressing Execute does what happens when an agent calls the tool. `?tool=find_
 one tool, which makes any single tool a link worth bookmarking before a talk.
 
 Details, and the six things this turned up along the way, are in
-[docs/webmcp-handoff.md](docs/webmcp-handoff.md).
+[docs/handoffs/webmcp-handoff.md](docs/handoffs/webmcp-handoff.md).

@@ -7,6 +7,11 @@ Pages, and nothing here may change how the published deck behaves.
 Status: **planned, nothing built.** Each phase below is sized for one session and ends with a
 handoff prompt you can paste into a new session.
 
+**Two docs, two readers.** This file is for whoever builds the feature.
+[`../offline.md`](../offline.md) is for the presenter: terse, commands and steps only. Every
+phase that changes a command or a step updates `offline.md` in the same change, and removes
+its "planned" banner once phase 4 lands.
+
 ---
 
 ## 1. What leaves the machine today
@@ -46,7 +51,7 @@ that is hard to spot:
 - jsDelivr bakes **root-relative** specifiers into every bundle (`/npm/react@19.2.0/+esm`).
   Once a module is served from localhost, those resolve against `localhost:3000`. Then none of
   the `https://cdn.jsdelivr.net/npm/react@…/` prefix remaps match, and the React singleton rule
-  ([dependencies.md §4](dependencies.md#4-the-react-singleton-rule)) breaks.
+  ([dependencies.md §4](../dependencies.md#4-the-react-singleton-rule)) breaks.
 - The Spectacle **scope** is keyed on the importer's jsDelivr URL, so it would break the same
   way.
 - Fixing that means rewriting every key and value in the map, serving `/npm/…` from the repo
@@ -183,8 +188,9 @@ video, Esc closes it, and slides without a backup show no button.
   whether the latter also blocks the service worker's own localhost fetches.)
 - `serve` and `@mcp-b/webmcp-local-relay@5.1.0` as pinned devDependencies, with `dev` and
   `demo:relay` pointing at the local bins, so neither needs npx over the network.
-- A `docs/offline.md` runbook: the night before, at the venue, and what to do when something is
-  red. It links from `dependencies.md` §3's existing pre-flight note.
+- Finish `docs/offline.md`: make every command real, add what to do when `offline:check`
+  reports misses, and remove the "planned" banner. Keep it terse and written for the
+  presenter.
 - A **Claude skill**, `.claude/skills/offline-prep/`, as a thin wrapper: it runs `offline:fetch`
   → `offline:model` → `offline:check`, reads the report, and fixes or explains each miss. The
   logic stays in the scripts; the skill just runs them. (The sandbox blocks Claude from writing
@@ -219,29 +225,29 @@ Paste one per new session. Each assumes the previous phases are merged.
 
 **Phase 1**
 
-> Read `docs/offline-handoff.md` §1–§3 (phase 1) and `docs/dependencies.md`. Build `sw.js`
+> Read `docs/handoffs/offline-handoff.md` §1–§3 (phase 1) and `docs/dependencies.md`. Build `sw.js`
 > (localhost-only registration from `index.html`, synthetic responses, network fall-through)
 > and `scripts/offline-fetch.mjs` (CDP recorder reusing `test/cdp.js`, headers-preserving
 > re-fetch, import-map closure check), wired as `npm run offline:fetch`, with `offline/`
 > gitignored. Find out what `LiteRtLm.DEFAULT_WASM_PATH` loads and vendor it. Verify with every
-> external host blocked over CDP. Update §3 phase 1 in the handoff doc with what you learned.
+> external host blocked over CDP. Update §3 phase 1 in the handoff doc with what you learned, and `docs/offline.md` if a command changed.
 
 **Phase 2**
 
-> Read `docs/offline-handoff.md` (phase 2) and `chat/agent/providers/litert-cache.js`. Add
+> Read `docs/handoffs/offline-handoff.md` (phase 2) and `chat/agent/providers/litert-cache.js`. Add
 > `npm run offline:model` (resumable, size-checked) and a service worker mapping from the
 > HuggingFace model URL to `offline/models/`, streaming with `content-length`. Add
 > `npm run cdp:talk` with a persistent profile. Verify a wiped profile loads Gemma offline.
 
 **Phase 3**
 
-> Read `docs/offline-handoff.md` (phase 3). Build backup demo videos: a registry of
+> Read `docs/handoffs/offline-handoff.md` (phase 3). Build backup demo videos: a registry of
 > slide → `media/videos/*.mp4`, a deck-chrome button next to the tools/chat toggles shown only
 > on slides with a backup, a hotkey, and a fullscreen overlay whose keys don't advance the
 > deck. Use a short placeholder mp4 until real recordings exist.
 
 **Phase 4**
 
-> Read `docs/offline-handoff.md` (phase 4). Build `npm run offline:check` (CDP, external hosts
+> Read `docs/handoffs/offline-handoff.md` (phase 4). Build `npm run offline:check` (CDP, external hosts
 > blocked, full walk plus a Gemma answer, fails with a list of missed URLs). Pin `serve` and the
-> relay as devDependencies. Write `docs/offline.md`. Draft the `offline-prep` skill.
+> relay as devDependencies. Finish `docs/offline.md` (presenter-facing, terse). Draft the `offline-prep` skill.
