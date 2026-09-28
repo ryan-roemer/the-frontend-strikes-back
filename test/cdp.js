@@ -98,10 +98,18 @@ const attach = (url) =>
     new Promise((resolve, reject) => {
       const socket = new WebSocket(url);
       const pending = new Map();
+      const listeners = new Map();
       let id = 0;
 
       socket.addEventListener("message", (event) => {
         const message = JSON.parse(event.data);
+        // Events carry a `method` and no `id`. Only `scripts/offline-fetch.mjs` listens
+        // for any; the fixture runner needs replies alone.
+        if (message.method) {
+          for (const fn of listeners.get(message.method) ?? [])
+            fn(message.params);
+          return;
+        }
         const waiting = pending.get(message.id);
         if (!waiting) return;
         pending.delete(message.id);
@@ -133,6 +141,9 @@ const attach = (url) =>
 
         resolve({
           send,
+          /** Call `fn(params)` on every CDP event named `method`. */
+          on: (method, fn) =>
+            listeners.set(method, [...(listeners.get(method) ?? []), fn]),
           /**
            * Evaluate an expression and get its VALUE back.
            *
@@ -219,6 +230,21 @@ const probe = async (session) => {
 };
 
 /**
+ * Poll `probe()` until the deck is ready, for up to `READY_MS`. True if it got there.
+ *
+ * Exported for `scripts/offline-fetch.mjs`, which reloads the deck itself after turning
+ * on network capture.
+ */
+export const untilReady = async (session) => {
+  const deadline = Date.now() + READY_MS;
+  while (Date.now() < deadline) {
+    if (await probe(session)) return true;
+    await sleep(250);
+  }
+  return false;
+};
+
+/**
  * An already-open deck tab, RELOADED, or null.
  *
  * THE RELOAD IS THE WHOLE POINT OF THIS FUNCTION BEING MORE THAN A LOOP, and leaving it
@@ -259,11 +285,7 @@ const findExisting = async (listed) => {
     // Re-probe on the SAME schedule `openDeck` uses. `Page.reload` resolves when the
     // navigation is accepted, not when the deck has mounted, so without this the first
     // fixture runs against a page with no `deckReplay` at all.
-    const deadline = Date.now() + READY_MS;
-    while (Date.now() < deadline) {
-      if (await probe(session)) return { session, opened: false };
-      await sleep(250);
-    }
+    if (await untilReady(session)) return { session, opened: false };
 
     session.close();
     return {
@@ -299,10 +321,8 @@ const openDeck = async () => {
   const target = await created.json();
   const session = await attach(target.webSocketDebuggerUrl);
 
-  const deadline = Date.now() + READY_MS;
-  while (Date.now() < deadline) {
-    if (await probe(session)) return { session, opened: true, id: target.id };
-    await sleep(250);
+  if (await untilReady(session)) {
+    return { session, opened: true, id: target.id };
   }
 
   session.close();

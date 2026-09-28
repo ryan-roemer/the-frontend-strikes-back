@@ -8,6 +8,28 @@
       name="description"
       content="WebMCP and the agent-ready browser: registering frontend tools that AI agents can actually call."
     />
+    <!-- Offline mode, localhost only and opt-in: `?offline` serves CDN files
+         from `offline/` (saved by `npm run offline:fetch`), `?offline=false`
+         unregisters the worker, and no flag leaves everything as it was. See
+         docs/offline.md. A classic script, not a module, so it cannot run ahead
+         of the import map. -->
+    <script>
+      (() => {
+        const local = ["localhost", "127.0.0.1"].includes(location.hostname);
+        if (!local || !("serviceWorker" in navigator)) return;
+        // The same values `chat/url.js` `flag()` accepts.
+        const value = new URLSearchParams(location.search).get("offline");
+        if (value === "" || value === "true" || value === "1") {
+          navigator.serviceWorker.register("./sw.js").catch((err) => {
+            console.warn("[offline] service worker not registered:", err);
+          });
+        } else if (value === "false" || value === "0") {
+          navigator.serviceWorker
+            .getRegistrations()
+            .then((all) => all.forEach((reg) => reg.unregister()));
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

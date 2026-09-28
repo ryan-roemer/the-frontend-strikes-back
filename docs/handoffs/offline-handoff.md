@@ -4,7 +4,7 @@ Goal: present the whole talk with wifi off. The deck, its assistant, its images 
 demo videos all come from the laptop. **Local dev only**: nothing here has to work on GitHub
 Pages, and nothing here may change how the published deck behaves.
 
-Status: **planned, nothing built.** Each phase below is sized for one session and ends with a
+Status: **phase 1 built** (service worker and `offline:fetch`). Phases 2–5 are planned. Each phase below is sized for one session and ends with a
 handoff prompt you can paste into a new session.
 
 **Two docs, two readers.** This file is for whoever builds the feature.
@@ -16,17 +16,17 @@ its "planned" banner once phase 4 lands.
 
 ## 1. What leaves the machine today
 
-| What                                  | From                                   | Loaded when                                  |
-| ------------------------------------- | -------------------------------------- | -------------------------------------------- |
-| ~870 ES modules (React, Spectacle, …) | `cdn.jsdelivr.net`, via the import map | every load                                   |
-| Phosphor icon CSS + its font files    | `cdn.jsdelivr.net`                     | every load                                   |
-| Inter / Fira Code                     | `fonts.googleapis.com` → `gstatic.com` | every load                                   |
-| Slide backgrounds                     | `images.unsplash.com`                  | when a slide is shown                        |
-| Nearform logo                         | `encrypted-tbn0.gstatic.com`           | every load                                   |
-| `@litert-lm/core` wasm (19–31 MiB)    | `cdn.jsdelivr.net/…/wasm`              | first Gemma load                             |
-| Gemma 4 E2B, 2,008,432,640 bytes      | `huggingface.co`                       | download click, then cached in the Cache API |
-| Gemini Nano (Prompt API)              | Chrome itself                          | browser-managed, per profile                 |
-| `serve`, `@mcp-b/webmcp-local-relay`  | npm, via `npx`                         | `npm run dev`, `npm run demo:relay`          |
+| What                                               | From                                   | Loaded when                                  |
+| -------------------------------------------------- | -------------------------------------- | -------------------------------------------- |
+| ~870 ES modules (React, Spectacle, …)              | `cdn.jsdelivr.net`, via the import map | every load                                   |
+| Phosphor icon CSS + its font files                 | `cdn.jsdelivr.net`                     | every load                                   |
+| Inter / Fira Code                                  | `fonts.googleapis.com` → `gstatic.com` | every load                                   |
+| Slide backgrounds                                  | `images.unsplash.com`                  | when a slide is shown                        |
+| Nearform logo                                      | `encrypted-tbn0.gstatic.com`           | every load                                   |
+| `@litert-lm/core` wasm (one of 4 builds, 21–34 MB) | `cdn.jsdelivr.net/…/wasm`              | first Gemma load                             |
+| Gemma 4 E2B, 2,008,432,640 bytes                   | `huggingface.co`                       | download click, then cached in the Cache API |
+| Gemini Nano (Prompt API)                           | Chrome itself                          | browser-managed, per profile                 |
+| `serve`, `@mcp-b/webmcp-local-relay`               | npm, via `npx`                         | `npm run dev`, `npm run demo:relay`          |
 
 Two risks already exist today, before any of the new work:
 
@@ -86,8 +86,9 @@ offline/
 ```
 
 `sw.js` sits at the repo root (it has to, so its scope covers `/`). It is registered only when
-`location.hostname` is `localhost` or `127.0.0.1`. On GitHub Pages the file is published but
-never registered.
+`location.hostname` is `localhost` or `127.0.0.1` **and** the URL has `?offline`. On GitHub
+Pages the file is published but never registered. Offline mode is opt-in per page load, so
+you never have to delete a file to turn it off (see phase 1 below).
 
 When a dependency is bumped, a URL that isn't in the manifest just goes to the network. A stale
 `offline/` directory therefore degrades to "online as usual", not to a broken deck.
@@ -102,36 +103,126 @@ When a dependency is bumped, a URL that isn't in the manifest just goes to the n
  Phase 5  external demo sites (estimate only, later)
 ```
 
-### Phase 1 — service worker and the "load" recorder
+### Phase 1 — service worker and the "load" recorder ✅ done
 
-**Delivers:** `sw.js`, the registration snippet in `index.html`, `scripts/offline-fetch.mjs`,
-`npm run offline:fetch`, and `offline/` in `.gitignore`.
+**Delivered:** `sw.js`, the registration snippet in `index.html`'s `<head>`,
+`scripts/offline-fetch.mjs`, `npm run offline:fetch` (`-- --force` re-fetches everything), and
+`offline/` in `.gitignore`. `test/cdp.js` gained `session.on(method, fn)` for CDP events and an
+exported `untilReady(session)`; nothing else in it changed and `npm test` still passes.
 
-**The recorder uses CDP and follows your "load the page and infer everything" idea.** It
-attaches to the running Chrome with the helpers in `test/cdp.js` (extract a shared module if
-needed), then:
+**Result today:** 301 URLs, 119 MiB: 281 jsDelivr, 14 gstatic fonts, 3 Unsplash, 2 Google Fonts
+CSS, 1 logo. A first run takes about 75 s; a re-run reuses saved files and takes under 10 s.
 
-1. `Network.setBypassServiceWorker(true)` and `Network.enable`, so every request goes to the
-   network and shows up.
-2. Loads the deck, walks **every slide** (backgrounds only load when a slide is shown), and
-   opens the chat panel so its lazy import runs.
-3. Collects every request to a non-localhost host, together with the request headers the
-   browser sent.
-4. Re-fetches each URL from Node **with those headers**. Google Fonts CSS depends on the
-   User-Agent, so Chrome's UA is needed to get woff2. It then writes `files/` and
-   `manifest.json`.
-5. **Closure check:** scans every vendored JS body for `/npm/…` specifiers, resolves them
-   through the import map, and fails if any resolved URL is missing. Walking the slides can't
-   trigger code nothing renders (e.g. `deck/code-editor.js`'s react-live chunk), and this check
-   catches those gaps.
+**`sw.js`, as built:**
 
-**Open question to settle in this session:** which files `LiteRtLm.DEFAULT_WASM_PATH` actually
-loads (JS glue plus one or more `.wasm`, possibly one per backend). Two options: read the
-package to find out, or have the recorder load the model for real in a profile that already has
-it cached. The second is slower but exact.
+- **Opt-in with `?offline`** (also `=true` or `=1`, the same values as `chat/url.js`
+  `flag()`). The `<head>` snippet registers the worker only with the flag, and
+  `?offline=false` or `=0` unregisters it.
+- **Per page, not global.** The worker notes whether each page's navigation URL had the flag,
+  keyed by `resultingClientId`. It doesn't intercept anything for a page without it, so a
+  flagless load behaves as if the worker weren't there, even while it's installed. If the
+  browser restarts the worker, the map is lost, and it rebuilds it from `clients.get(id).url`.
+  That works because Spectacle keeps extra query params when it changes slides.
+- **Spectacle mode switches** (presenter, overview, print) rebuild the query string and drop
+  the flag. `deck/components.js` already works around this for overview thumbnail clicks, but
+  not for the others. A sticky mode, stored by the worker until `?offline=false`, would avoid
+  this; it wasn't chosen, so that you always opt in explicitly.
+- **The first `?offline` load on a profile with no worker** fetches its modules before the
+  worker activates. Load it once while online, or reload once. `sw.js` is on localhost, so
+  registering works even with wifi off.
+- Loads `offline/manifest.json` at startup and again on every navigation, so a new
+  `offline:fetch` takes effect on the next reload.
+- For a page with the flag, once the manifest is loaded, a URL that isn't in it is **not
+  intercepted at all**, so it goes to the network exactly as it would without the worker. The
+  worker answers with `fetch(request)` only while the manifest or the page's flag is still
+  unknown.
+- Answers with `new Response(localFile.body, { headers })` carrying the manifest's
+  `content-type` and `content-length`. The body is piped, not buffered.
+- `skipWaiting()` plus `clients.claim()`, so the first load after registering is controlled as
+  soon as the worker activates.
+- The registration is a **classic** `<script>`, not a module, so it can't run ahead of the
+  import map.
 
-**Done when:** with the service worker active and `Network.setBlockedURLs` blocking every
-external host, the deck loads and every slide renders with its icons, fonts and background.
+**The recorder** attaches with `connect()` from `test/cdp.js`, then:
+
+1. `Network.enable`, `setBypassServiceWorker(true)` and `setCacheDisabled(true)`. Without the
+   cache flag, memory-cache hits never reach the network, so they're never recorded.
+2. Reloads with `?chat=1`, opens the tools panel, and walks every slide through the deck's own
+   `chat/nav.js` (imported inside `Runtime.evaluate`, so it's the same instance the deck runs).
+   It waits for the network to go quiet after each step.
+3. Loads the LiteRT runtime **without a model** (`getOrLoadGlobalLiteRtLm()`), so the glue and
+   `.wasm` this Chrome picks are recorded for real.
+4. Re-fetches every URL from Node with the request headers Chrome sent (minus encoding,
+   conditional, range and cookie headers). Google Fonts needs the UA to serve woff2.
+5. **Closures, repeated until nothing new turns up:**
+   - **JS:** starts from the import map's bare entries (mapped values are not mapped a second
+     time) and follows `/npm/…` imports through the map, scopes included. Local shims are read
+     from disk. This is what saves react-live and sucrase, which no slide loads.
+   - **CSS:** every saved stylesheet is scanned for `url(…)`. Google Fonts splits each face into
+     unicode-range subsets, and Chrome only fetches the ones a slide used. This adds the
+     subsets for characters no slide happened to show.
+6. Writes `manifest.json` with exactly the URLs this run found, and deletes orphaned files. It
+   **exits 1 with a list** of any URL it couldn't save.
+
+**Only follow imports from modules the import map reaches.** The first version followed every
+recorded JS file and saved 944 URLs. The extra ~640 were all of highlight.js and refractor@3,
+pulled in through `react-syntax-highlighter@15.6.6/+esm`. Chrome downloads that file only
+because of jsDelivr's `modulepreload` Link header
+([dependencies.md §9](../dependencies.md#9-gotchas)), and never runs it. Preloaded files are
+still saved, so the preload is answered offline, but their imports aren't followed.
+
+**Settled: what `LiteRtLm.DEFAULT_WASM_PATH` loads.** It's a directory,
+`…/@litert-lm/core@0.17.1/wasm`, containing four builds. `load.js` picks one by feature
+detection:
+
+| relaxed SIMD | JSPI | files                                                               |
+| ------------ | ---- | ------------------------------------------------------------------- |
+| yes          | yes  | `litertlm_wasm_internal.{js,wasm}` (21.7 MB), what Chrome 153 loads |
+| yes          | no   | `litertlm_wasm_asyncify_internal.{js,wasm}` (34.1 MB)               |
+| no           | yes  | `litertlm_wasm_compat_internal.{js,wasm}` (21.5 MB)                 |
+| no           | no   | `litertlm_wasm_compat_asyncify_internal.{js,wasm}` (34.0 MB)        |
+
+The `.js` glue is injected as `<script crossorigin="anonymous">` by `@litertjs/wasm-utils`, and
+Emscripten fetches the `.wasm` next to it (`instantiateStreaming`, so the `application/wasm`
+type matters). The build is chosen by feature, not by GPU backend. The recorder saves **all
+four**, using jsDelivr's package listing (`data.jsdelivr.com/v1/packages/npm/<pkg>@<ver>`), so
+a different Chrome still works offline. That costs about 110 MB of the 119.
+
+**Verified.** In a fresh headless Chrome 153 profile, with the worker in control and every
+non-localhost request failed over CDP on both the page and the service worker targets:
+
+- The deck mounts, and all 29 slides walk with no blocked or failed request and no console
+  error.
+- All 196 external responses came from the service worker. Nothing reached the network.
+- Inter, Fira Code, Phosphor and Phosphor-Fill load, and the chapter photos show (checked on
+  screenshots).
+- The LiteRT runtime loads from disk in about 50 ms.
+- **Without `?offline`**, in the same profile with the worker still installed and in control,
+  all 13 initial CDN requests went from the page straight to the network (where the blocker
+  failed them). The worker handled none.
+- **`?offline=false`** took the registration count from 1 to 0, and a flagless load
+  afterwards didn't register it again.
+
+**`Network.setBlockedURLs` can't test a service worker.** On the page target it blocks
+requests _before_ the worker sees them (`blockedReason: "inspector"`), so the deck fails even
+when every file is on disk. Use `Fetch.enable({ patterns: [{ urlPattern: "*" }] })` on the page
+**and** on the service worker target (it's in `/json/list` as `type: "service_worker"`). Then
+`Fetch.failRequest` anything that isn't localhost. That runs at the network layer, after the
+worker, so it catches exactly the requests that would really leave the machine.
+`emulateNetworkConditions({ offline: true })` is still untested.
+
+**Pre-existing, not offline-related:** `deck/code-editor.js` fails to import, online as well,
+with `'/npm/@jridgewell/sourcemap-codec@1.5.3/+esm' does not provide an export named 'encode'`.
+react-live@5.0.0 → sucrase → `@jridgewell/gen-mapping` imports named exports, and jsDelivr
+builds sourcemap-codec 1.5.3 from its UMD file, which has only a default export. No slide
+renders `CodeEditor`, so nothing breaks today. The day a slide uses it, a prefix remap from
+`…/sourcemap-codec@1.5.3/` to `1.5.4/` fixes it: 1.5.4 is already in the graph, and its ESM
+build has the named exports.
+
+**Running it inside Claude Code's sandbox:** Node's `fetch` ignores `HTTPS_PROXY`, so set
+`NODE_USE_ENV_PROXY=1`. No CDP Chrome was running, and `npm run cdp` uses `open`, which the
+sandbox blocks. Launching the Chrome binary directly with `--headless=new
+--remote-debugging-port=1980 --user-data-dir=<scratch>` works.
 
 ### Phase 2 — models
 
@@ -183,9 +274,9 @@ video, Esc closes it, and slides without a backup show no button.
 
 - `npm run offline:check`. Over CDP, with every external host blocked, it confirms the service
   worker is in control, walks every slide, opens the assistant, loads Gemma, asks one question,
-  and **fails on any blocked or failed request** with a list of the URLs. (Prefer
-  `Network.setBlockedURLs` over `emulateNetworkConditions({ offline: true })`. It's unverified
-  whether the latter also blocks the service worker's own localhost fetches.)
+  and **fails on any blocked or failed request** with a list of the URLs. Block with the
+  `Fetch` domain on the page and service worker targets, **not** `Network.setBlockedURLs`,
+  which blocks before the worker. Phase 1's "Verified" note has the details.
 - `serve` and `@mcp-b/webmcp-local-relay@5.1.0` as pinned devDependencies, with `dev` and
   `demo:relay` pointing at the local bins, so neither needs npx over the network.
 - Finish `docs/offline.md`: make every command real, add what to do when `offline:check`

@@ -66,11 +66,31 @@ export default [
     },
   },
   {
+    // The offline-mode service worker. It runs in a worker, so `self` rather than
+    // `window`, and it is served from the repo root because its scope has to cover `/`.
+    files: ["sw.js"],
+    languageOptions: {
+      globals: {
+        Response: "readonly",
+        URL: "readonly",
+        fetch: "readonly",
+        self: "readonly",
+      },
+    },
+  },
+  {
     // `scripts/` is the exception: authoring tools that run under Node and write
-    // committed assets. Nothing here is loaded by the deck at runtime.
+    // committed assets, or (`offline-fetch.mjs`) the gitignored `offline/` copies.
+    // Nothing here is loaded by the deck at runtime.
     files: ["scripts/**/*.mjs"],
     languageOptions: {
-      globals: { console: "readonly", process: "readonly" },
+      globals: {
+        URL: "readonly",
+        console: "readonly",
+        fetch: "readonly",
+        process: "readonly",
+        setTimeout: "readonly",
+      },
     },
   },
   {
