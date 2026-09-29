@@ -12,13 +12,29 @@
          from `offline/` (saved by `npm run offline:fetch`), `?offline=false`
          unregisters the worker, and no flag leaves everything as it was. See
          docs/offline.md. A classic script, not a module, so it cannot run ahead
-         of the import map. -->
+         of the import map.
+
+         Spectacle's mode switches (presenter, overview, print) rebuild the query
+         string from slideIndex, stepIndex and the mode alone, which drops
+         `?offline`. So a page with no `offline` param that was reached from a
+         same-origin page that had it reloads with it put back. A typed URL has
+         no referrer, so opting in is still explicit. -->
     <script>
       (() => {
         const local = ["localhost", "127.0.0.1"].includes(location.hostname);
         if (!local || !("serviceWorker" in navigator)) return;
+        const params = new URLSearchParams(location.search);
+        if (!params.has("offline") && document.referrer) {
+          const from = new URL(document.referrer);
+          const inherited = from.searchParams.get("offline");
+          if (from.origin === location.origin && inherited !== null) {
+            params.set("offline", inherited);
+            location.replace(`${location.pathname}?${params}${location.hash}`);
+            return;
+          }
+        }
         // The same values `chat/url.js` `flag()` accepts.
-        const value = new URLSearchParams(location.search).get("offline");
+        const value = params.get("offline");
         if (value === "" || value === "true" || value === "1") {
           navigator.serviceWorker.register("./sw.js").catch((err) => {
             console.warn("[offline] service worker not registered:", err);

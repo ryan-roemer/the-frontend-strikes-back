@@ -58,8 +58,8 @@ the recorder: note the URL and see the handoff.
 | no flag          | Loads from the network as usual, even if the worker is installed |
 | `?offline=false` | Uninstalls the worker                                            |
 
-`=true` and `=1` also turn it on. Slide changes keep the flag. Switching Spectacle modes
-(presenter, overview, print) can drop it, so check the URL after you do.
+`=true` and `=1` also turn it on. Slide changes and Spectacle mode switches (presenter,
+overview, print) keep the flag. A typed URL without it loads online.
 
 To check it's working, look at DevTools → Network: CDN rows show **(ServiceWorker)** in the Size
 column.
