@@ -17,6 +17,7 @@
     "offline:fetch": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_talk_port} node scripts/offline-fetch.mjs",
     "offline:model": "node scripts/offline-model.mjs",
     "offline:check": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_talk_port} node scripts/offline-check.mjs",
+    "video:add": "node scripts/video-add.mjs",
     "lint": "eslint . --fix",
     "pretty": "prettier . --write",
     "format": "npm run lint && npm run pretty",

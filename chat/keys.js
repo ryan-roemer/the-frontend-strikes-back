@@ -30,7 +30,7 @@ import { getShown } from "./context/state.js";
 const MAC = /Mac|iP(hone|ad|od)/.test(navigator.platform || "");
 
 /** What to show in a tooltip, in the notation that platform's users read. */
-const hint = (letter) => (MAC ? `⇧⌥${letter}` : `Shift+Alt+${letter}`);
+export const hint = (letter) => (MAC ? `⇧⌥${letter}` : `Shift+Alt+${letter}`);
 
 export const CHAT_KEY_HINT = hint("C");
 export const TOOLS_KEY_HINT = hint("T");

@@ -20,6 +20,9 @@
 // `offline/models/` through the worker. It reports whether the model was cached before,
 // because a cache hit doesn't test the worker at all: use a fresh profile for that.
 //
+// It also fails if a backup video listed in `deck/demos.js` isn't in `media/videos/`
+// (`npm run video:add`).
+//
 // `--no-flag` is the inverse check. The worker must leave a flagless page alone, so
 // the deck is expected to fail, with its CDN requests reaching the network and getting
 // blocked there. It exits 0 only if that is what happened.
@@ -41,6 +44,7 @@ import {
   disconnect,
   untilReady,
 } from "../test/cdp.js";
+import { DEMO_VIDEOS, videoPath } from "../deck/demos.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OFFLINE = resolve(ROOT, "offline");
@@ -170,6 +174,20 @@ const askGemma = async (page) => {
   if (!run.error && run.answer === undefined) run.error = "timed out";
   delete run.progress;
   return run;
+};
+
+/**
+ * Every backup video in `deck/demos.js` that the dev server doesn't have. A plain
+ * HEAD from Node: videos are same-origin, so the worker and the blocks don't matter.
+ */
+const missingVideos = async (origin) => {
+  const missing = [];
+  for (const id of Object.keys(DEMO_VIDEOS)) {
+    const url = `${origin}/${videoPath(id)}`;
+    const res = await fetch(url, { method: "HEAD" }).catch(() => null);
+    if (!res?.ok) missing.push({ id, url, status: res?.status ?? "no answer" });
+  }
+  return missing;
 };
 
 const main = async () => {
@@ -357,10 +375,26 @@ const main = async () => {
     console.log(`    ${String(e).slice(0, 200)}`);
   if (TAKE_SHOTS) console.log(`  screenshots: ${SHOTS}`);
 
+  // Only with the flag: `--no-flag` passes on a deck that fails, and says nothing
+  // about the talk being ready.
+  const videos = FLAG ? await missingVideos(origin) : [];
+  if (FLAG) {
+    const total = Object.keys(DEMO_VIDEOS).length;
+    console.log(
+      `  backup videos: ${total - videos.length} of ${total} present, missing: ${videos.length}`,
+    );
+    for (const { id, url, status } of videos)
+      console.log(`    ${String(status).padEnd(9)}  ${id}  ${url}`);
+    if (videos.length) {
+      console.log("    → npm run video:add -- <file.mov> <demo-id>");
+    }
+  }
+
   const clean =
     report.ready &&
     rows.length === 0 &&
     errors.length === 0 &&
+    videos.length === 0 &&
     (!GEMMA || Boolean(report.gemma?.answer));
   const pass = FLAG ? clean : !report.ready && leaked.length > 0;
   console.log(pass ? "PASS" : "FAIL");

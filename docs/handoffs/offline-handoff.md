@@ -4,9 +4,12 @@ Goal: present the whole talk with wifi off. The deck, its assistant, its images 
 demo videos all come from the laptop. **Local dev only**: nothing here has to work on GitHub
 Pages, and nothing here may change how the published deck behaves.
 
-Status: **phases 1, 2 and 4 built** (service worker, `offline:fetch`,
-`offline:model`, `cdp:talk`, `offline:check`, pinned `serve` and relay, the `offline-prep` skill). Phase 4 is verified, including a wifi-off run. Phases 3 and 5 are planned. Each phase below is sized for one session and ends with a
-handoff prompt you can paste into a new session.
+Status: **phases 1–4 built** (service worker, `offline:fetch`,
+`offline:model`, `cdp:talk`, `offline:check`, pinned `serve` and relay, the `offline-prep` skill,
+backup demo videos and `video:add`). Phase 4 is verified, including a wifi-off run. Phase 3 is
+verified with a placeholder; a real HiDPI recording through `video:add` is still to do. Phase 5
+is planned. Each phase below is sized for one session and ends with a handoff prompt you can
+paste into a new session.
 
 **Two docs, two readers.** This file is for whoever builds the feature.
 [`../offline.md`](../offline.md) is for the presenter: terse, commands and steps only. Every
@@ -102,7 +105,7 @@ When a dependency is bumped, a URL that isn't in the manifest just goes to the n
 
 ```
  Phase 1  SW + CDP recorder (JS/CSS/fonts/images/wasm) ──► Phase 2  model ──► Phase 4  check + skill
- Phase 3  demo videos (independent: run it any time, in parallel)
+ Phase 3  demo videos (independent; built after phase 4)
  Phase 5  external demo sites (estimate only, later)
 ```
 
@@ -321,7 +324,111 @@ The original plan, kept for reference:
 **Done when:** you wipe the talk profile, go offline, open the assistant, load Gemma from disk,
 and get an answer.
 
-### Phase 3 — demo videos (independent)
+### Phase 3 — demo videos ✅ built
+
+**Delivered:**
+
+- **Registry: `deck/demos.js`, plus a `demo` prop on `DemoSlide`.** Both, because each does
+  what the other can't. `DEMO_VIDEOS` is plain data with no imports, so `video:add` and
+  `offline:check` import it from Node (a prop alone would mean regexing `index.html`). The
+  prop gives the slide an identity: `DemoSlide` passes it to Spectacle's `Slide` as `id`, and
+  Spectacle uses that as the slide's `slideId` (it only generates one, `_r_a_` and so on, when
+  `id` is absent). Registered today: `claude-desktop` (the relay demo) and `web-agents`. The
+  two in-deck demos (tools, model) have their own fallbacks and no entry.
+- **`deck/demo-video.js`**: `VideoToggle`, the overlay and ⇧⌥V. `Template` renders
+  `<VideoToggle />` after `ToolsToggle`, and it returns null unless the slide on screen is
+  registered.
+  - **The slide id comes from `DeckContext.activeView.slideId`, not `SlideContext`.** The
+    first version read `SlideContext` and never showed the button. Spectacle renders the deck's
+    `template` **once, in `Deck`**, outside every slide. It renders a template per slide only
+    for a slide with its own `template` prop, or in overview and print mode. `chat/bus.js`
+    already carried `activeView.slideId`, which is how this was found.
+  - **Button:** reuses `Toggle` from `chat/ui/toggle.js` (so `.chat-toggle`,
+    `pointer-events: auto`, `aria-pressed`), icon `ph-film-strip`. `components.js` already
+    imports `ChatToggle`/`ToolsToggle` from `chat/`, so this adds no new direction of
+    dependency. `hint()` in `chat/keys.js` is now exported for the tooltip.
+  - **Hotkey ⇧⌥V**, on `event.code`, following `chat/keys.js` (bare letters are Spectacle's).
+    A module-scope `window` listener, like `slide-keys.js`, so it works without `chat/`.
+  - **Localhost only** (`localhost`/`127.0.0.1`, the same test as the `?offline` snippet).
+    Elsewhere the button renders nothing and the listener isn't installed, so GitHub Pages is
+    unchanged. Also hidden in presenter, overview and print mode.
+  - **Overlay:** portaled to `<body>`, `position: fixed`, black, `z-index: 10002` (over
+    `.chat-sheet`), `<video controls>` with `object-fit: contain`, and a close button. `muted`
+    and `play()` are set in an effect, not as attributes: prettier formats these templates as
+    HTML (lowercase), React wants `autoPlay`/`playsInline`, and React sets `muted` only as an
+    attribute, which autoplay rules ignore.
+  - **Keys:** a **capture-phase** handler on the overlay stops every key. Space plays and
+    pauses, ←/→ seek 5 s, ↑/↓ do nothing, Esc or ⇧⌥V closes. Capture, because in bubble phase
+    Chrome's native media keys run first once the `<video>` has focus (a click on its
+    controls): Space paused and immediately played again, and ↑ set the volume to 0.05.
+  - Leaving the slide (for example an agent's `go_to_slide`) closes the overlay.
+- **A missing file:** the button still shows, since the slide does have a backup plan, and the
+  overlay shows "No recording yet", the path and the `video:add` command (on `<video>`'s
+  `error` event). Nothing else on the slide is affected. Chosen over hiding the button,
+  because a hidden button on stage looks like a bug, while the message says what to do and is
+  seen in rehearsal. `offline:check` catches it before the talk anyway.
+- **`offline:check`**: after the walk, a `HEAD` from Node for every registered video. It prints
+  `backup videos: N of M present, missing: K`, one line per missing file, and a `video:add`
+  hint, and any missing video makes it **FAIL**. Only with the flag (`--no-flag` passes on a
+  broken deck, so it says nothing about readiness).
+- **`npm run video:add -- <file> <demo-id>`** (`scripts/video-add.mjs`). It checks the id
+  against `DEMO_VIDEOS`, then:
+  - `avconvert --preset Preset1920x1080`: H.264, scaled down to fit 1920×1080, never up, with
+    `moov` before `mdat` by default (fast start). No ffmpeg needed.
+  - Reads the result back with a small MP4 box reader and fails unless the video track is
+    `avc1` and `moov` comes first. It warns if there's an audio track (the presets keep one; a
+    ⇧⌘5 recording without a microphone has none). It prints the dimensions, duration, MB and
+    MB/min.
+  - `qlmanage -t -s 1920` for a PNG thumbnail, `sips` to a quality-80 JPEG poster.
+  - Encodes in a temp dir and copies both files in at the end, so a failed run leaves the old
+    ones alone.
+- **Gitignored** `media/videos/` (the presenter's choice). Recordings are local only, like
+  `offline/`, and a fresh clone has none, which `offline:check` reports.
+- **`docs/offline.md`**: "When a live demo fails" is back (with the key table), plus "Add a
+  recording", a row in the `offline:check` failure table, and `missing: 0` in the pass
+  criteria. The `offline-prep` skill has a matching row.
+
+**`avconvert`, `qlmanage` and `mdls` don't work in Claude's sandbox.** avconvert fails with
+"you don't have permission" (AVFoundation's export goes through system services), and `mdls`
+gets nothing from Spotlight. Run `video:add` from a normal terminal, or unsandboxed.
+
+**Verified** over CDP on the talk Chrome (:1981 is reachable from the sandbox, so no paste loop
+was needed). The placeholder was a small H.264 `.mov` from an installed app, run through
+`video:add` as `claude-desktop` (768×360, 12 s, 1.1 MB); `web-agents` was left missing.
+
+- `video:add`: `avc1`, `moov` first, poster written. `serve` answers the mp4 as `video/mp4`
+  with `Accept-Ranges` (a Range request gets a 206), and the missing one with a 404.
+- On the `claude-desktop` slide the button shows. ⇧⌥V and a click both open the overlay, and
+  the video plays muted (`readyState` 4). Space paused and played, → and ← moved exactly 5 s,
+  and Shift+→ didn't change slides: the slide index stayed at 10 throughout. Esc, ⇧⌥V and
+  the close button each close it.
+- With the `<video>` focused: Space paused, → seeked 5 s, and ↑ did nothing (after the
+  capture-phase fix; see Keys above).
+- With the chat panel open: ⇧⌥V opened the overlay over it, and Esc closed only the overlay.
+- The slide after the demo: no button, and ⇧⌥V does nothing. `web-agents`: the button
+  shows, and the overlay shows the "No recording yet" message. → didn't change slides, and
+  Esc closed it.
+- The same deck opened as `http://[::1]:3000` (not in the localhost list): no button, and ⇧⌥V
+  does nothing.
+- 0 console errors across all of the above.
+- `npm run offline:check -- --no-gemma`: 29 slides, 184 external responses, all from the
+  worker, 0 missed URLs, 0 console errors, then `backup videos: 1 of 2 present, missing: 1`,
+  the `web-agents` 404 line, the hint and **FAIL**, as intended.
+- `npm run format` is clean.
+
+**Still to do:**
+
+- **A real HiDPI screen recording through `video:add`.** The placeholder was already small
+  H.264, so it doesn't show what `Preset1920x1080` does to a Retina `.mov`: its dimensions
+  (expected: fit inside 1920×1080, e.g. 1728×1080 for 16:10), MB per minute, and whether small
+  text stays readable. The preset has no bitrate or quality setting. If the result is too big
+  or blurry, the fallback is ffmpeg (`brew install ffmpeg`, ask first) with the command below.
+- Replace the placeholder `media/videos/claude-desktop.mp4`/`.jpg` with the real relay
+  recording. Until then, `offline:check` counts it as present.
+- A presentation clicker usually sends PageUp/PageDown or arrows. While the overlay is up they
+  seek or do nothing; they can't close it. Esc or ⇧⌥V on the laptop does.
+
+**The original plan**, kept for reference:
 
 **Delivers:** videos committed as `media/videos/<demo-id>.mp4` (plus an optional `.jpg`
 poster), a registry that maps slides to videos, a hotkey, and a deck-chrome button next to the
@@ -531,7 +638,8 @@ Paste one per new session. Each assumes the previous phases are committed on the
 >   directly, because `open` is blocked.
 > - Update phase 2 in the handoff and `docs/offline.md`.
 
-**Phase 3** (rewritten after phase 4)
+**Phase 3** ✅ built (a real recording is still to do, see phase 3). The prompt is kept for the
+record.
 
 > Read `docs/handoffs/offline-handoff.md` phase 3 and `docs/offline.md`, then build phase 3:
 > backup demo videos. No real recordings exist yet, so build the setup and test it with a

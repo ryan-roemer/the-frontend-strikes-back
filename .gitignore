@@ -37,3 +37,6 @@ docs/outline.md
 
 # Offline mode: vendored CDN copies and models (see docs/offline.md)
 offline/
+
+# Backup demo recordings, local only (see docs/offline.md)
+media/videos/

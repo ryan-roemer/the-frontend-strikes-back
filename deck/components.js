@@ -42,6 +42,7 @@ import { images } from "./media.js";
 import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
 import { SlideKeys } from "./slide-keys.js";
+import { VideoToggle } from "./demo-video.js";
 import { DeckBridge } from "../chat/bridge.js";
 import { ChatToggle } from "../chat/toggle.js";
 import { ToolsToggle } from "../chat/tools/toggle.js";
@@ -365,12 +366,15 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
                   conflated "information about position in the deck", which a title
                   slide genuinely should not carry, with "controls", which it should.
                   Rendering unconditionally also means the sparkle's x needs no
-                  reserved-box trickery to stay put. */
+                  reserved-box trickery to stay put. The film strip comes last, on
+                  demo slides with a backup recording only (see `demo-video.js`), so
+                  it never moves the others. */
           }
           <${FlexBox} className="deck-controls" alignItems="center">
             <${FullScreen} color=${colors.midnight[30]} size=${20} />
             <${ChatToggle} />
             <${ToolsToggle} />
+            <${VideoToggle} />
           <//>
           ${
             "" /* The counter is the tallest thing in this row, so dropping it on the
@@ -1190,10 +1194,14 @@ const backupNote = (backup) => {
  *
  * `points` go through `markup()`, so a bullet can carry `em()`, `icon()` or any
  * other inline tag instead of being flat text.
+ *
+ * `demo` is the id of a backup recording in `deck/demos.js`. It becomes the
+ * Spectacle slide `id`, which is how the video button in the deck chrome finds
+ * it (see `demo-video.js`). Leave it off for a demo with no recording.
  */
-// TODO(Ryan): Check this `backup` thing and see about video backups for live demos.
 export const DemoSlide = ({
   chapter,
+  demo,
   label = "Live demo",
   app,
   url,
@@ -1201,7 +1209,7 @@ export const DemoSlide = ({
   notes,
   backup,
 }) => html`
-  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
+  <${DeckSlide} id=${demo} className=${chapter ? chapterClass(chapter) : ""}>
     <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
       <${Eyebrow}><${Icon} name="monitor-play" /> ${label}</${Eyebrow}>
       <${SlideHeading} fontSize="h1" textAlign="left" margin="10px 0 0">
