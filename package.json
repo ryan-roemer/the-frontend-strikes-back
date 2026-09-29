@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "serve",
     "cdp": "open -na 'Google Chrome' --args --remote-debugging-port=$npm_package_config_cdp_port --remote-allow-origins='*' --user-data-dir=/tmp/tfsb-chrome-cdp --no-first-run --no-default-browser-check http://localhost:3000",
-    "cdp:talk": "open -na 'Google Chrome' --args --remote-debugging-port=$npm_package_config_cdp_talk_port --remote-allow-origins='*' --user-data-dir=$HOME/.cache/tfsb-chrome-talk --no-first-run --no-default-browser-check http://localhost:3000",
+    "cdp:talk": "if pgrep -f 'tfsb-chrome-[t]alk' >/dev/null; then if curl -sf -m 2 127.0.0.1:$npm_package_config_cdp_talk_port/json/version >/dev/null; then echo \"talk Chrome already running on :$npm_package_config_cdp_talk_port\"; else echo \"a talk Chrome is running, but not on :$npm_package_config_cdp_talk_port. Quit it (pkill -f tfsb-chrome-talk) and run this again.\" >&2; exit 1; fi; else open -na 'Google Chrome' --args --remote-debugging-port=$npm_package_config_cdp_talk_port --remote-allow-origins='*' --user-data-dir=$HOME/.cache/tfsb-chrome-talk --no-first-run --no-default-browser-check http://localhost:3000; fi",
     "cdp:stop": "pkill -f tfsb-chrome-cdp; rm -rf /tmp/tfsb-chrome-cdp",
     "test": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_port} node --test \"test/*.test.js\"",
     "qr": "node scripts/gen-qr.mjs",

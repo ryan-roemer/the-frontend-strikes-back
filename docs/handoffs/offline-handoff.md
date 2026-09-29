@@ -387,6 +387,16 @@ video, Esc closes it, and slides without a backup show no button.
   approved by hand.
 - Comment references in `eslint.config.js` and `test/cdp.js` follow the rename and drop
   `npx serve`.
+- **`cdp:talk` detects a running talk Chrome** (added after step 7, in response to step 1).
+  If `pgrep -f 'tfsb-chrome-[t]alk'` finds one and :1981 answers, it prints "already running"
+  and exits 0 without launching. If one is running but :1981 is silent (the step 1 case), it
+  prints the `pkill -f tfsb-chrome-talk` fix and exits 1. Otherwise it launches as before. The
+  `[t]` keeps the pattern from matching the npm shell's own command line. Tested: the first
+  two branches (the second by running the script with the port set to an unused one); the
+  launch branch is the unchanged `open` command.
+- **`test/cdp.js`'s "no CDP" message** now names both: `npm run cdp` (tests) or
+  `npm run cdp:talk` (offline scripts). Checked with `offline:check` pointed at an unused
+  port.
 
 **Verified:** `npm run format` and `node --check` are clean. Chrome can't be launched from the
 sandbox (phase 2's gotcha), so the presenter ran every Chrome step below and pasted the output.

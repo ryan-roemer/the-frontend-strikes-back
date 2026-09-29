@@ -343,7 +343,7 @@ export const connect = async () => {
   const listed = await pages();
   if (!listed) {
     return {
-      reason: `no CDP at ${ENDPOINT} — run \`npm run cdp\`, or point CDP_URL at a Chrome you already have`,
+      reason: `no CDP at ${ENDPOINT} — run \`npm run cdp\` (tests) or \`npm run cdp:talk\` (offline scripts), or point CDP_URL at a Chrome you already have`,
     };
   }
 

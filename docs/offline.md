@@ -8,7 +8,7 @@ Implementation notes: [handoffs/offline-handoff.md](handoffs/offline-handoff.md)
 ```sh
 npm install              # the dev server and the relay, pinned locally
 npm run dev              # serve the deck on :3000
-npm run cdp:talk         # Chrome with the persistent talk profile, CDP on :1981
+npm run cdp:talk         # Chrome with the persistent talk profile, CDP on :1981 (safe to re-run)
 npm run offline:fetch    # record and save every CDN file, font and image
 npm run offline:model    # download Gemma (2 GB) to offline/models/
 npm run offline:check    # walk the deck and ask Gemma, with external hosts blocked
@@ -45,7 +45,7 @@ Each missed URL says whether `offline/` has a copy.
 | `service worker not in control` | Same as above: reload once, or reinstall.                                                                                                          |
 | Gemma error or `timed out`      | Needs a GPU. Check `offline/models/` has the file, then check again. `-- --no-gemma` gets the rest of the report.                                  |
 | `NOTE: the model was cached`    | Not a failure. The profile already had Gemma, so the check didn't test `offline/models/`.                                                          |
-| `no CDP at …:1981`              | The talk Chrome isn't running, or was started before it moved off :1980. `pkill -f tfsb-chrome-talk` (keeps the profile), then `npm run cdp:talk`. |
+| `no CDP at …:1981`              | `npm run cdp:talk`. If it says the talk Chrome is on another port: `pkill -f tfsb-chrome-talk` (keeps the profile), then `npm run cdp:talk` again. |
 
 Still failing after `offline:fetch`? A missed URL that `offline:fetch` doesn't save is a bug in
 the recorder: note the URL and see the handoff.
