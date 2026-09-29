@@ -24,11 +24,11 @@
  * skips.
  */
 
-// Exported, with `attach` below, for `scripts/offline-verify.mjs`, which also has to
+// Exported, with `attach` below, for `scripts/offline-check.mjs`, which also has to
 // attach to the deck's service worker target.
 export const ENDPOINT = process.env.CDP_URL ?? "http://127.0.0.1:9222";
 
-/** Where the deck is served. `npm run dev` is `npx serve`, which defaults to :3000. */
+/** Where the deck is served. `npm run dev` is `serve`, which defaults to :3000. */
 const DECK = process.env.DECK_URL ?? "http://localhost:3000/";
 
 /** How long to give the deck to mount. It pulls React and Spectacle from a CDN. */
@@ -256,7 +256,7 @@ export const untilReady = async (session) => {
  * regression test stay green; `docs/handoffs/chat-handoff.md` §10 warns about exactly this, one
  * layer up, for hand-driven CDP sessions.
  *
- * `ignoreCache: true` because the dev server is `npx serve`, which is happy to answer a
+ * `ignoreCache: true` because the dev server is `serve`, which is happy to answer a
  * conditional request with a 304 for a file that changed a second ago.
  *
  * The cost is a few seconds per run against a warm tab, which is the price of the result

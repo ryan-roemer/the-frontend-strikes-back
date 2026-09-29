@@ -1,15 +1,21 @@
 // Loads the deck with `?offline` and every non-localhost request blocked, walks every
-// slide, and reports anything that tried to leave the machine. The seed for phase 4's
-// `npm run offline:check` (docs/handoffs/offline-handoff.md); not wired to npm yet.
+// slide, loads Gemma and asks it one question, and reports anything that tried to leave
+// the machine. See docs/offline.md.
 //
-//   node scripts/offline-verify.mjs              # needs `npm run dev`, a CDP Chrome
-//   node scripts/offline-verify.mjs --shots      # also saves offline/verify/slide-N.jpg
-//   node scripts/offline-verify.mjs --no-flag    # the same walk WITHOUT `?offline`
-//   node scripts/offline-verify.mjs --gemma      # then load Gemma and ask it a question
+//   npm run offline:check                  # needs `npm run dev`, a CDP Chrome
+//   npm run offline:check -- --shots       # also saves offline/verify/slide-N.jpg
+//   npm run offline:check -- --no-gemma    # skip the model (no GPU, or in a hurry)
+//   npm run offline:check -- --no-flag     # the same walk WITHOUT `?offline`
 //
-// Point CDP_URL at the Chrome, as `npm test` does (`npm run cdp` listens on :1980).
+// The npm script points CDP_URL at :1981, the talk Chrome (`cdp:talk`). To check a
+// throwaway `cdp` profile instead, set CDP_URL=http://127.0.0.1:1980. Run with
+// plain `node`, it defaults to :9222 (`test/cdp.js`).
 //
-// `--gemma` needs `npm run offline:model` and a GPU. It loads the model with the blocks
+// It fails with a list of every URL that reached the network or failed. Each one says
+// whether `offline/` has a copy: if not, re-run `offline:fetch`; if so, the worker
+// wasn't answering for that page.
+//
+// Gemma needs `npm run offline:model` and a GPU. It loads the model with the blocks
 // still on, so on a profile without the model cached, the 2 GB has to come from
 // `offline/models/` through the worker. It reports whether the model was cached before,
 // because a cache hit doesn't test the worker at all: use a fresh profile for that.
@@ -24,7 +30,7 @@
 // after the worker, so on the page and the worker targets together it catches exactly
 // the requests that would really leave the machine.
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,11 +43,13 @@ import {
 } from "../test/cdp.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SHOTS = resolve(ROOT, "offline", "verify");
+const OFFLINE = resolve(ROOT, "offline");
+const SHOTS = resolve(OFFLINE, "verify");
 
 const FLAG = !process.argv.includes("--no-flag");
 const TAKE_SHOTS = process.argv.includes("--shots");
-const GEMMA = process.argv.includes("--gemma");
+// Without the flag the deck is expected not to mount, so there is no model to load.
+const GEMMA = FLAG && !process.argv.includes("--no-gemma");
 
 // How long to let lazy requests (backgrounds, fonts) land after each slide change.
 const SLIDE_MS = 800;
@@ -59,10 +67,26 @@ const withFlag = (href) => {
   return url;
 };
 
-const leaked = []; // reached the network and were blocked
-const failed = []; // any request that failed, for whatever reason
+const leaked = []; // { label, url }: reached the network and were blocked
+const failed = []; // { label, error, url }: any request that failed, for whatever reason
 const external = new Map(); // url -> { fromServiceWorker, status }
 const errors = [];
+
+/** Every URL `sw.js` can answer: `offline:fetch`'s manifest plus `offline:model`'s. */
+const saved = async () => {
+  const urls = new Set();
+  for (const name of ["manifest.json", "models.json"]) {
+    try {
+      const entries = JSON.parse(
+        await readFile(resolve(OFFLINE, name), "utf8"),
+      );
+      for (const url of Object.keys(entries)) urls.add(url);
+    } catch {
+      // Not written yet: nothing from it is saved.
+    }
+  }
+  return urls;
+};
 
 /** Fail every non-localhost request that reaches the network from this target. */
 const block = async (session, label) => {
@@ -71,7 +95,7 @@ const block = async (session, label) => {
       session.send("Fetch.continueRequest", { requestId }).catch(() => {});
       return;
     }
-    leaked.push(`${label}  ${request.url}`);
+    leaked.push({ label, url: request.url });
     session
       .send("Fetch.failRequest", { requestId, errorReason: "BlockedByClient" })
       .catch(() => {});
@@ -85,7 +109,7 @@ const watch = async (session, label) => {
     urls.set(requestId, request.url),
   );
   session.on("Network.loadingFailed", ({ requestId, errorText }) =>
-    failed.push(`${label}  ${errorText}  ${urls.get(requestId)}`),
+    failed.push({ label, error: errorText, url: urls.get(requestId) ?? "?" }),
   );
   session.on("Network.responseReceived", ({ response }) => {
     if (label === "page" && isExternal(response.url)) {
@@ -107,7 +131,7 @@ const watch = async (session, label) => {
 const askGemma = async (page) => {
   const started = await page(`
     const { provider } = await deck("chat/agent/providers/litert.js");
-    const run = (window.__offlineVerifyGemma = { before: await provider.status() });
+    const run = (window.__offlineCheckGemma = { before: await provider.status() });
     const t0 = performance.now();
     const ms = () => Math.round(performance.now() - t0);
     (async () => {
@@ -137,7 +161,7 @@ const askGemma = async (page) => {
   const deadline = Date.now() + GEMMA_MS;
   let run = {};
   while (Date.now() < deadline) {
-    run = await page(`return { ...window.__offlineVerifyGemma };`);
+    run = await page(`return { ...window.__offlineCheckGemma };`);
     process.stdout.write(`\rgemma: ${run.progress ?? run.before}`.padEnd(60));
     if (run.error || run.answer !== undefined) break;
     await sleep(1000);
@@ -292,22 +316,50 @@ const main = async () => {
   console.log(
     `  external responses: ${external.size}, not from the service worker: ${notFromWorker.length}`,
   );
-  const list = (title, items) => {
-    console.log(`  ${title}: ${items.length}`);
-    for (const item of items.slice(0, 40)) console.log(`    ${item}`);
-  };
-  list("reached the network (blocked)", leaked);
-  list("failed requests", failed);
-  list(
-    "console errors",
-    errors.map((e) => String(e).slice(0, 200)),
+  // One line per URL. A blocked request also shows up as a failed one, so a URL that
+  // was blocked is listed once, as blocked.
+  const misses = new Map(); // url -> { label, reason }
+  for (const { label, url } of leaked)
+    misses.set(url, { label, reason: "blocked" });
+  for (const { label, error, url } of failed) {
+    if (!misses.has(url)) misses.set(url, { label, reason: error });
+  }
+  const onDisk = await saved();
+  const rows = [...misses].map(([url, { label, reason }]) => ({
+    url,
+    label,
+    reason,
+    where: onDisk.has(url) ? "in offline/" : "not in offline/",
+  }));
+  const width = Math.max(
+    0,
+    ...rows.map((r) => `${r.reason}, ${r.where}`.length),
   );
+  console.log(`  missed URLs: ${rows.length}`);
+  for (const { url, label, reason, where } of rows) {
+    console.log(
+      `    ${`${reason}, ${where}`.padEnd(width)}  ${label.padEnd(4)}  ${url}`,
+    );
+  }
+  if (FLAG && rows.some((r) => r.where === "not in offline/")) {
+    console.log(
+      "    → not in offline/: run `npm run offline:fetch` (or `offline:model`)",
+    );
+  }
+  if (FLAG && rows.some((r) => r.where === "in offline/")) {
+    console.log(
+      "    → in offline/: the worker didn't answer; check the URL still has ?offline",
+    );
+  }
+
+  console.log(`  console errors: ${errors.length}`);
+  for (const e of errors.slice(0, 40))
+    console.log(`    ${String(e).slice(0, 200)}`);
   if (TAKE_SHOTS) console.log(`  screenshots: ${SHOTS}`);
 
   const clean =
     report.ready &&
-    leaked.length === 0 &&
-    failed.length === 0 &&
+    rows.length === 0 &&
     errors.length === 0 &&
     (!GEMMA || Boolean(report.gemma?.answer));
   const pass = FLAG ? clean : !report.ready && leaked.length > 0;
@@ -316,6 +368,6 @@ const main = async () => {
 };
 
 main().catch((err) => {
-  console.error(`offline-verify: ${err.message}`);
+  console.error(`offline-check: ${err.message}`);
   process.exitCode = 1;
 });

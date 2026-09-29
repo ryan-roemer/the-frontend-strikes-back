@@ -4,7 +4,8 @@
 //   npm run offline:fetch            # reuse files already saved
 //   npm run offline:fetch -- --force # fetch everything again
 //
-// Needs `npm run dev` and a CDP Chrome (`npm run cdp`), the same as `npm test`.
+// Needs `npm run dev` and the talk Chrome (`npm run cdp:talk`, on :1981). Any other CDP
+// Chrome works too, with CDP_URL pointing at it.
 //
 // Four sources of URLs, because no one of them is complete:
 //

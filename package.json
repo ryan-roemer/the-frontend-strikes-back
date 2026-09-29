@@ -4,21 +4,23 @@
   "description": "2026 talk on 'The Frontend Strikes Back: WebMCP and The Agent-Ready Browser'",
   "type": "module",
   "config": {
-    "cdp_port": "1980"
+    "cdp_port": "1980",
+    "cdp_talk_port": "1981"
   },
   "scripts": {
-    "dev": "npx serve",
+    "dev": "serve",
     "cdp": "open -na 'Google Chrome' --args --remote-debugging-port=$npm_package_config_cdp_port --remote-allow-origins='*' --user-data-dir=/tmp/tfsb-chrome-cdp --no-first-run --no-default-browser-check http://localhost:3000",
-    "cdp:talk": "open -na 'Google Chrome' --args --remote-debugging-port=$npm_package_config_cdp_port --remote-allow-origins='*' --user-data-dir=$HOME/.cache/tfsb-chrome-talk --no-first-run --no-default-browser-check http://localhost:3000",
+    "cdp:talk": "open -na 'Google Chrome' --args --remote-debugging-port=$npm_package_config_cdp_talk_port --remote-allow-origins='*' --user-data-dir=$HOME/.cache/tfsb-chrome-talk --no-first-run --no-default-browser-check http://localhost:3000",
     "cdp:stop": "pkill -f tfsb-chrome-cdp; rm -rf /tmp/tfsb-chrome-cdp",
     "test": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_port} node --test \"test/*.test.js\"",
     "qr": "node scripts/gen-qr.mjs",
-    "offline:fetch": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_port} node scripts/offline-fetch.mjs",
+    "offline:fetch": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_talk_port} node scripts/offline-fetch.mjs",
     "offline:model": "node scripts/offline-model.mjs",
+    "offline:check": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_talk_port} node scripts/offline-check.mjs",
     "lint": "eslint . --fix",
     "pretty": "prettier . --write",
     "format": "npm run lint && npm run pretty",
-    "demo:relay": "npx @mcp-b/webmcp-local-relay@5.1.0 --port 9333",
+    "demo:relay": "webmcp-local-relay --port 9333",
     "demo:relay:ps": "ps -o pid,ppid,user,etime,%cpu,%mem,command -p $(lsof -ti :9333 | tr '\n' ',' | sed 's/,$//')",
     "demo:relay:stop": "lsof -ti :9333 | xargs kill -9",
     "dep:check": "npx npm-check-updates"
@@ -26,9 +28,11 @@
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@mcp-b/webmcp-local-relay": "5.1.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.9.9",
+    "serve": "14.2.6",
     "uqr": "^0.1.3"
   }
 }

@@ -85,7 +85,7 @@ export default [
     files: ["scripts/**/*.mjs"],
     languageOptions: {
       globals: {
-        // `offline-verify.mjs` decodes CDP's base64 screenshots.
+        // `offline-check.mjs` decodes CDP's base64 screenshots.
         Buffer: "readonly",
         URL: "readonly",
         console: "readonly",
