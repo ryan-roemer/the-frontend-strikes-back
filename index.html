@@ -306,34 +306,16 @@
                   textAlign="left"
                   margin="24px 0 0"
               >
-                <${AppearInline}>As an agent <u>interface</u></${AppearInline}><${AppearInline}> and <u>runtime</u>.</${AppearInline}>
+                <${AppearInline}>As an agent <u>interface</u></${AppearInline}>
+                <${AppearInline}> and <u>runtime</u>.</${AppearInline}>
               </${SlideHeading}>
             </${FlexBox}>
-            <${Notes}>
-              <${Markdown} className="notes">
-                ${`
-                  * If we think of "agents", we usually think of a backend server or the cloud.
-                  * Backend agents already _do_ interact with web sites -- just poorly, like scraping, Playwright, etc.
-                  * The browser is emerging as a first class **interface** and **runtime** for agents and agentic apps.
-                `}
-              </${Markdown}>
-            </${Notes}>
           </${DeckSlide}>
-          ${
-            "" /* The two audiences ARE the two pillars, which is why this slide is
-                  the table of contents and not just a warm-up survey: the frontend
-                  half is being told about the browser as an agent interface, the AI
-                  half about it as an agent runtime, and the chapter dividers name
-                  those same two words. It runs again at the close with `action`. */
-          }
           <${DeckSlide}>
             <${SlideHeading} textAlign="left" margin="0 0 30px">
               Two halves of the room
             </${SlideHeading}>
             <${AudienceCards} audiences=${AUDIENCES} />
-            <${Text} className="register-line" fontSize="24px" margin="28px 0 0">
-              A tour, not a tutorial: highlights, lowlights, and a lot of demos.
-            </${Text}>
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
@@ -341,8 +323,7 @@
                     * How many of you build **frontends**? (Full-stack devs?)
                     * How many of you build AI **backends** or **cloud infrastructures**?
                   * ... we've got something for both of you, and it's the same something.
-                  * Then set the register out loud: 20 minutes, high level, four demos.
-                    Nobody leaves able to write the spec, everybody leaves able to start.
+                  * A tour, not a tutorial: highlights, lowlights, and a lot of demos.
                 `}
               </${Markdown}>
             </${Notes}>
