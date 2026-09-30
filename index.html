@@ -330,7 +330,7 @@
           </${DeckSlide}>
           ${"" /* --- 01 · Interface: WebMCP --- */}
           <${TopicSlide} chapter=${chapter(1)} />
-          <${MarkdownSlideSet} ...${mdSlideProps(1)}>
+          <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 1 })}>
             ${`
               ---
               # How agents use your app today
@@ -471,7 +471,7 @@
                   demo into chapter 2's opening evidence without spending a reveal the
                   room did not ask for. */
           }
-          <${MarkdownSlideSet} ...${mdSlideProps(2)}>
+          <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 2 })}>
             ${`
               ---
               # That app had no backend
@@ -589,7 +589,7 @@
                   the hinge into chapter 3 -- a small model with a small context is
                   exactly the machine you fix by spending the context better. */
           }
-          <${MarkdownSlideSet} ...${mdSlideProps(2)}>
+          <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 2 })}>
             ${`
               ---
               # The wrinkles
@@ -714,7 +714,7 @@
               * https://nearform.com/digital-community/webmcp-turning-web-pages-into-tools-for-ai-agents/
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps(3)}>
+          <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 3 })}>
             ${`
               ---
               # ... but then we hit the hard parts

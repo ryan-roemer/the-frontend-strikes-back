@@ -81,7 +81,6 @@ export const AppearInline = ({ children, ...props }) =>
   animationsEnabled
     ? html`<${Appear} tagName="span" ...${props}>${children}</${Appear}>`
     : children;
-const animateListItems = animationsEnabled ? { animateListItems: true } : {};
 
 /**
  * Every heading in the deck.
@@ -133,8 +132,8 @@ export const SlideHeading = ({
  * drops that tag back to unstyled browser HTML. This mirrors Spectacle 10.2.1's
  * internal default (which is not exported) using its public components; the
  * only changes are the headings, which route through `SlideHeading`.
- * `animateListItems` still swaps in its own `li` afterwards, so list reveals
- * keep working.
+ * With `animateListItems` on, Spectacle still swaps in its own `li` afterwards,
+ * so list reveals keep working.
  */
 const mdHeading = (fontSize, variant) => (props) =>
   html`<${SlideHeading} ...${props} fontSize=${fontSize} variant=${variant} />`;
@@ -157,13 +156,18 @@ const MARKDOWN_COMPONENTS = {
 };
 
 /**
- * Props for a `MarkdownSlideSet`, given the chapter it sits in.
+ * Props for a `MarkdownSlideSet`.
+ *
+ *   chapter          -- the chapter it sits in, for the `ch-*` class.
+ *   animateListItems -- step list items in one at a time. Off unless asked for,
+ *                       and still off when animations are disabled.
+ *   ...rest          -- passed through to `MarkdownSlideSet` as is.
  *
  * A function rather than a constant because of `className`. Spectacle builds a
  * markdown set's slides internally, so they cannot go through `DeckSlide` and
  * pick up `.slide` there -- and `.slide` is what reserves the deck chrome's
  * band. Every class a markdown slide needs is therefore assembled here, in one
- * place, from the one thing that varies.
+ * place, from the chapter.
  *
  * `componentProps` reaches every mapped component, which is what left-aligns
  * markdown to match the prop-driven slides around it -- Spectacle's `Heading`
@@ -183,8 +187,13 @@ const MARKDOWN_COMPONENTS = {
  *      hand-written slides (those go through `MdNotes` below, which renders
  *      full markdown) -- just never in a markdown slide's `Notes:`.
  */
-export const mdSlideProps = (chapter) => ({
-  ...animateListItems,
+export const mdSlideProps = ({
+  chapter,
+  animateListItems = false,
+  ...rest
+} = {}) => ({
+  ...rest,
+  animateListItems: animateListItems && animationsEnabled,
   componentProps: { textAlign: "left" },
   componentMap: MARKDOWN_COMPONENTS,
   // No chapter is a real case, not a mistake: the advice and closing slides sit
