@@ -6,7 +6,7 @@ providers**, switchable live from the panel header:
 
 | Provider   | Runtime                                                                            | Model                   |
 | ---------- | ---------------------------------------------------------------------------------- | ----------------------- |
-| **Gemma**  | [LiteRT-LM](https://developers.google.com/edge/litert-lm/js) on WebGPU             | Gemma 4 E2B, 2 GB, ours |
+| **Gemma**  | [LiteRT-LM.js](https://developers.google.com/edge/litert-lm/js) on WebGPU          | Gemma 4 E2B, 2 GB, ours |
 | **Chrome** | The [Prompt API](https://developer.chrome.com/docs/ai/prompt-api), `LanguageModel` | Gemini Nano, Chrome's   |
 
 This document records that model layer: the interface the two providers share, where the
@@ -480,7 +480,7 @@ Four "limits" are in play for LiteRT and they disagree:
 | Architecture (`google/gemma-4-E2B-it` `max_position_embeddings`) | 128k   | yes, by the model        |
 | `litert-community` model card, in prose                          | 32k    | **no**                   |
 | The `.litertlm` file's `LlmMetadata.max_num_tokens`              | absent | nothing to enforce       |
-| LiteRT-LM's own default when unset                               | 4,096  | only if you pass nothing |
+| LiteRT-LM.js's own default when unset                            | 4,096  | only if you pass nothing |
 
 The file declaring nothing is load-bearing: there is no cap to hit and no way to query one —
 [LiteRT-LM #2865](https://github.com/google-ai-edge/LiteRT-LM/issues/2865) is open precisely
@@ -643,7 +643,7 @@ Panel → useConversation(streamAnswer)
   regenerated wholesale with every declaration `!important`.
 - **A non-streaming `generate()`.** Removed with the router. Note what it cost on Chrome: no
   throwaway session, so a per-turn router meant a full `create()` before every answer.
-- **Grammar-constrained decoding.** LiteRT-LM 0.15.0 has none — verified against the type
+- **Grammar-constrained decoding.** LiteRT-LM.js 0.15.0 has none — verified against the type
   declarations, not assumed.
 
 ### Verifying a change

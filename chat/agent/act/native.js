@@ -2,7 +2,7 @@
  * The registered tools, as declarations a runtime can call itself.
  *
  * THE OTHER HALF OF `catalog.js`. A provider whose runtime parses tool calls out of the
- * model's own template -- LiteRT-LM's `AutoToolChat` -- does not need the fenced-block
+ * model's own template -- LiteRT-LM.js's `AutoToolChat` -- does not need the fenced-block
  * convention, the parser, or the correction pass. It needs each tool's name, a description
  * and a schema, plus an `execute` it can call between decode rounds. That is the WebMCP
  * tool shape, which `AutoToolChat` accepts as-is.
@@ -22,7 +22,7 @@ import { invalidate } from "./invalidate.js";
 import { textOf } from "./receipt.js";
 
 /**
- * JSON Schema keywords LiteRT-LM's `Schema` type has no field for.
+ * JSON Schema keywords LiteRT-LM.js's `Schema` type has no field for.
  *
  * `minimum` is the only one the deck's tools use today. The tool itself still enforces it,
  * so dropping it from the declaration loses a hint and nothing else.

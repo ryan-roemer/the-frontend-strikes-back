@@ -25,7 +25,7 @@
  * session layer (`docs/handoffs/chat-handoff.md` §10). Sitting above it means every call in a tool
  * turn gets the readiness gate and the idle timeout for free, with no new state.
  *
- * TWO PATHS, CHOSEN BY THE PROVIDER. Where the runtime runs tools itself (LiteRT-LM, via
+ * TWO PATHS, CHOSEN BY THE PROVIDER. Where the runtime runs tools itself (LiteRT-LM.js, via
  * `capabilities.nativeTools`), `respondNative` hands it the declarations from `native.js`
  * and paints receipts as the tools run. Everywhere else -- Chrome's Prompt API, and the
  * replay provider the fixtures drive -- the model is prompted for a fenced block and this

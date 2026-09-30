@@ -1,7 +1,7 @@
 /**
  * The model bytes: download, cache, verify, delete.
  *
- * LiteRT-LM caches nothing itself -- `Engine.create({ model })` takes a URL, a Blob or a
+ * LiteRT-LM.js caches nothing itself -- `Engine.create({ model })` takes a URL, a Blob or a
  * ReadableStream and reads it once -- so the page owns the download. That is what gives
  * the status row real byte-level progress, a working "on disk?" answer, and the ability to
  * delete the model again.

@@ -9,7 +9,7 @@ import { provider as replay } from "./replay.js";
  * almost everything. WHERE THE ABSTRACTION LEAKS is the useful part:
  *
  *   ------------------------  ----------------------------  ----------------------------
- *                             LiteRT-LM / Gemma 4 E2B       Chrome Prompt API
+ *                             LiteRT-LM.js / Gemma 4 E2B    Chrome Prompt API
  *   ------------------------  ----------------------------  ----------------------------
  *   tool calls                native, `AutoToolChat`        prompted fenced blocks
  *   who owns the bytes        the page                      the browser

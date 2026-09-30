@@ -77,7 +77,7 @@ Two providers, switchable live from the panel header:
 
 | Provider   | Runtime                                                                       | Model                                         | Needs                       |
 | ---------- | ----------------------------------------------------------------------------- | --------------------------------------------- | --------------------------- |
-| **Gemma**  | [LiteRT-LM](https://developers.google.com/edge/litert-lm/js)                  | Gemma 4 E2B — a 2 GB download the page owns   | WebGPU, any desktop browser |
+| **Gemma**  | [LiteRT-LM.js](https://developers.google.com/edge/litert-lm/js)               | Gemma 4 E2B — a 2 GB download the page owns   | WebGPU, any desktop browser |
 | **Chrome** | [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) `LanguageModel` | Gemini Nano — Chrome's, invisible to the page | Chrome only                 |
 
 The panel is closed by default and deliberately does not remember being open, so a normal deck

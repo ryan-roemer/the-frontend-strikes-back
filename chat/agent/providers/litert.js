@@ -22,7 +22,7 @@ const TOOL_ROUNDS = 3;
 
 /**
  * The model itself: WebGPU, engine, conversations, and native tool calls. The one module
- * that knows about LiteRT-LM (`@litert-lm/core`, not LiteRT.js); everything above it is
+ * that knows about LiteRT-LM.js (`@litert-lm/core`, not LiteRT.js); everything above it is
  * provider-shaped.
  *
  * Requires only `navigator.gpu` -- no `SharedArrayBuffer`, so no COOP/COEP headers, which
@@ -970,7 +970,7 @@ const createChat = async ({ system }) => {
  */
 export const provider = {
   id: "litert",
-  label: "LiteRT",
+  label: "LiteRT-LM.js",
 
   capabilities: {
     // The runtime parses and runs tool calls itself (`AutoToolChat`), so `act/respond.js`
