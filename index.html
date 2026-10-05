@@ -492,7 +492,7 @@
           <${MatrixSlide}
             chapter=${2}
             title="What else runs in a tab"
-            columns=${["Runtime", "Tools", "Mobile", "Context"]}
+            columns=${["Runtime", "Tools", "iPhone 15 Pro", "Context"]}
             rows=${[
               {
                 icon: "browser",
@@ -551,11 +551,18 @@
                 stops; you parse the call out of the reply text. Chrome specs an
                 ${em("execute()")} the browser calls, but it is behind a flag,
                 desktop only.
-              * Mobile is an iPhone 15 Pro, Safari and Chrome for iOS, smallest
-                model. WebLLM and wllama survive. Transformers.js answers, then the
-                tab is killed while idle. LiteRT-LM.js dies on load: its smallest model is
-                2 GB, and Google says E2B needs about 4 GB free. Prompt API reports
-                unavailable up front.
+              * That column is my iPhone 15 Pro, not "mobile": one older phone,
+                Safari and Chrome for iOS, smallest model. WebLLM and wllama survive.
+                Transformers.js answers, then the tab is killed while idle.
+                LiteRT-LM.js dies on load: its smallest model is 2 GB, and Google
+                says E2B needs about 4 GB free. Prompt API reports unavailable up
+                front.
+              * It's iOS, not the phone: every iOS browser is WebKit, and WebKit caps
+                memory per tab. Nothing over about 400 MB held up. No error to
+                catch, iOS just kills the tab.
+              * Android is another story: a Google engineer runs Gemma 4 E2B on a
+                Pixel 9, and another tester runs E2B and E4B on a Pixel 7 Pro, three
+                generations old.
               * Context icons: lock is fixed, up arrow is "the default, raisable to
                 this", hourglass is "slows down past this many tokens". Every number
                 in the column was measured on this laptop by hiding a code at the
@@ -578,6 +585,8 @@
               * LiteRT-LM.js: ${em("maxNumTokens")} defaults to 4,096 and refuses a 7K
                 prompt there. Raised to 128K, Gemma 4 E2B found the code in a
                 125,000-token prompt: 65 s to fill, then 38 tokens/s.
+                And that is E2B's own limit: Gemma 4 12B and up go to 256K. The web
+                files carry no cap; you just set it. Only E2B was filled here.
               * So the number that decides it isn't the window; it's how long you
                 wait to fill it.
               * The frontier models you use every day have 250K to 1M.

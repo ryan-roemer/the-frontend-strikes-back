@@ -226,8 +226,12 @@ const byOrdinal = (nodes, words) => {
   );
   if (!pool.length) return null;
 
-  const digits = words.match(/\b(\d{1,2})\b/g) ?? [];
-  const spoken = words.split(" ");
+  // Positions are read outside parentheses. A matrix cell's label carries its row and
+  // column, "matrix note 2 (Chrome Prompt API, iPhone 15 Pro)", and the 15 in a column
+  // name is not a second cell.
+  const counted = words.replace(/\([^)]*\)/g, " ");
+  const digits = counted.match(/\b(\d{1,2})\b/g) ?? [];
+  const spoken = counted.split(" ");
   const spelled = spoken
     .filter((w) => ORDINALS.has(w))
     .map((w) => ORDINALS.get(w));

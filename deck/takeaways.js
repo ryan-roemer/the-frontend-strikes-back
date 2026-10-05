@@ -113,7 +113,7 @@ export const AUDIENCES = [
     key: "ai",
     icon: "brain",
     who: "If you build AI systems",
-    claim: "A lot of the agent now fits in a tab.",
+    claim: "An agent (or parts) now fits in a tab.",
     action: "Move one piece into the tab: the index, a reranker, an extractor.",
     rollUp: [2, 3],
   },
