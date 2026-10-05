@@ -536,7 +536,7 @@
                 cells: [
                   { mark: "yes", text: "Runs them for you" },
                   { mark: "no", text: "Tab dies on load" },
-                  { text: "4K", note: "raisable", value: "128K" },
+                  { text: "128–256K", note: "garbled", value: "32K" },
                 ],
               },
             ]}
@@ -564,7 +564,8 @@
                 Pixel 9, and another tester runs E2B and E4B on a Pixel 7 Pro, three
                 generations old.
               * Context icons: lock is fixed, up arrow is "the default, raisable to
-                this", hourglass is "slows down past this many tokens". Every number
+                this", hourglass is "slows down past this many tokens", warning is
+                "answers turn to gibberish past this many tokens". Every number
                 in the column was measured on this laptop by hiding a code at the
                 top of a long prompt and asking for it back.
               * Chrome: ${em("contextWindow")} is 9,216 and not settable. An 8,700-token
@@ -583,10 +584,13 @@
                 at about 35K tokens, so ~32K is the real ceiling. Decode is flat to
                 3K and slows after: 17% slower at 5K, 43% at 7K. Recall went at 16K.
               * LiteRT-LM.js: ${em("maxNumTokens")} defaults to 4,096 and refuses a 7K
-                prompt there. Raised to 128K, Gemma 4 E2B found the code in a
-                125,000-token prompt: 65 s to fill, then 38 tokens/s.
-                And that is E2B's own limit: Gemma 4 12B and up go to 256K. The web
-                files carry no cap; you just set it. Only E2B was filled here.
+                prompt there. You can raise it to each model's trained length:
+                128K for E2B, 256K for 12B and up.
+              * E2B holds all the way: it found the code in a 125,000-token prompt,
+                65 s to fill, then 38 tokens/s.
+              * The bigger ones don't. Past ~24K (12B), ~32K (26B A4B) or somewhere
+                under 32K (31B) they answer in gibberish, with no error. 26B A4B at 32K still found
+                the code in a 30,800-token prompt.
               * So the number that decides it isn't the window; it's how long you
                 wait to fill it.
               * The frontier models you use every day have 250K to 1M.

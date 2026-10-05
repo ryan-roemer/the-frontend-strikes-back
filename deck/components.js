@@ -979,6 +979,7 @@ const MATRIX_NOTES = {
   fixed: { icon: "lock-simple", words: "fixed" },
   raisable: { icon: "arrow-fat-up", words: "default, raisable to a max of" },
   slow: { icon: "hourglass-medium", words: "max, slow past" },
+  garbled: { icon: "warning", words: "max, garbled past" },
 };
 
 const MatrixCell = ({ cell }) => {
