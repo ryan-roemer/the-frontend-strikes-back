@@ -60,7 +60,7 @@ export const chapters = [
   {
     n: 3,
     pillar: "Web agents",
-    title: "Trading time for limits",
+    title: "Agents in the browser",
     accent: ACCENTS.purple,
     background: backgrounds.postits,
   },

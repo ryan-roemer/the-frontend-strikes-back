@@ -106,7 +106,7 @@ export const AUDIENCES = [
     icon: "browser",
     who: "If you build frontends",
     claim: "Agents are increasingly your users.",
-    action: "Register three tools on the thing you already ship.",
+    action: "Register a tool on an existing app and consume it.",
     rollUp: [1],
   },
   {
@@ -114,7 +114,8 @@ export const AUDIENCES = [
     icon: "brain",
     who: "If you build AI systems",
     claim: "An agent (or parts) now fits in a tab.",
-    action: "Move one piece into the tab: the index, a reranker, an extractor.",
+    action:
+      "Try out one AI piece in the frontend: a classifier, a decider, vector search, or even simple inference.",
     rollUp: [2, 3],
   },
 ];
