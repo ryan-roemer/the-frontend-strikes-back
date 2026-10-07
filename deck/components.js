@@ -608,6 +608,29 @@ export const JsSlide = ({
 `;
 
 /**
+ * One markdown slide with full-markdown speaker notes.
+ *
+ * Looks the same as a `MarkdownSlideSet` slide, but the notes come from the
+ * `notes` prop through `MdNotes`, so they can carry lists and `em()` -- which
+ * a markdown slide's `Notes:` line cannot (see `mdSlideProps`).
+ */
+export const MdSlide = ({ chapter, notes, children }) => {
+  const { componentMap, componentProps } = mdSlideProps({ chapter });
+  const className = ["md", chapter ? chapterClass(chapter) : null]
+    .filter(Boolean)
+    .join(" ");
+
+  return html`
+    <${DeckSlide} className=${className}>
+      <${Markdown} componentMap=${componentMap} componentProps=${componentProps}>
+        ${children}
+      </${Markdown}>
+      <${MdNotes} notes=${notes} />
+    </${DeckSlide}>
+  `;
+};
+
+/**
  * Chapter divider.
  *
  * Left-aligned against a scrimmed photo, with the chapter number ghosted in

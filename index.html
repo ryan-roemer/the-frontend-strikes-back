@@ -152,6 +152,7 @@
         DeckSlide,
         Template,
         JsSlide,
+        MdSlide,
         TopicSlide,
         MatrixSlide,
         TakeawaySlide,
@@ -304,6 +305,57 @@
           </${DeckSlide}>
           ${"" /* --- 01 · Interface: WebMCP --- */}
           <${TopicSlide} chapter=${chapter(1)} />
+          <${MdSlide}
+            chapter=${1}
+            notes=${`
+              * **Point 1: what it is**
+                * The page registers tools, and an agent connected to the tab discovers and
+                  calls them. It's MCP's tool model, but the "server" is the page the user
+                  already has open.
+                * It's being worked on in the W3C Web Machine Learning Community Group, and
+                  engineers at Google and Microsoft co-wrote it.
+                * A Community Group proposal isn't a W3C standard yet. "Emerging" is fair:
+                  two browser engines are shipping it for testing.
+              * **Point 2: the two APIs**
+                * **Imperative API:** \`document.modelContext.registerTool()\`, with a name,
+                  description, input schema and \`execute\` function. The next slide shows it.
+                * **Declarative API:** add \`toolname\` and \`tooldescription\` attributes to an
+                  existing \`<form>\`, and the browser turns the form into a tool. The most
+                  coverage for the least code.
+                * If someone has seen \`navigator.modelContext\`: the spec moved it to
+                  \`document.modelContext\`, and Chrome 150 deprecated the old location.
+              * **Point 3: browser support**
+                * **Chrome:** origin trial from Chrome 149. It's planned to run through 156,
+                  and an extension to 162 has been requested. Locally:
+                  \`chrome://flags/#enable-webmcp-testing\`.
+                * **Edge:** the Edge 150 implementation is behind a flag; the Edge dev blog
+                  called it "ready for testing" on September 21.
+                * **Safari and Firefox:** nothing public.
+                * **You don't need a browser that supports it** to use WebMCP: polyfills and
+                  relays such as MCP-B fill the gap, and the demo uses one.
+              * **Point 4: already in use**
+                * **Shopify:** WebMCP tools on every Liquid storefront, with nothing to
+                  install: search, product, cart, and (since September) checkout with buyer
+                  confirmation. You can see it on reebok.com. Agent support is Chromium
+                  origin trial only.
+                * **OpenAI:** the browser built into the ChatGPT desktop app calls WebMCP
+                  "site tools" in ChatGPT, ChatGPT Work and Codex. Still rolling out, and
+                  only on some models.
+                * Google says Expedia, Booking.com, Target and others are
+                  ${em("experimenting")}. Don't claim more than that.
+              * Recheck before the talk: the Edge flag status, and whether Chrome extended
+                the trial past 156.
+            `}
+          >
+            ${`
+              # What is WebMCP?
+
+              * **MCP tools, served by your web page.** An emerging W3C Community Group standard.
+              * **Two APIs:** an *Imperative* one in JavaScript and a *Declarative* one using HTML forms.
+              * **In browsers now:** an origin trial in Chrome, and behind a flag in Edge.
+              * **Already in use:** every Shopify storefront, and the ChatGPT desktop browser.
+            `}
+          </${MdSlide}>
           <${JsSlide} chapter=${1} title="WebMCP in one call"
             filename=${examples.registerTool.file} code=${examples.registerTool.code}
             language=${examples.registerTool.language}
@@ -320,8 +372,7 @@
               * \`execute\` calls what the search box already calls, inside the page the
                 user is signed in to. Auth, state and business logic come for free.
               * The agent can be just about anywhere: Claude Desktop over a relay, a
-                browser extension, or code in the page itself.
-              * The real version is one click away (GitHub icon): \`search_nearform_knowledge\`
+                browser extension, or code in the page itself.              * The real version is one click away (GitHub icon): \`search_nearform_knowledge\`
                 in vector-search-web, which is what Claude calls on the next slide.
               * I'm only giving you the shape today. For the deep dive:
                 * Sarah Drasner's keynote, "The Agentic Web" (Thu 2:00pm, earlier today)
@@ -373,6 +424,22 @@
           <${TopicSlide} chapter=${chapter(2)} />
           <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 2 })}>
             ${`
+              ---
+              # Why web AI?
+
+              * **Privacy**: data never leaves the device
+              * **Offline**: works with no network at all
+              * **Latency**: no round trip to a server
+              * **Cost**: the user's GPU, not your inference bill
+
+              Notes: \
+                Same pitch as browser vector search: fast, private, no backend. \
+                Latency means the round trip, not raw speed: small, focused tasks \
+                (search, classify, decide) win, but big generations are still slower \
+                than a cloud frontier model, and the model download is the real \
+                up-front cost. We'll get to both. Cost: no per-token bill, and no \
+                inference backend to run or scale.
+
               ---
               # TODO: analogy
 
