@@ -333,6 +333,9 @@
                 * **Safari and Firefox:** nothing public.
                 * **You don't need a browser that supports it** to use WebMCP: polyfills and
                   relays such as MCP-B fill the gap, and the demo uses one.
+                * An ${em("official")} W3C polyfill is coming, faster than you might think:
+                  the group resolved on Aug 20 to host one in its GitHub org
+                  ([webmcp#252](https://github.com/webmachinelearning/webmcp/issues/252)).
               * **Point 4: already in use**
                 * **Shopify:** WebMCP tools on every Liquid storefront, with nothing to
                   install: search, product, cart, and (since September) checkout with buyer
@@ -402,12 +405,13 @@
           <${TakeawaySlide}
             chapter=${1}
             title="TODO: title"
+            compact=${true}
             items=${[
               {
                 n: 1,
                 text: "Here, right now",
                 detail:
-                  "Straightforward to implement. Already have agents / agentic tools consuming and more to come. A good bet.",
+                  "Straightforward to implement: your tools reuse the code your UI already calls. Already have agents / agentic tools consuming and more to come. A good bet.",
               },
               {
                 n: 2,
@@ -415,8 +419,20 @@
                 detail:
                   "Can simplify tools for agents that would otherwise be a pain to implement, especially in legacy systems.",
               },
+              {
+                n: 3,
+                text: "Standards do the hard parts",
+                detail:
+                  "You write a function. Browsers and the standards groups own permissions, origin boundaries and user consent.",
+              },
             ]}
             notes=${`
+              * Code reuse: \`execute\` calls the same functions as the search box, so
+                there's no second implementation to build or keep in sync.
+              * The hard parts: security, permissions and consent are the browser's job,
+                worked out in the open by the W3C group, not something each site reinvents.
+              * Be honest if asked: the spec's security section (prompt injection
+                especially) is still being worked out. "That's their job," not "that's solved."
               * TODO
             `}
           />
@@ -551,6 +567,9 @@
               },
             ]}
             notes=${`
+              * Context is a sliding scale: every step up costs memory and speed. The
+                Context column shows the default and how far you can raise it, and
+                raising it is how a phone tab dies.
               * TODO: Add notes
               * TODO: Insert web ai article link on the slide.
             `}
@@ -582,16 +601,20 @@
                 n: 2,
                 text: "Context size",
                 detail:
-                  "Pick the smallest context that works. Some web models have large context, but it's slower and lower quality. Watch out / disable thinking mode unless you know you need it.",
+                  "A sliding scale: more context costs more memory and runs slower, often with lower quality. Pick the smallest that works. Watch out / disable thinking mode unless you know you need it.",
               },
               {
                 n: 3,
                 text: "High powered evals",
                 detail:
-                  "Use all the frontier models here. Similar to specific / fine-tune models in that you can tune your AI inference chain (prompt and all) to do well on your specific domain.",
+                  "Use all the frontier models here. Tune your AI inference chain (prompt and all) to do well on your specific domain. Run them in a real browser, driven over playwright/CDP.",
               },
             ]}
             notes=${`
+              * Evals over CDP: this deck does a version of it. The chat's replay tests
+                drive a real Chrome over the DevTools protocol, feed recorded model replies
+                into the live deck, and check every tool call they dispatch. The same
+                harness could run the on-device model itself for a full eval.
               * TODO
             `}
           />
@@ -610,7 +633,7 @@
                 n: 2,
                 text: "Specific models",
                 detail:
-                  "Use domain-specific models for different given tasks. Saves on context and can pick better training data base. Fine-tune for application specific model behaviors you want.",
+                  "Use domain-specific models for different given tasks. Saves on context and can pick better training data base. Fine-tune or post-train for application specific model behaviors you want.",
               },
               {
                 n: 3,
@@ -619,6 +642,8 @@
               },
             ]}
             notes=${`
+              * Specific models: a small model trained on one narrow task can match a much
+                bigger general one, and small is what fits in a tab.
               * TODO
             `}
           />
