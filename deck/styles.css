@@ -861,6 +861,14 @@ body::after {
   color: var(--chapter-accent);
 }
 
+#root .demo__open {
+  margin-left: 0.5em;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--chapter-accent);
+  text-decoration: none;
+}
+
 /* --- Spectacle badge -----------------------------------------------------
  *
  * The logo sitting in the "I lead technology & OSS at Nearform" line, and the

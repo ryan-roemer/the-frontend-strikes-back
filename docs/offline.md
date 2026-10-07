@@ -3,6 +3,124 @@
 Present the talk with no network. Works on `localhost` only; the published site is unaffected.
 Implementation notes: [handoffs/offline-handoff.md](handoffs/offline-handoff.md).
 
+The deck runs fully offline. The live demos don't: they load from their live sites, and the
+Claude Desktop one calls a cloud model. Each has a [backup recording](#when-a-live-demo-fails)
+or needs one.
+
+## Talk day, in order
+
+Three terminals. Each command is safe to re-run.
+
+```sh
+npm run dev          # 1: serve the deck on :3000 (leave running)
+npm run demo:relay   # 2: the WebMCP relay on :9333, for Claude Desktop (leave running)
+npm run cdp:talk     # 3: the talk Chrome, CDP on :1981
+npm run talk:open    # 3: the deck with ?offline, plus a tab per demo
+```
+
+Then:
+
+1. Open Claude Desktop and check it sees the page ([The relay](#the-relay-claude-desktop-demo)).
+2. Walk the deck once. The assistant's status should read "on disk".
+3. Click through each demo tab once, so it's loaded before you need it.
+
+Start `demo:relay` **before** `talk:open`. The Claude Desktop tab looks for the relay once,
+when it loads. If the relay came up later, reload that tab.
+
+With no wifi: everything above still works for the deck, but the demo tabs and Claude
+Desktop won't load. Use the backup recordings. See [At the venue](#at-the-venue).
+
+## The demos
+
+| Slide (chapter)               | Demo id          | Opens                                                |
+| ----------------------------- | ---------------- | ---------------------------------------------------- |
+| Claude Desktop calls our page | `claude-desktop` | `nearform.github.io/vector-search-web/?present=true` |
+| Vector search (2)             | `vector-search`  | `nearform.github.io/vector-search-web/?relay=false`  |
+| Web AI demos (2)              | `web-ai`         | `nearform.github.io/web-ai-demo/`                    |
+| Nearform research agents (3)  | `web-agents`     | `nearform.github.io/web-agents/?relay=false`         |
+
+- **On the slide:** the ↗ icon after the URL opens the demo in a new tab. It's there on the
+  published deck too.
+- **All at once:** `npm run talk:open` opens the deck and all four, in this order, then brings
+  the deck tab to the front. It skips tabs already open at the same URL. It **closes** any deck
+  tab without `?offline` (the one `cdp:talk` opens), because that tab is blank with no network.
+- `?present=true` gives vector-search-web a generic title for the projector.
+- `?relay=false` keeps a tab off the relay. Every tab that connects adds its tools to Claude
+  Desktop's list, so with both vector-search-web tabs connected Claude sees each tool twice, under
+  suffixed names (`search_ed93`, `search_a1b2`). Only the Claude Desktop tab should connect.
+
+The URLs live in `DEMO_LINKS` in `deck/demos.js`. Change them there; the slide icon and
+`talk:open` both read it.
+
+`talk:open` needs `npm run dev` and `npm run cdp:talk` running. It says which one is missing.
+
+## The relay (Claude Desktop demo)
+
+Claude Desktop reaches the page through `@mcp-b/webmcp-local-relay`: a local MCP server that
+the page connects to over a WebSocket on `127.0.0.1:9333`.
+
+```text
+vector-search-web tab ──ws :9333──▶ relay ◀──stdio── Claude Desktop ──▶ cloud model
+```
+
+### One-time setup
+
+Claude Desktop starts its own copy of the relay from its config. In Claude Desktop: Settings →
+Developer → Edit Config, and add:
+
+```json
+{
+  "mcpServers": {
+    "webmcp-local-relay": {
+      "command": "<output of `which node`>",
+      "args": ["<repo>/node_modules/@mcp-b/webmcp-local-relay/dist/cli.mjs"]
+    }
+  }
+}
+```
+
+This runs the version pinned in this repo (5.1.0, the same one the demo pages load). The relay
+README's `npx -y @mcp-b/webmcp-local-relay@latest` also works, but it downloads on every launch
+and may pick up a newer version. Full paths, because Claude Desktop doesn't load nvm. With nvm,
+`which node` changes when you switch Node versions: update the config if you do.
+
+Quit and reopen Claude Desktop after editing it.
+
+### The commands
+
+| Command                   | What it does                                                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `npm run demo:relay`      | Runs the relay in the foreground on :9333. Ctrl-C stops it.                                                    |
+| `npm run demo:relay:ps`   | Lists every process with a socket on :9333: the relay, Claude Desktop's relay, and Chrome's open connection.   |
+| `npm run demo:relay:stop` | Stops the relay **listening** on :9333 (a `node` process only). Use it when an old relay is stuck on the port. |
+
+Both relays can run at once. Whichever starts first owns :9333, and the other joins it and
+passes calls through, so it doesn't matter whether Claude Desktop or `demo:relay` starts first.
+`demo:relay` is the one you can see in a terminal, and stop and restart without touching
+Claude Desktop.
+
+### Check it before the talk
+
+1. `npm run demo:relay`, then `npm run talk:open` (or reload the Claude Desktop tab).
+2. In the tab's DevTools console, there should be **no** `[webmcp-relay] No local relay on
+ws://127.0.0.1:9333` line.
+3. In Claude Desktop, ask: "Which WebMCP sources are connected?" It should list **one**
+   vector-search-web tab. More than one means another tab is connected: close it, or open it
+   with `?relay=false`.
+4. Ask one real search question, and watch the page update.
+
+### When the relay fails
+
+| Symptom                                              | Do this                                                                                                                                                                                 |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Console says `No local relay on ws://127.0.0.1:9333` | Start `npm run demo:relay`, then reload the tab.                                                                                                                                        |
+| `demo:relay` fails because :9333 is in use           | `npm run demo:relay:ps`. If it's an old relay, `npm run demo:relay:stop` and start again. If it's something else (for example a Chrome with `--remote-debugging-port=9333`), quit that. |
+| Claude lists no WebMCP tools                         | Claude Desktop didn't start the relay: check the config paths, then quit and reopen Claude Desktop.                                                                                     |
+| Claude lists each tool twice, with suffixes          | Two tabs are connected. Close the extra one, or reopen it with `?relay=false`.                                                                                                          |
+| Chrome asks to allow access to the local network     | Allow it. Chrome asks public sites before they connect to `127.0.0.1`.                                                                                                                  |
+
+On stage, don't debug: cut to the recording (⇧⌥V).
+
 ## Before the trip (on good wifi)
 
 ```sh
@@ -29,9 +147,9 @@ In the talk profile, also:
 - Open the assistant and switch to **Chrome**. Wait for Gemini Nano to finish downloading
   (check `chrome://on-device-internals`).
 - Ask one question on **each** provider.
-
-Then open **<http://localhost:3000/?offline>** once, while still online, so the service worker
-installs.
+- Run `npm run talk:open` and load each demo once. The service worker installs from the
+  `?offline` deck tab, and each demo's first load (models included) happens on good wifi.
+- Set up and check the relay: [The relay](#the-relay-claude-desktop-demo).
 
 ## When `offline:check` fails
 
@@ -67,9 +185,9 @@ column.
 
 ## At the venue
 
-1. Turn wifi **off**.
-2. Run `npm run dev` and `npm run cdp:talk`.
-3. Open **<http://localhost:3000/?offline>**. If the deck is blank, reload once.
+1. If there's no reliable wifi, turn it **off**, so nothing hangs on a half-working network.
+2. Run the [talk day](#talk-day-in-order) commands. With wifi off, skip `demo:relay`.
+3. If the deck tab is blank, reload it once.
 4. Walk the deck once. The assistant's status should read "on disk".
 
 The talk Chrome (`cdp:talk`, :1981) and the throwaway one (`cdp`, :1980, used by `npm test`)
@@ -93,7 +211,8 @@ Click it or press **⇧⌥V** to play the recording fullscreen.
 The deck doesn't move while it's up. Only on `localhost`: the published deck has no button.
 
 Recordings: `claude-desktop` (the relay demo) and `web-agents`. A demo without its file
-shows "No recording yet" instead.
+shows "No recording yet" instead. `vector-search` and `web-ai` have no recording slot yet:
+add them to `DEMO_VIDEOS` in `deck/demos.js` to get the button.
 
 ## Add a recording
 
@@ -115,7 +234,23 @@ shows "No recording yet" instead.
 
 ## What still needs a network
 
-- Anything that calls a cloud LLM (for example, a desktop agent over the WebMCP relay). Use the
+- Anything that calls a cloud LLM (for example, Claude Desktop over the WebMCP relay). Use the
   [backup video](#when-a-live-demo-fails).
-- External demo sites, unless they're served locally. See
-  [handoffs/offline-handoff.md](handoffs/offline-handoff.md) §3, phase 5.
+- The demo sites: they load from `nearform.github.io`, and their CDN files and models aren't in
+  `offline/`. See [handoffs/offline-handoff.md](handoffs/offline-handoff.md) §3, phase 5.
+
+## Command reference
+
+| Command                    | When                    | What it does                                                 |
+| -------------------------- | ----------------------- | ------------------------------------------------------------ |
+| `npm run dev`              | always                  | Serves the deck on :3000                                     |
+| `npm run cdp:talk`         | always                  | The talk Chrome, persistent profile, CDP on :1981            |
+| `npm run talk:open`        | talk day                | Deck with `?offline` plus a tab per demo, in the talk Chrome |
+| `npm run demo:relay`       | talk day, online        | WebMCP relay on :9333 for Claude Desktop                     |
+| `npm run demo:relay:ps`    | relay trouble           | What's on :9333                                              |
+| `npm run demo:relay:stop`  | relay trouble           | Stops the relay listening on :9333                           |
+| `npm run offline:fetch`    | prep, after dep changes | Saves every CDN file, font and image to `offline/`           |
+| `npm run offline:model`    | prep                    | Downloads Gemma to `offline/models/`                         |
+| `npm run offline:check`    | prep                    | Walks the deck with external hosts blocked; must print PASS  |
+| `npm run video:add`        | after recording a demo  | Encodes a backup recording into `media/videos/`              |
+| `npm run cdp` / `cdp:stop` | tests only              | Throwaway Chrome on :1980; `cdp:stop` deletes its profile    |

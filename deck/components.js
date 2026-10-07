@@ -43,6 +43,7 @@ import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
 import { SlideKeys } from "./slide-keys.js";
 import { VideoToggle } from "./demo-video.js";
+import { DEMO_LINKS } from "./demos.js";
 import { DeckBridge } from "../chat/bridge.js";
 import { ChatToggle } from "../chat/toggle.js";
 import { ToolsToggle } from "../chat/tools/toggle.js";
@@ -1221,9 +1222,13 @@ const backupNote = (backup) => {
  * `points` go through `markup()`, so a bullet can carry `em()`, `icon()` or any
  * other inline tag instead of being flat text.
  *
- * `demo` is the id of a backup recording in `deck/demos.js`. It becomes the
- * Spectacle slide `id`, which is how the video button in the deck chrome finds
- * it (see `demo-video.js`). Leave it off for a demo with no recording.
+ * `demo` is the demo's id in `deck/demos.js`. It becomes the Spectacle slide
+ * `id`. If `DEMO_LINKS` has it, an icon after the URL opens the demo in a new
+ * tab. If `DEMO_VIDEOS` has it, the video button in the deck chrome shows (see
+ * `demo-video.js`).
+ *
+ * The icon is a sibling of the URL text, not inside it, so a chat edit that
+ * rewrites the text can't drop the link.
  */
 export const DemoSlide = ({
   chapter,
@@ -1244,9 +1249,23 @@ export const DemoSlide = ({
       <${AccentRule} />
       ${
         url
-          ? html`<${Text} className="demo__url" fontSize="26px" margin="24px 0 0">
-              ${url}
-            </${Text}>`
+          ? html`<${FlexBox} alignItems="center" margin="24px 0 0">
+              <${Text} className="demo__url" fontSize="26px" margin="0">
+                ${url}
+              </${Text}>
+              ${
+                DEMO_LINKS[demo]
+                  ? html`<${Link}
+                      className="demo__open"
+                      href=${DEMO_LINKS[demo]}
+                      target="_blank"
+                      title=${`Open ${DEMO_LINKS[demo]} in a new tab`}
+                    >
+                      <${Icon} name="arrow-square-out" fill=${false} />
+                    </${Link}>`
+                  : null
+              }
+            </${FlexBox}>`
           : null
       }
       ${
