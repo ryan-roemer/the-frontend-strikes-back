@@ -1165,6 +1165,15 @@ body::after {
   color: var(--muted);
 }
 
+/* Scoped under the bar so it outranks the underline on Spectacle's `Link`. */
+.code-frame__bar .code-frame__source {
+  margin-left: auto;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--chapter-accent);
+  text-decoration: none;
+}
+
 /*
  * `CodePane` wraps its `<pre>` in an unclassed div, and THAT div is the frame's
  * flex child -- not the pre. Without this rule the wrapper keeps its natural

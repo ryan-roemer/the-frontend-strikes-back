@@ -15,7 +15,7 @@ git show 3bb7ecd:index.html
 | `DemoSlide`              | A live demo: label, app name, URL, steps, backup plan              | All four demos                             | Same                                           |
 | `TakeawaySlide`          | Numbered cards: one centered card, or a list of them               | Chapter takeaways, Implementation, close   | "Verdict" slides, built from `byChapter(n)`    |
 | `MatrixSlide`            | Comparison table with yes / no / manual marks and notes            | The five runtimes                          | Same                                           |
-| `JsSlide`                | Code pane with a filename bar, from a real file in `examples/`     | Not used                                   | "Register a tool", "What you get for free"     |
+| `JsSlide`                | Code pane with a filename bar, from a real file in `examples/`     | "WebMCP in one call"                       | "Register a tool", "What you get for free"     |
 | `RowsSlide`              | Rows of icon + label groups (for example agents / tools / runs on) | Not used                                   | "Many small agents, each with a small context" |
 | `SeamSlide`              | Points on the left, agent → tools → implementations diagram        | Not used                                   | "Tools are the seam"                           |
 | `AudienceCards`          | The two audience cards, inside a `DeckSlide`                       | Slide 4 and "So, what now?"                | Same                                           |
@@ -46,16 +46,10 @@ old chapter verdicts passed `items={byChapter(n)}`; the new slides pass items in
 and each cell is `{ mark?, text, note?, value? }`. `mark` is `yes`, `no` or `manual`.
 The chat's replay fixtures check this slide's cell wording.
 
-**`JsSlide`**: to bring code slides back, restore the two lines removed from
-`index.html`:
-
-```js
-import { getExamples } from "./deck/examples.js";
-const examples = await getExamples();
-```
-
-then pass `filename`, `code` and `language` from `examples.<name>`. The snippet files
-are still in `examples/` and listed in `deck/examples.js`.
+**`JsSlide`**: pass `filename`, `code` and `language` from `examples.<name>`. Snippet
+files live in `examples/` and are listed in `deck/examples.js`. The optional
+`source={{ href, title }}` adds a GitHub icon link to the filename bar, pointing at
+the real code the snippet is based on.
 
 **`RowsSlide`**: `sections` is a list of `{ title, items: [{ text, icon }] }`; `dense`
 tightens the spacing.

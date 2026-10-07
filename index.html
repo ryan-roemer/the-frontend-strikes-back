@@ -143,6 +143,7 @@
       import isPropValid from "@emotion/is-prop-valid";
       import { theme, DECK_BACKGROUND, photoBackground } from "./deck/theme.js";
       import { logosHtm, backgrounds, images } from "./deck/media.js";
+      import { getExamples } from "./deck/examples.js";
       import { chapter, applyChapterStyles } from "./deck/chapters.js";
       import { AUDIENCES } from "./deck/takeaways.js";
       import {
@@ -151,6 +152,7 @@
         em,
         DeckSlide,
         Template,
+        JsSlide,
         TopicSlide,
         MatrixSlide,
         TakeawaySlide,
@@ -167,6 +169,8 @@
         selectSlideFromOverview,
       } from "./deck/components.js";
       const html = htm.bind(createElement);
+
+      const examples = await getExamples();
 
       // Emits the per-chapter `--chapter-accent` rules that the divider slides
       // and every slide inside a chapter read from.
@@ -332,17 +336,36 @@
           }
           ${"" /* --- 01 · Interface: WebMCP --- */}
           <${TopicSlide} chapter=${chapter(1)} />
-          <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 1 })}>
-            ${`
-              ---
-              # WebMCP
-
-              * TODO
-
-              Notes: \
-                TODO
+          ${
+            "" /* The shape of the tool Claude calls on the next slide. The GitHub
+                  icon in the filename bar opens the real one in vector-search-web. */
+          }
+          <${JsSlide} chapter=${1} title="WebMCP in one call"
+            filename=${examples.registerTool.file} code=${examples.registerTool.code}
+            language=${examples.registerTool.language}
+            source=${{
+              href: "https://github.com/nearform/vector-search-web/blob/ab4d3bd0bfcb55475b1532cf7b2b1518492e056c/public/app/data/tools/search.js#L7-L71",
+              title: "The real search tool in vector-search-web",
+            }}
+            notes=${`
+              * WebMCP: the page registers tools; an agent discovers and calls them.
+                One API, \`document.modelContext\`. A W3C Community Group proposal.
+              * Name, description, schema, execute. That's all of it.
+              * Descriptions are ${em("prompt engineering")}: the model reads them to
+                decide whether to call the tool at all.
+              * \`execute\` calls what the search box already calls, inside the page the
+                user is signed in to. Auth, state and business logic come for free.
+              * The agent can be just about anywhere: Claude Desktop over a relay, a
+                browser extension, or code in the page itself.
+              * The real version is one click away (GitHub icon): \`search_nearform_knowledge\`
+                in vector-search-web, which is what Claude calls on the next slide.
+              * I'm only giving you the shape today. For the deep dive:
+                * Sarah Drasner's keynote, "The Agentic Web" (Thu 2:00pm, earlier today)
+                * Liad Yosef and Dominic Farolino, "MCP Apps + WebMCP: The Next Era of
+                  Interface" (TODO: confirm time)
+                * Liad Yosef, "How Agents Really See the Web" (TODO: confirm time)
             `}
-          </${MarkdownSlideSet}>
+          />
           ${
             "" /* THE ONLY TIME THE TALK LEAVES THE BROWSER. It is here because a
                   remote agent driving a page is exactly what is being shown, and

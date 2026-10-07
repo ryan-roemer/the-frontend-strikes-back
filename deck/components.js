@@ -564,6 +564,9 @@ export const DeckSlide = ({ className, chrome = true, children, ...rest }) => {
  * The bar is not chrome for its own sake: these snippets are real files under
  * `examples/`, and naming them tells the audience the code is honest rather
  * than written for the slide.
+ *
+ * `source` is an optional `{ href, title }` for the real code the snippet is
+ * based on. It shows as a GitHub icon at the right end of the filename bar.
  */
 export const JsSlide = ({
   title,
@@ -571,6 +574,7 @@ export const JsSlide = ({
   code,
   notes,
   chapter,
+  source,
   language = "javascript",
 }) => html`
   <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
@@ -581,6 +585,18 @@ export const JsSlide = ({
           ? html`<div className="code-frame__bar">
               <span className="code-frame__dots" />
               <span className="code-frame__name">${filename}</span>
+              ${
+                source
+                  ? html`<${Link}
+                      className="code-frame__source"
+                      href=${source.href}
+                      target="_blank"
+                      title=${source.title}
+                    >
+                      <${Icon} name="github-logo" />
+                    </${Link}>`
+                  : null
+              }
             </div>`
           : null
       }
