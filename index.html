@@ -75,8 +75,7 @@
   <body>
     <div id="root"></div>
 
-    <!-- Pins, prefix remaps, and scopes are explained in docs/dependencies.md.
-         Read it before changing a version -- most entries here are load-bearing. -->
+    <!-- Pins, prefix remaps, and scopes are explained in docs/dependencies.md. -->
     <script type="importmap">
       {
         "imports": {
@@ -194,13 +193,11 @@
           onSlideClick=${selectSlideFromOverview}
         >
           ${"" /* --- Intro --- */}
-          ${"" /* `chrome={false}`: Template draws no chrome on slide 1, so this slide keeps the full 768px canvas. */}
           <${DeckSlide} chrome=${false}>
             <${FlexBox} className="title-copy" height="100%" flexDirection="column" justifyContent="center" alignItems="start">
               <${Eyebrow}>
                 ${logosHtm.conf} AgntCon + MCPCon NA 2026
               </${Eyebrow}>
-              ${"" /* Raw Heading, not SlideHeading: this slide's two headings own their size, tracking and color outright. */}
               <${Heading}
                 className="title-display"
                 fontSize="118px"
@@ -228,7 +225,6 @@
               bottom="46px"
               right="46px"
             >
-              ${"" /* 200px matches `qrCodeImg` on the closing slides, so the code is one size deck-wide. The gutter reserved by `.title-copy` is what keeps it clear of the headline. */}
               <${Image} className="qr-card" src=${images.qrCode} width="200px" height="200px" />
               <${Text} className="qr-caption" fontSize="18px" margin="12px 0 0">
                 Scan for slides
@@ -256,14 +252,6 @@
               <${AppearComponent}>
                 <${Text} fontSize="h3">
                   ${logosHtm.nearform} I lead technology & OSS at <${Link} href="https://nearform.com" fontSize="h3">Nearform</${Link}>
-                  ${
-                    "" /* The Spectacle setup, as a logo instead of a line of its own.
-                          It pays off twice -- the deck is a WebMCP server in chapter 1
-                          and runs a model in chapter 2 -- so it has to be said here,
-                          but it does not need a line of its own. The next step puts
-                          the banner up (the slide this replaced) and the one after
-                          takes it down as the last line appears; clicking works too. */
-                  }
                   <${SpectacleBadge} />
                 </${Text}>
               </${AppearComponent}>
@@ -273,17 +261,6 @@
                 </${Text}>
               </${AppearComponent}>
             </${FlexBox}>
-            <${Notes}>
-              <${Markdown} className="notes">
-                ${`
-                  * Keep it to 30 sec.
-                  * We also maintain ${em("Spectacle")}, a presentation library for
-                    React. This deck runs on it -- no build step, all in the browser.
-                    Next step puts the banner up, next again drops it (or Escape).
-                  * That's the line that matters: it's why the deck can be a demo later.
-                `}
-              </${Markdown}>
-            </${Notes}>
           </${DeckSlide}>
           <${DeckSlide}>
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
@@ -320,26 +297,13 @@
                   * Survey, hands up:
                     * How many of you build **frontends**? (Full-stack devs?)
                     * How many of you build AI **backends** or **cloud infrastructures**?
-                  * ... we've got something for both of you, and it's the same something.
-                  * A tour, not a tutorial: highlights, lowlights, and a lot of demos.
+                  * The point of this talk -- learn something new that you can try out that involves a browser.
                 `}
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
-          ${
-            "" /* --- Rebuild in progress ---
-             *
-             * Everything from here to "So, what now?" is a skeleton for the new
-             * outline. Visible TODOs mark content still to be written; the slide
-             * types available are listed in docs/slide-types.md, and the deck
-             * before this cut is at commit 3bb7ecd. */
-          }
           ${"" /* --- 01 · Interface: WebMCP --- */}
           <${TopicSlide} chapter=${chapter(1)} />
-          ${
-            "" /* The shape of the tool Claude calls on the next slide. The GitHub
-                  icon in the filename bar opens the real one in vector-search-web. */
-          }
           <${JsSlide} chapter=${1} title="WebMCP in one call"
             filename=${examples.registerTool.file} code=${examples.registerTool.code}
             language=${examples.registerTool.language}
@@ -366,14 +330,6 @@
                 * Liad Yosef, "How Agents Really See the Web" (TODO: confirm time)
             `}
           />
-          ${
-            "" /* THE ONLY TIME THE TALK LEAVES THE BROWSER. It is here because a
-                  remote agent driving a page is exactly what is being shown, and
-                  nowhere else because every context switch is a chance to lose the
-                  room. The app runs with its title flag set vague so it reads as an
-                  ordinary internal search tool -- chapter 2 is where it turns out to
-                  have had no backend. */
-          }
           <${DemoSlide}
             chapter=${1}
             demo="claude-desktop"
@@ -528,66 +484,10 @@
               },
             ]}
             notes=${`
-              * 30-40 sec, no demo. Say the article covers this properly and point
-                at the link.
-              * Tools: all five take a ${em("tools")} option, and it means three
-                different amounts of work. LiteRT-LM.js runs your function and hands
-                back the answer. wllama and WebLLM give you the call; you run it and
-                send the result back, and WebLLM only does it on five Hermes 7-8B
-                models. Transformers.js renders tools into the chat template and
-                stops; you parse the call out of the reply text. Chrome specs an
-                ${em("execute()")} the browser calls, but it is behind a flag,
-                desktop only.
-              * That column is my iPhone 15 Pro, not "mobile": one older phone,
-                Safari and Chrome for iOS, smallest model. WebLLM and wllama survive.
-                Transformers.js answers, then the tab is killed while idle.
-                LiteRT-LM.js dies on load: its smallest model is 2 GB, and Google
-                says E2B needs about 4 GB free. Prompt API reports unavailable up
-                front.
-              * It's iOS, not the phone: every iOS browser is WebKit, and WebKit caps
-                memory per tab. Nothing over about 400 MB held up. No error to
-                catch, iOS just kills the tab.
-              * Android is another story: a Google engineer runs Gemma 4 E2B on a
-                Pixel 9, and another tester runs E2B and E4B on a Pixel 7 Pro, three
-                generations old.
-              * Context icons: lock is fixed, up arrow is "the default, raisable to
-                this", hourglass is "slows down past this many tokens", warning is
-                "answers turn to gibberish past this many tokens". Every number
-                in the column was measured on this laptop by hiding a code at the
-                top of a long prompt and asking for it back.
-              * Chrome: ${em("contextWindow")} is 9,216 and not settable. An 8,700-token
-                prompt still finds the code at full speed; 11,900 is refused with
-                "The input is too large."
-              * WebLLM: the catalog ships 4K to save memory and the override raises
-                it. Qwen2.5-0.5B found the code at 16K; at 30K it was accepted and
-                answered wrong. The same 8K prompt is refused at the default. Llama
-                3.2 1B accepts a raised window but loses recall just past 4K.
-              * wllama: loads every model to its trained length (256K for Qwen3.5,
-                128K for Gemma 4) and past it without complaint, and recall held to
-                64K. But filling is slow: 67 s for 32K on a 0.8B model, four minutes
-                for 64K.
-              * Transformers.js: no context setting; the cache just grows. On
-                LFM2.5, trained to 128K, ONNX Runtime fails with "Integer overflow"
-                at about 35K tokens, so ~32K is the real ceiling. Decode is flat to
-                3K and slows after: 17% slower at 5K, 43% at 7K. Recall went at 16K.
-              * LiteRT-LM.js: ${em("maxNumTokens")} defaults to 4,096 and refuses a 7K
-                prompt there. You can raise it to each model's trained length:
-                128K for E2B, 256K for 12B and up.
-              * E2B holds all the way: it found the code in a 125,000-token prompt,
-                65 s to fill, then 38 tokens/s.
-              * The bigger ones don't. Past ~24K (12B), ~32K (26B A4B) or somewhere
-                under 32K (31B) they answer in gibberish, with no error. 26B A4B at 32K still found
-                the code in a 30,800-token prompt.
-              * So the number that decides it isn't the window; it's how long you
-                wait to fill it.
-              * The frontier models you use every day have 250K to 1M.
-              * TODO: article title + URL.
+              * TODO: Add notes
+              * TODO: Insert web ai article link on the slide.
             `}
           />
-          ${
-            "" /* Not in DEMO_VIDEOS yet, so no video button: add it to
-                  deck/demos.js once there is a backup recording. */
-          }
           <${DemoSlide}
             chapter=${2}
             demo="web-ai"
@@ -600,11 +500,6 @@
               * TODO
             `}
           />
-          ${
-            "" /* Implementation before architecture: the implementation points
-                  follow on from what the demo just showed, and architecture ends
-                  on tools, which leads into web agents. */
-          }
           <${TakeawaySlide}
             chapter=${2}
             title="Implementation"
@@ -631,7 +526,6 @@
             ]}
             notes=${`
               * TODO
-              * The previous "Evals with the big models" slide is at commit 3bb7ecd.
             `}
           />
           <${TakeawaySlide}
@@ -674,16 +568,10 @@
               "Searching our vector app over the bridge.",
               "Taking and reading notes as they go.",
             ]}
-            backup=${`TODO: RECORD A VIDEO. This is the one demo with no
-              fallback -- it is the longest, the most moving parts, and the only
-              one that can strand us.`}
+            backup=${`TODO: RECORD A VIDEO.`}
             notes=${`
               * TODO: review points and notes against the new outline.
-              * 90 sec. Show it working, then show it straining. Don't oversell.
-              * Say it out loud: this is a ${em("stress test")}, not an architecture I'd
-                recommend. WebMCP is just as good in an app with a backend.
-              * Going pure frontend just shows us where the limits are.
-              * https://nearform.com/digital-community/webmcp-turning-web-pages-into-tools-for-ai-agents/
+              * TODO: LINK https://nearform.com/digital-community/webmcp-turning-web-pages-into-tools-for-ai-agents/
             `}
           />
           <${TakeawaySlide}
@@ -699,18 +587,8 @@
             ]}
             notes=${`
               * TODO
-              * Placement: after the demo as its takeaway, or before it as the setup.
             `}
           />
-          ${
-            "" /* --- The close ---
-             *
-             * No divider and no chapter prop from here on. These slides fall back to
-             * the deck's default green (`:root` in styles.css), which is the one
-             * accent the three chapters deliberately left unspent -- so the closing
-             * run reads as its own stretch of the talk without a fourth chapter
-             * existing in the data, the harvest, or the outline the chat is given. */
-          }
           <${TakeawaySlide}
             title="TODO: title"
             items=${[
@@ -723,8 +601,6 @@
             ]}
             notes=${`
               * TODO
-              * The previous "Tools are the seam" slide covered similar ground; it is
-                at commit 3bb7ecd.
             `}
           />
           <${DeckSlide}>
@@ -732,31 +608,7 @@
               So, what now?
             </${SlideHeading}>
             <${AudienceCards} audiences=${AUDIENCES} action=${true} />
-            <${Notes}>
-              <${Markdown} className="notes">
-                ${`
-                  * Callback to the cold open: same two cards, now with the instruction.
-                  * Both are an afternoon's work, which is the whole point. Nobody
-                    rewrites an app after a talk.
-                  * TODO: your closing line on the title. Then stop and let it sit.
-                `}
-              </${Markdown}>
-            </${Notes}>
           </${DeckSlide}>
-          ${
-            "" /* The Spectacle banner used to be a slide of its own here. It is now
-                  the modal behind the logo on the "Hi" slide -- shown when Spectacle
-                  comes up in the intro, which is where the room is actually asking
-                  about it, rather than held for the close. */
-          }
-          ${
-            "" /* Two closing slides, not one. Everything the room might want to open
-                  goes on the first and everything about finding Ryan goes on the
-                  second, so a photo of either one is complete on its own -- which is
-                  what actually happens to a closing slide. Both carry the same QR in
-                  the same place, so it reads as one card held up twice rather than
-                  two different codes. */
-          }
           <${MarkdownSlideSet} ...${mdSlideProps()}>
             ${`
               --- { "layout": "columns" }
