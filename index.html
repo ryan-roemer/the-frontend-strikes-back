@@ -381,19 +381,15 @@
             app="Claude Desktop calls our page"
             url="nearform.github.io/vector-search-web"
             points=${[
-              "Configure <code>@mcp-b/webmcp-local-relay</code> once.",
-              "Open the page, like any internal app.",
-              "Ask Claude. Watch the page answer.",
+              "Claude connects to a WebMCP relay (<a href='https://docs.mcp-b.ai/packages/webmcp-local-relay/reference'><code>@mcp-b/webmcp-local-relay</code></a>)",
+              "Open any WebMCP page with a relay embed",
+              "... and Claude gets tool superpowers",
             ]}
-            backup=${`Cut to the recorded clip. Do NOT debug on stage --
-              the relay is the one fragile thing in the talk and this is
-              the only slide that needs it.`}
+            backup=${`TODO: BACKUP`}
             notes=${`
-              * TODO: review points and notes against the new outline.
-              * 90 sec. Point out the UI updating: the agent used the same code
-                path the search box does, so the human sees what the agent did.
-              * TODO: confirm the vague-title flag on the app before the talk.
-              * Don't linger. Other sessions go deep on agents driving your site.
+              * Let's say we have an internal knowledge base, gated by company SSO auth.
+              * We want Claude to be able to use this internal data alongside normal inputs.
+              * And we want it way simpler than a normal Claude connecter.
             `}
           />
           <${TakeawaySlide}
