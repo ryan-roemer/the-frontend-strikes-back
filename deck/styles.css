@@ -277,6 +277,22 @@ body::after {
   );
 }
 
+/* A markdown `***`, drawn as a thinner accent rule. Splits the Links slide into
+ * deck links and demo links. */
+#root hr {
+  width: 120px;
+  height: 3px;
+  /* 32px in: the 16px margin + 16px padding on the text blocks around it. */
+  margin: 8px 32px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--chapter-accent-base),
+    var(--chapter-accent)
+  );
+}
+
 /* Markdown bullets. Spectacle's default discs sit at body weight and read as
  * filler; a chapter-colored marker ties the list to its section. */
 #root ul {
