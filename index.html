@@ -156,6 +156,7 @@
         TopicSlide,
         MatrixSlide,
         TakeawaySlide,
+        TilesSlide,
         AudienceCards,
         DemoSlide,
         Eyebrow,
@@ -681,17 +682,49 @@
               * TODO
             `}
           />
-          <${TakeawaySlide}
-            title="TODO: title"
-            items=${[
+          <${TilesSlide}
+            title="Mix and match"
+            tiles=${[
               {
-                n: 1,
-                text: "Hybrid / modular future",
-                detail:
-                  "Use the parts that you want in the browser, fall back to cloud for the rest. “Progressive enhancement”",
+                icon: "vector-three",
+                title: "Embeddings",
+                ready: true,
+                demo: true,
+              },
+              {
+                icon: "database",
+                title: "Vector database",
+                ready: true,
+                demo: true,
+              },
+              { icon: "tag", title: "Classifiers", ready: true },
+              { icon: "signpost", title: "Deciders", ready: true },
+              {
+                icon: "wrench",
+                title: "Tools",
+                demo: true,
+              },
+              {
+                icon: "brain",
+                title: "General models",
+                demo: true,
+              },
+              {
+                icon: "target",
+                title: "Fine-tuned models",
               },
             ]}
             notes=${`
+              * Hybrid / modular future: use the parts that you want in the browser,
+                fall back to cloud for the rest. "Progressive enhancement."
+              * Here now: classifiers, embeddings and vector search already run well
+                in browsers. Emerging: tools (WebMCP), general models and fine-tuned models.
+                All of it is still young, though.
+              * Everything here is a model except the database and tools. Classifiers,
+                embeddings and deciders are small and fit a tab easily. General models
+                are hard to fit, and fine-tuning your own is more work again.
+              * The web agents demo uses four of these: embeddings, the vector
+                database, a general model, and tools.
               * TODO
             `}
           />

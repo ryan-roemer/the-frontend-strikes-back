@@ -440,12 +440,56 @@ body::after {
 }
 
 /*
- * Roadmap cells. The grid rows are content-sized, so the tile is only as tall
- * as the two lines inside it -- an earlier percentage-height wrapper made the
- * tiles fill the slide and collide with the heading.
+ * `TilesSlide` cells. Content-sized, so the tile is only as tall as the icon
+ * and title inside it -- an earlier percentage-height wrapper made the tiles
+ * fill the slide and collide with the heading.
  */
-.card--roadmap {
-  padding: 26px 28px;
+.card--tile {
+  box-sizing: border-box;
+  padding: 22px 24px;
+}
+
+/*
+ * Readiness is the tile's surface, not a label. Here-now pieces take the
+ * accent; emerging ones drop the card fill and keep only a dashed edge. The legend
+ * swatches reuse these two classes so they cannot drift from the tiles.
+ */
+.card--tile-ready {
+  background: color-mix(in srgb, var(--chapter-accent) 24%, transparent);
+  border: 2px solid var(--chapter-accent);
+}
+
+.card--tile-emerging {
+  background: transparent;
+  border: 2px dashed var(--muted);
+  box-shadow: none;
+}
+
+/* A wrapping row rather than a grid, so a short last row centers. */
+.tile-grid {
+  gap: 18px;
+}
+
+.tile-legend {
+  gap: 40px;
+}
+
+#root .tile-legend > * {
+  color: var(--muted);
+}
+
+.tile-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  border-radius: 4px;
+  vertical-align: -2px;
+}
+
+#root .tile-legend .tile__demo {
+  font-size: 22px;
+  vertical-align: -3px;
 }
 
 /*
@@ -458,23 +502,17 @@ body::after {
   padding: 14px 18px;
 }
 
-/* Index and icon share one line, so the title is the only thing with weight. */
-#root .roadmap__head {
-  color: var(--chapter-accent);
-}
-
-#root .roadmap__index {
-  font-family: var(--mono);
-  letter-spacing: 0.1em;
-  color: var(--chapter-accent);
-}
-
-#root .roadmap__title {
+#root .tile__title {
   font-weight: 700;
   color: #fff;
 }
 
-#root .roadmap__icon {
+#root .tile__demo {
+  font-size: 26px;
+  color: var(--chapter-accent);
+}
+
+#root .tile__icon {
   font-size: 32px;
   color: var(--chapter-accent);
 }
@@ -1424,7 +1462,7 @@ body::after {
 .print-mode #root .slide-title,
 .print-mode #root .slide-subtitle,
 .print-mode #root .title-subtitle,
-.print-mode #root .roadmap__title,
+.print-mode #root .tile__title,
 .print-mode #root .takeaway__text,
 .print-mode #root .matrix__note,
 .print-mode #root .audience__claim,
@@ -1499,8 +1537,7 @@ body::after {
   #root .deck-chrome,
   #root .deck-meta,
   #root .divider__numeral,
-  #root .roadmap-grid,
-  #root .roadmap__head,
+  #root .tile-grid,
   #root .takeaway-grid,
   #root .takeaway__body,
   #root .matrix,
@@ -1549,7 +1586,7 @@ body::after {
   /*
    * Print rasterizes box-shadows without their blur, so every soft shadow
    * lands as a hard dark rectangle offset behind its element -- most visible
-   * as a slab behind the title-slide QR and the roadmap tiles. The borders
+   * as a slab behind the title-slide QR and the tiles on `TilesSlide`. The borders
    * carry the edges on their own.
    */
   #root .card,

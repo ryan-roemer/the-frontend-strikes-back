@@ -941,6 +941,68 @@ export const TakeawaySlide = ({
 };
 
 /**
+ * A set of named pieces, one icon tile each, four to a row.
+ *
+ * The tiles wrap in a centered flex row instead of a grid, so a short last row
+ * (seven tiles is 4 + 3) sits in the middle instead of hugging the left edge.
+ *
+ * Each tile is `{ icon, title, ready, demo }`. Neither flag adds text to the
+ * tile: `ready` ("here now") tints the tile with the accent (an emerging
+ * one stays plain, with a dashed border), and `demo` puts a play icon in its
+ * top-right corner.
+ * One legend line under the tiles says what both mean.
+ */
+export const TilesSlide = ({ chapter, title, tiles = [], notes }) => html`
+  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
+    <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
+    <${FlexBox} flex="1" minHeight="0" flexDirection="column" justifyContent="center">
+      <${FlexBox} className="tile-grid" width="100%" flexWrap="wrap" justifyContent="center" alignItems="stretch">
+        ${tiles.map(
+          (tile) => html`
+            <${FlexBox}
+              key=${tile.title}
+              className=${`card card--tile ${tile.ready ? "card--tile-ready" : "card--tile-emerging"}`}
+              width="calc(25% - 14px)"
+              flexDirection="column"
+              alignItems="stretch"
+              justifyContent="start"
+            >
+              <${FlexBox} justifyContent="space-between" alignItems="start">
+                <${Icon} name=${tile.icon} className="tile__icon" />
+                ${
+                  tile.demo
+                    ? html`<${Icon}
+                        name="play-circle"
+                        className="tile__demo"
+                        title="In the demo"
+                      />`
+                    : null
+                }
+              <//>
+              <${Text} className="tile__title" fontSize="26px" margin="14px 0 0">
+                ${tile.title}
+              </${Text}>
+            <//>
+          `,
+        )}
+      <//>
+      <${FlexBox} className="tile-legend" justifyContent="center" margin="28px 0 0">
+        <${Text} fontSize="20px" margin="0px">
+          <span className="tile-swatch card--tile-ready" /> Here now
+        </${Text}>
+        <${Text} fontSize="20px" margin="0px">
+          <span className="tile-swatch card--tile-emerging" /> Emerging
+        </${Text}>
+        <${Text} fontSize="20px" margin="0px">
+          <${Icon} name="play-circle" className="tile__demo" /> Web agents demo
+        </${Text}>
+      <//>
+    <//>
+    <${MdNotes} notes=${notes} />
+  </${DeckSlide}>
+`;
+
+/**
  * The two halves of the room, side by side.
  *
  * Rendered twice by design -- once in the cold open as a promise, once at the
