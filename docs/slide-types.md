@@ -8,18 +8,19 @@ deck before the cut, with every type in use, is at commit `3bb7ecd`:
 git show 3bb7ecd:index.html
 ```
 
-| Type                     | Use it for                                                         | In the deck now                            | Example at `3bb7ecd`                           |
-| ------------------------ | ------------------------------------------------------------------ | ------------------------------------------ | ---------------------------------------------- |
-| `TopicSlide`             | Chapter divider: big numeral, pillar eyebrow, title, photo         | All three chapters                         | Same                                           |
-| `MarkdownSlideSet`       | Plain heading and bullets, several slides in one block             | WebMCP, analogy, Available right now, etc. | "How agents use your app today"                |
-| `DemoSlide`              | A live demo: label, app name, URL, steps, backup plan              | All four demos                             | Same                                           |
-| `TakeawaySlide`          | Numbered cards: one centered card, or a list of them               | Chapter takeaways, Implementation, close   | "Verdict" slides, built from `byChapter(n)`    |
-| `MatrixSlide`            | Comparison table with yes / no / manual marks and notes            | The five runtimes                          | Same                                           |
-| `JsSlide`                | Code pane with a filename bar, from a real file in `examples/`     | "WebMCP in one call"                       | "Register a tool", "What you get for free"     |
-| `RowsSlide`              | Rows of icon + label groups (for example agents / tools / runs on) | Not used                                   | "Many small agents, each with a small context" |
-| `SeamSlide`              | Points on the left, agent → tools → implementations diagram        | Not used                                   | "Tools are the seam"                           |
-| `AudienceCards`          | The two audience cards, inside a `DeckSlide`                       | Slide 4 and "So, what now?"                | Same                                           |
-| `DeckSlide` (hand-built) | Anything else: title, "Hi", "Our question" slides                  | Intro slides                               | Same                                           |
+| Type                     | Use it for                                                         | In the deck now                          | Example at `3bb7ecd`                           |
+| ------------------------ | ------------------------------------------------------------------ | ---------------------------------------- | ---------------------------------------------- |
+| `TopicSlide`             | Chapter divider: big numeral, pillar eyebrow, title, photo         | All three chapters                       | Same                                           |
+| `MarkdownSlideSet`       | Plain heading and bullets, several slides in one block             | WebMCP, Available right now, etc.        | "How agents use your app today"                |
+| `DemoSlide`              | A live demo: label, app name, URL, steps, backup plan              | All four demos                           | Same                                           |
+| `TakeawaySlide`          | Numbered cards: one centered card, or a list of them               | Chapter takeaways, Implementation, close | "Verdict" slides, built from `byChapter(n)`    |
+| `MatrixSlide`            | Comparison table with yes / no / manual marks and notes            | The five runtimes                        | Same                                           |
+| `JsSlide`                | Code pane with a filename bar, from a real file in `examples/`     | "WebMCP in one call"                     | "Register a tool", "What you get for free"     |
+| `RowsSlide`              | Rows of icon + label groups (for example agents / tools / runs on) | "We've been here before" (analogies)     | "Many small agents, each with a small context" |
+| `TilesSlide`             | Icon tiles, four to a row, with here-now / emerging / demo marks   | "Move a piece to the browser"            | None (new)                                     |
+| `SeamSlide`              | Points on the left, agent → tools → implementations diagram        | Not used                                 | "Tools are the seam"                           |
+| `AudienceCards`          | The two audience cards, inside a `DeckSlide`                       | Slide 4 and "So, what now?"              | Same                                           |
+| `DeckSlide` (hand-built) | Anything else: title, "Hi", "Our question" slides                  | Intro slides                             | Same                                           |
 
 ## Notes on each
 
@@ -53,6 +54,10 @@ the real code the snippet is based on.
 
 **`RowsSlide`**: `sections` is a list of `{ title, items: [{ text, icon }] }`; `dense`
 tightens the spacing.
+
+**`TilesSlide`**: `tiles` is a list of `{ icon, title, ready?, demo? }`. `ready` gives
+the solid "Here now" tile (otherwise it is dashed, "Emerging"), and `demo` adds the
+play icon. The title goes through `markup()`, so it can carry `<u>` or `em()`.
 
 **`SeamSlide`**: takes `points`, `agent`, `agentNote`, `boundary`, `tools`, `caption`
 and `impls`. It renders the diagram from those props.
