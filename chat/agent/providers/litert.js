@@ -12,13 +12,18 @@ import { STATES } from "../states.js";
 /**
  * Model calls allowed in one tool turn, counting the final answer.
  *
- * `AutoToolChat`'s `recurringToolCallLimit` counts model calls, not tool calls, and three
- * matches the prompted path in `act/respond.js`: a call, one retry after a refusal that
- * named what to pick, then the answer. Past that the runtime throws "Tool calling exceeded
- * the recurring limit" -- after running the last round's tools -- and `respond.js` shows
- * the receipts of the calls that did run instead of the error.
+ * `AutoToolChat`'s `recurringToolCallLimit` counts model calls, not tool calls. Past it the
+ * runtime throws "Tool calling exceeded the recurring limit" -- after running the last
+ * round's tools -- and `respond.js` shows the receipts of the calls that did run instead of
+ * the error.
+ *
+ * EIGHT, NOT THREE. Three matched the prompted path in `act/respond.js` (a call, a retry,
+ * the answer), but Gemma emits ONE call per round, so three capped a turn at three edits.
+ * Asked to rename four bullets, it renamed three and the fourth call was never made. Eight
+ * covers rewriting every bullet on a slide plus the answer. Each extra round is only a
+ * short call and its receipt on top of the turn, and only turns that need it pay for it.
  */
-const TOOL_ROUNDS = 3;
+const TOOL_ROUNDS = 8;
 
 /**
  * The model itself: WebGPU, engine, conversations, and native tool calls. The one module

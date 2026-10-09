@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "at": {
+      "nodes": {
+        "bullet": 4
+      }
+    },
+    "kind": "recorded",
+    "about": "A `find` that names a node, with new text. The address is unambiguous and the text is the whole of what goes there, so the call rewrites that node instead of refusing.",
+    "recorded-outcome": "on the Web AI demos slide, asked \"Edit the first bullet. Put \\\"hi\\\"\", Gemma (LiteRT, native tools) emitted edit_text({\"find\": \"bullet 1\", \"slide\": 18, \"text\": \"hi\"}) — the same shape it had sent a turn earlier for \"make the bullet points 1. Pikachu, ...\". The address-as-`find` refusal said to pass it as `target`; on the native path the model read that as a tool response and answered \"I was unable to edit the text of the first bullet point\" both times, never making the second call. Replayed without `slide`, which a bare `{at}` cannot express inside a reply and which changes nothing here: the replay is already on that slide.",
+    "guards": "the `rewrite` branch in edit_text's address-as-`find` path. Without it this call is refused, the slide is unchanged, and the turn reports `no line matching \"bullet 1: hi\"`."
+  },
+  "turns": [
+    {
+      "ask": "Edit the first bullet. Put \"hi\"",
+      "replies": [
+        "```tool edit_text\n{\"find\": \"bullet 1\", \"text\": \"hi\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "find": "bullet 1",
+              "text": "hi"
+            }
+          }
+        ],
+        "slides": {
+          "{at}": ["...", "bullet 1: hi", "..."]
+        }
+      }
+    }
+  ]
+}

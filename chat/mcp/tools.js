@@ -668,8 +668,12 @@ export const NAV_TOOLS = [
 const mutate = (target, run) => {
   const found = resolveTarget(target);
   if (!found.ok) return found.result;
+  return applyTo(found.node, run);
+};
 
-  const result = run(found.node);
+/** `mutate` for a node already resolved -- the apply and receipt beats on their own. */
+const applyTo = (node, run) => {
+  const result = run(node);
   // `retry` PASSED THROUGH, the same way `edit_text` passes it through from `replaceText`.
   // Dropping it here silently downgraded every recoverable refusal reached via a target to
   // a terminal one -- `setText`'s empty-text message names two working alternatives and
@@ -686,7 +690,7 @@ const mutate = (target, run) => {
   // an answer that is not in prose.
   return ok([result.label, result.note], {
     applied: true,
-    node: nodeData(found.node),
+    node: nodeData(node),
     edits: summary(),
   });
 };
@@ -940,6 +944,22 @@ const EDIT_TOOLS = [
         // address reading the only one left.
         if (!elsewhere.length) {
           const named = resolveTarget(needle, { slide });
+          // WITH NEW TEXT, THE ADDRESS IS THE ANSWER, so do the rewrite rather than
+          // describe it. Asked to "edit the first bullet, put hi" on a four-bullet slide,
+          // Gemma sent `{ find: "bullet 1", slide: 18, text: "hi" }` twice running, and on
+          // the native path the refusal above came back as a tool response it read and
+          // then apologised over -- it never made the second call. Nothing else this call
+          // could mean is left: the phrase is nowhere as wording, it names exactly one
+          // node, and the text is the whole of what should go there.
+          //
+          // NOT WITH EMPTY TEXT. Blanking the node is never what "delete the bullet" or
+          // "hide the bullet" meant, so those still get the refusal pointing at
+          // `display: none`. Nor when a `target` names some other node than this one.
+          const rewrite =
+            named.ok && value.trim() && (!target || named.node.id === ids[0]);
+          if (rewrite) {
+            return applyTo(named.node, (node) => setText(node.id, value));
+          }
           if (named.ok) {
             return fail(
               `"${needle}" names ${echo(named.node.id)} — that is an address, not wording on the slide, so there is nothing to find. To change what it says, pass it as \`target\` with the new \`text\`. To take it off the slide, style it \`display: none\`.`,
