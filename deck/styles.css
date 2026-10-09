@@ -899,6 +899,12 @@ body::after {
   color: var(--chapter-accent);
 }
 
+/* Links inside the points: the browser default blue disappears on the navy slide. */
+#root .demo__points a {
+  color: var(--chapter-accent);
+  text-underline-offset: 0.15em;
+}
+
 #root .demo__open {
   margin-left: 0.5em;
   font-size: 30px;
