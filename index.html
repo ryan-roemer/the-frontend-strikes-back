@@ -507,15 +507,6 @@
 
               Notes: \
                 TODO
-
-              ---
-              # Vector / hybrid search
-
-              * TODO
-
-              Notes: \
-                TODO. The previous version of this slide was "That app had no \
-                backend" at commit 3bb7ecd, including the TODO timing numbers.
             `}
           </${MarkdownSlideSet}>
           <${DemoSlide}
@@ -524,9 +515,19 @@
             label="Quick demo"
             app="Vector search"
             url="nearform.github.io/vector-search-web"
-            points=${["TODO"]}
+            points=${[
+              "Vectors are precomputed and downloaded along with the content.",
+              "Search by keyword, vector, or hybrid.",
+              "2.8 MB of content plus 2–5 MB of vectors, then searches take milliseconds.",
+            ]}
             backup=${`TODO`}
             notes=${`
+              * Sizes are compressed downloads. Unpacked: 8.3 MB of content, 7.5 MB of
+                vectors at 512-token chunks, 16 MB at 256 (smaller chunks, more of them).
+                The demo loads both chunk sizes; a real app would pick one.
+              * Downloads take about 300–370 ms each, in parallel, on a good connection.
+                After that, embedding the query takes 20–30 ms and the Orama search
+                under 10 ms.
               * TODO
             `}
           />
