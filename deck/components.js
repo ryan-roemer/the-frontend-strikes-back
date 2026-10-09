@@ -954,7 +954,7 @@ export const TakeawaySlide = ({
  */
 export const TilesSlide = ({ chapter, title, tiles = [], notes }) => html`
   <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
-    <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
+    <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${markup(title)}</${SlideHeading}>
     <${FlexBox} flex="1" minHeight="0" flexDirection="column" justifyContent="center">
       <${FlexBox} className="tile-grid" width="100%" flexWrap="wrap" justifyContent="center" alignItems="stretch">
         ${tiles.map(
