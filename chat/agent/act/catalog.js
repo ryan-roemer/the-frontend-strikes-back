@@ -18,7 +18,7 @@
  * tools:
  *
  *   `JSON.stringify(registry, null, 2)`   9,188 chars   ~2,010 tok
- *   this                                  3,300 chars     ~722 tok
+ *   this                                  3,403 chars     ~745 tok
  *   this, under `?safe` (four tools)      1,438 chars     ~315 tok
  *
  * The full figure grew from ~540 in four steps, and every one was bought by a bug rather
@@ -26,7 +26,8 @@
  * three of its modes, then `go_to_slide` earned a second example and a second sentence
  * (+303 chars, ~67 tok -- see `MIN_SUMMARY`), then `set_deck_variable` earned six words
  * naming `--chapter-accent` as the main one (+37 chars, ~8 tok), then `style_node` earned
- * a clause saying a plural target styles the group (+97 chars, ~21 tok). Measured with
+ * a clause saying a plural target styles the group (+97 chars, ~21 tok), then `edit_text` earned a fourth example showing a whole list sent to
+ * a group target in one call (+103 chars, ~22 tok). Measured with
  * `window.deckReplay.prompt()` rather than estimated.
  *
  * BOTH OF THE LAST TWO HAD TO GO IN A FIRST SENTENCE, which is the recurring cost of
@@ -153,7 +154,7 @@ const toolText = (tool) => {
  *     replace to one node, which is what "in just the heading" means and what the
  *     deck-wide example above does not show.
  *
- * THREE OF THE SIX ARE `edit_text`, which looks unbalanced and is the honest allocation:
+ * FOUR OF THE EIGHT ARE `edit_text`, which looks unbalanced and is the honest allocation:
  * it is the only tool here with four arguments and three distinct modes, and it is the tool
  * every failure found so far has been in. The other five tools each have one obvious way to
  * be called and need no example at all.
@@ -195,6 +196,16 @@ const EXAMPLES = [
     "remove WebMCP from the heading",
     "edit_text",
     '{"target": "the heading", "find": "WebMCP", "text": ""}',
+  ],
+  // A WHOLE LIST IN ONE CALL. Asked to replace four bullets, the model made one call per
+  // bullet and twice stopped short: at three, under the old round limit, and again at
+  // three under eight, closing with "I have updated the bullet points". `edit_text` splits
+  // a one-per-line list across a group of the same size, but no example had ever shown a
+  // group `target` on this tool, so it was never reached for on purpose.
+  [
+    "replace the bullets with: A, B, C",
+    "edit_text",
+    '{"target": "the bullets", "text": "A\\nB\\nC"}',
   ],
   ["undo that", "undo_edits", '{"scope": "last"}'],
 ];

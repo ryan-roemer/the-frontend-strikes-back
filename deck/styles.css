@@ -555,8 +555,8 @@ body::after {
  * labels overrun the canvas by roughly 200px.
  */
 .takeaway--compact {
-  padding: 10px 16px;
-  gap: 14px;
+  padding: 20px 28px;
+  gap: 22px;
 }
 
 #root .takeaway--compact .takeaway__badge {
@@ -564,6 +564,15 @@ body::after {
   height: 34px;
   font-size: 19px;
   line-height: 30px;
+}
+
+/* Heading line box matches the badge height, so the two share a centre. */
+#root .takeaway--compact .takeaway__text {
+  line-height: 34px;
+}
+
+#root .takeaway--compact .takeaway__detail {
+  line-height: 1.35;
 }
 
 /*
@@ -574,8 +583,13 @@ body::after {
   margin: 12px 0 8px;
 }
 
+/*
+ * `border-box` so the stated size is the circle's outer size. Without it the
+ * border added 4px and every digit sat 2px above centre.
+ */
 #root .takeaway__badge {
   flex: 0 0 auto;
+  box-sizing: border-box;
   width: 44px;
   height: 44px;
   border: 2px solid var(--chapter-accent);
@@ -642,8 +656,22 @@ body::after {
   line-height: 56px;
 }
 
+/*
+ * The heading's line box is exactly the badge height, so the first line and the
+ * digit share a centre. With the inherited line-height the text sat lower than
+ * the badge.
+ */
+#root .takeaway--solo .takeaway__text {
+  line-height: 60px;
+}
+
+#root .takeaway--solo .takeaway__detail {
+  line-height: 1.3;
+}
+
 #root .takeaway--solo .takeaway__verdict {
   font-size: 44px;
+  line-height: 60px;
 }
 
 /* --- The seam ------------------------------------------------------------

@@ -161,7 +161,14 @@ const target = (id) => {
  * as ONE undoable group, the way `replaceText` plans before it applies.
  */
 const planText = (id, text) => {
-  const value = String(text ?? "");
+  // A BULLET ALREADY DRAWS ITS OWN MARKER. Asked to change the bullets to a "- A\n- B"
+  // list typed into the chat, the model copied each line whole into its own call, and
+  // every bullet came out reading "- A chat in this deck" under the slide's real dot.
+  // Only on bullets, and only `-`, `*`, `•`: a numbered "1." may be wording someone wants.
+  const value =
+    resolveNode(id)?.role === "bullet"
+      ? String(text ?? "").replace(/^\s*[-*•]\s+/, "")
+      : String(text ?? "");
   if (!value.trim()) {
     // The refusal stands -- a node blanked by rewriting leaves an empty box where the
     // deck expects words. But this is where "remove the heading" arrives, so it says

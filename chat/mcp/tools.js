@@ -749,6 +749,9 @@ const DECK_LIMIT = 25;
 /** `1. `, `2) ` -- an item marker at the start or after a comma, semicolon or newline. */
 const ITEM_MARK = /(?:^|[,;]?\s+)(\d{1,2})[.)]\s+/g;
 
+/** A list marker opening a line: `- `, `* `, `• `, `1. `, `2) `. */
+const LINE_MARK = /^\s*(?:[-*•]|\d{1,2}[.)])\s+/;
+
 /**
  * "1. A, 2. B, 3. C" -> ["A", "B", "C"], or null when the text is not a list.
  *
@@ -757,6 +760,17 @@ const ITEM_MARK = /(?:^|[,;]?\s+)(\d{1,2})[.)]\s+/g;
  * to contain "step 2. then" never starts at 1, so it stays one piece of text.
  */
 const listItems = (text) => {
+  // ONE ITEM PER LINE, the other shape a list arrives in. Asked to change the bullets to a
+  // "- A\n- B\n- C\n- D" list typed into the chat, Gemma passed it through verbatim, and
+  // only the inline "1. A, 2. B" form was understood -- so it fell through to a one-node
+  // rewrite and was refused with the four-bullet roster. A line break is never part of one
+  // slide node's wording, so several lines are several items, with or without markers.
+  const lines = String(text)
+    .split(/\n+/)
+    .map((line) => line.replace(LINE_MARK, "").trim())
+    .filter(Boolean);
+  if (lines.length > 1) return lines;
+
   const marks = [...String(text).matchAll(ITEM_MARK)];
   if (marks.length < 2 || marks[0].index !== 0) return null;
   if (marks.some((mark, i) => Number(mark[1]) !== i + 1)) return null;
@@ -862,6 +876,23 @@ const EDIT_TOOLS = [
             nodes: group.nodes.map(nodeData),
             edits: summary(),
           });
+        }
+        // A list onto a group of a DIFFERENT size. Which item goes where has no single
+        // answer, so this refuses -- but by saying so, rather than falling through to the
+        // one-node path and its "matches 4 nodes" roster, which reads as an addressing
+        // problem and sent the model off asking the user which bullets they meant.
+        if (group.ok && group.nodes.length > 1) {
+          return fail(
+            [
+              `The text is a list of ${items.length} items, but "${target}" names ${group.nodes.length} nodes, so I can't tell which item goes where. Give one item per node, or rewrite each node with its own call using these ids:`,
+              ...group.nodes.map(line),
+            ].join("\n"),
+            {
+              applied: false,
+              candidates: group.nodes.map(nodeData),
+              retry: true,
+            },
+          );
         }
       }
 

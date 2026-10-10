@@ -623,7 +623,14 @@
             ]}
             backup=${`TODO`}
             notes=${`
-              * TODO
+              * Now let's update the bullet point text. Replace bullets with these new
+                bullets:
+                - AI inference in this deck
+                - Context from whole deck and current slide
+                - Access to all WebMCP tools for slide actions/mutations
+                - ... let's see what we can get up to!
+              * For each new bullet point, choose an emoji that matches the text and update
+                the text to include the emoji as a prefix.
             `}
           />
           <${TakeawaySlide}
@@ -709,6 +716,7 @@
           <${TakeawaySlide}
             chapter=${3}
             title="TODO: title"
+            compact=${true}
             items=${[
               {
                 n: 1,
