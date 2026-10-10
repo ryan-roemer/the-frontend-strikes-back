@@ -343,6 +343,10 @@
                   install: search, product, cart, and (since September) checkout with buyer
                   confirmation. You can see it on reebok.com. Agent support is Chromium
                   origin trial only.
+                  * Shopify changelog, Aug 5: tools are on "every Liquid storefront and on
+                    the Hydrogen developer preview", and agent support is "limited to
+                    Chromium-based browsers through an origin trial"
+                    ([changelog](https://shopify.dev/changelog/posts/webmcp-liquid-hydrogen)).
                 * **OpenAI:** the browser built into the ChatGPT desktop app calls WebMCP
                   "site tools" in ChatGPT, ChatGPT Work and Codex. Still rolling out, and
                   only on some models.
@@ -356,9 +360,9 @@
               # What is WebMCP?
 
               * **MCP tools, served by your web page.** An emerging W3C Community Group standard.
-              * **Two APIs:** an *Imperative* one in JavaScript and a *Declarative* one using HTML forms.
-              * **In browsers now:** an origin trial in Chrome, and behind a flag in Edge.
-              * **Already in use:** every Shopify storefront, and the ChatGPT desktop browser.
+              * **Two APIs:** *Imperative* JavaScript, *Declarative* HTML forms.
+              * **In browsers now:** origin trial in Chrome, and flagged in Edge.
+              * **Already in use:** Shopify storefronts, ChatGPT desktop, ...
             `}
           </${MdSlide}>
           <${JsSlide} chapter=${1} title="WebMCP in one call"
@@ -377,7 +381,8 @@
               * \`execute\` calls what the search box already calls, inside the page the
                 user is signed in to. Auth, state and business logic come for free.
               * The agent can be just about anywhere: Claude Desktop over a relay, a
-                browser extension, or code in the page itself.              * The real version is one click away (GitHub icon): \`search_nearform_knowledge\`
+                browser extension, or code in the page itself.
+              * The real version is one click away (GitHub icon): \`search_nearform_knowledge\`
                 in vector-search-web, which is what Claude calls on the next slide.
               * I'm only giving you the shape today. For the deep dive:
                 * Sarah Drasner's keynote, "The Agentic Web" (Thu 2:00pm, earlier today)
