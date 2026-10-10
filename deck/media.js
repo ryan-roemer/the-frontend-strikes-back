@@ -7,7 +7,19 @@ const html = htm.bind(createElement);
 export const logosHtm = {
   nearform: html`<img
     src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTODiKxPSWQzaep57CVW9j3x3n4iIlZkZLOZA&s"
-    style=${{ width: "0.9em", height: "0.9em", marginBottom: "-0.05em" }}
+    style=${{
+      // A white tile about 0.8em square, sized like the filled Phosphor icons
+      // on the lines around it. The image has almost no margin of its own, so
+      // the padding gives the mark the same breathing room those icons have.
+      width: "0.64em",
+      height: "0.64em",
+      padding: "0.08em",
+      margin: "0 0.1em",
+      marginBottom: "-0.02em",
+      background: "#fff",
+      // Rounded to match the white tile behind the logo in the QR card.
+      borderRadius: "0.1em",
+    }}
   />`,
   conf: html`<img
     src="./images/agntcon-mcpcon-icon.svg"

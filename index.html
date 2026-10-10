@@ -244,23 +244,22 @@
             </${Notes}>
           </${DeckSlide}>
           <${DeckSlide}>
-            <${FlexBox} flexDirection="column" alignSelf="center" justifyContent="left" alignItems="left">
-              <${SlideHeading} fontSize="h1">
-                Hi!
+            <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
+              <${Eyebrow}>
+                <${Icon} name="hand-waving" /> Hi!
+              </${Eyebrow}>
+              <${SlideHeading} fontSize="h2" textAlign="left" margin="18px 0 0">
+                I'm Ryan Roemer
               </${SlideHeading}>
+              <${AccentRule} />
               <${AppearComponent}>
-                <${Text} fontSize="h3">
-                  <${Icon} name="hand-waving" /> I'm Ryan Roemer
-                </${Text}>
-              </${AppearComponent}>
-              <${AppearComponent}>
-                <${Text} fontSize="h3">
-                  ${logosHtm.nearform} I lead technology & OSS at <${Link} href="https://nearform.com" fontSize="h3">Nearform</${Link}>
+                <${Text} fontSize="text" margin="40px 0 0">
+                  ${logosHtm.nearform} I lead technology & OSS at <${Link} href="https://nearform.com" fontSize="text">Nearform</${Link}>
                   <${SpectacleBadge} />
                 </${Text}>
               </${AppearComponent}>
               <${AppearComponent}>
-                <${Text} fontSize="h3">
+                <${Text} fontSize="text" margin="12px 0 0">
                   <${Icon} name="brackets-angle" /> Play in both the backend and frontend worlds
                 </${Text}>
               </${AppearComponent}>
