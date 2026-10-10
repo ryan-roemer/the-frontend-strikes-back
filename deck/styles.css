@@ -936,6 +936,15 @@ body::after {
   color: var(--muted);
 }
 
+/* The open-link icon at the end of the heading row, like `.demo__open`. */
+#root .matrix__source {
+  margin-left: 24px;
+  font-size: 40px;
+  line-height: 1;
+  color: var(--chapter-accent);
+  text-decoration: none;
+}
+
 /* --- Demo hand-off ------------------------------------------------------- */
 
 #root .demo__url {

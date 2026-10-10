@@ -974,7 +974,7 @@ export const TilesSlide = ({ chapter, title, tiles = [], notes }) => html`
                     ? html`<${Icon}
                         name="play-circle"
                         className="tile__demo"
-                        title="In the demo"
+                        title="In a demo today"
                       />`
                     : null
                 }
@@ -994,7 +994,7 @@ export const TilesSlide = ({ chapter, title, tiles = [], notes }) => html`
           <span className="tile-swatch card--tile-emerging" /> Emerging
         </${Text}>
         <${Text} fontSize="20px" margin="0px">
-          <${Icon} name="play-circle" className="tile__demo" /> Web agents demo
+          <${Icon} name="play-circle" className="tile__demo" /> In a demo today
         </${Text}>
       <//>
     <//>
@@ -1113,11 +1113,37 @@ const MatrixCell = ({ cell }) => {
   `;
 };
 
-export const MatrixSlide = ({ chapter, title, columns, rows = [], notes }) => {
+/**
+ * `source` is an optional `{ href, title }` for the write-up behind the table,
+ * shown as an open-link icon at the end of the heading row with the title as its
+ * tooltip -- the same shape as `JsSlide`'s GitHub link.
+ */
+export const MatrixSlide = ({
+  chapter,
+  title,
+  columns,
+  rows = [],
+  source,
+  notes,
+}) => {
   const width = rows[0]?.cells?.length ?? 1;
   return html`
     <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
-      <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
+      <${FlexBox} justifyContent="space-between" alignItems="center" margin="0 0 20px">
+        <${SlideHeading} fontSize="h1" textAlign="left" margin="0px">${title}</${SlideHeading}>
+        ${
+          source
+            ? html`<${Link}
+                className="matrix__source"
+                href=${source.href}
+                target="_blank"
+                title=${source.title}
+              >
+                <${Icon} name="arrow-square-out" fill=${false} />
+              </${Link}>`
+            : null
+        }
+      <//>
       <${Grid}
         className="matrix"
         gridTemplateColumns=${`auto repeat(${width}, auto)`}

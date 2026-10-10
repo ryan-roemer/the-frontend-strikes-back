@@ -272,7 +272,7 @@
               </${Eyebrow}>
               <${AppearComponent}>
                 <${SlideHeading} fontSize="h1" textAlign="left" margin="18px 0 0">
-                  Where does the browser fit in the AI ecosystem?
+                  Where does the <u>browser</u> fit in the AI ecosystem?
                 </${SlideHeading}>
                 <${AccentRule} />
               </${AppearComponent}>
@@ -418,7 +418,7 @@
                 n: 1,
                 text: html`A good future bet, which you can start <u>now</u>`,
                 detail:
-                  "Straightforward to implement: your tools reuse the code your UI already calls. Already have agents / agentic tools consuming and more to come. A good bet.",
+                  "Straightforward to implement: your tools reuse the code your UI already calls. Already have agents / agentic tools consuming and more to come.",
               },
               {
                 n: 2,
@@ -502,18 +502,55 @@
                 same techniques apply.
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 2 })}>
-            ${`
-              ---
-              # Available right now
-
-              * Vector / hybrid search
-              * Classifiers / deciders
-
-              Notes: \
-                TODO
+          <${TilesSlide}
+            chapter=${2}
+            title="The available <u>pieces</u>"
+            tiles=${[
+              {
+                icon: "vector-three",
+                title: "Embeddings",
+                ready: true,
+                demo: true,
+              },
+              {
+                icon: "database",
+                title: "Vector database",
+                ready: true,
+                demo: true,
+              },
+              { icon: "tag", title: "Classifiers", ready: true },
+              { icon: "signpost", title: "Deciders", ready: true },
+              {
+                icon: "wrench",
+                title: "Tools",
+                demo: true,
+              },
+              {
+                icon: "brain",
+                title: "Language models",
+                demo: true,
+              },
+              {
+                icon: "target",
+                title: "Fine-tuned models",
+              },
+            ]}
+            notes=${`
+              * Hybrid / modular future: use the parts that you want in the browser,
+                fall back to cloud for the rest. "Progressive enhancement."
+              * Here now: classifiers, embeddings and vector search already run well
+                in browsers. Emerging: tools (WebMCP), language models and fine-tuned models.
+                All of it is still young, though.
+              * Everything here is a model except the database and tools. Classifiers,
+                embeddings and deciders are small and fit a tab easily. Language models
+                are hard to fit, and fine-tuning your own is more work again.
+              * Play icon: the pieces we demo today. Embeddings and the vector database
+                are next, in vector search. Language models and tools come in the web AI
+                demo, and all four come together in the web agents demo.
+              * Classifiers and deciders: here now, but no demo today.
+              * TODO
             `}
-          </${MarkdownSlideSet}>
+          />
           <${DemoSlide}
             chapter=${2}
             demo="vector-search"
@@ -536,29 +573,15 @@
               * TODO
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 2 })}>
-            ${`
-              ---
-              # Classifiers / deciders
-
-              * TODO
-
-              Notes: \
-                TODO
-
-              ---
-              # AI Inference
-
-              * TODO
-
-              Notes: \
-                TODO
-            `}
-          </${MarkdownSlideSet}>
           <${MatrixSlide}
             chapter=${2}
-            title="What else runs in a tab"
+            title="Five ways to run a language model"
             columns=${["Runtime", "Tools", "iPhone 15 Pro", "Context"]}
+            source=${{
+              href: "https://nearform.com/digital-community/web-ai-runtimes-five-ways-to-run-a-language-model-in-the-browser",
+              title:
+                "Web AI runtimes: five ways to run a language model in the browser",
+            }}
             rows=${[
               {
                 icon: "browser",
@@ -610,8 +633,8 @@
               * Context is a sliding scale: every step up costs memory and speed. The
                 Context column shows the default and how far you can raise it, and
                 raising it is how a phone tab dies.
+              * Mobile web is a different game, especially on iOS: see the iPhone column.
               * TODO: Add notes
-              * TODO: Insert web ai article link on the slide.
             `}
           />
           <${DemoSlide}
@@ -624,7 +647,6 @@
               "Five browser AI runtimes, side by side in one chat app.",
               "Load any compatible model from Hugging Face.",
               "Try tool calling with your own JavaScript function.",
-              `${icon("article")} <a href='https://nearform.com/digital-community/web-ai-runtimes-five-ways-to-run-a-language-model-in-the-browser'><em>Web AI runtimes: five ways to run a language model in the browser</em></a>`,
             ]}
             backup=${`TODO`}
             notes=${`
@@ -670,35 +692,6 @@
               * TODO
             `}
           />
-          <${TakeawaySlide}
-            chapter=${2}
-            title="Architecture"
-            compact=${true}
-            items=${[
-              {
-                n: 1,
-                text: "Tools",
-                detail:
-                  "Use WebMCP tools for your web AI tool calling. A shape you can depend on and then flexibly leverage.",
-              },
-              {
-                n: 2,
-                text: "Specific models",
-                detail:
-                  "Use domain-specific models for different given tasks. Saves on context and can pick better training data base. Fine-tune or post-train for application specific model behaviors you want.",
-              },
-              {
-                n: 3,
-                text: "Mobile web",
-                detail: "A different game, especially on iOS.",
-              },
-            ]}
-            notes=${`
-              * Specific models: a small model trained on one narrow task can match a much
-                bigger general one, and small is what fits in a tab.
-              * TODO
-            `}
-          />
           ${"" /* --- 03 · Web agents --- */}
           <${TopicSlide} chapter=${chapter(3)} />
           <${DemoSlide}
@@ -720,63 +713,31 @@
           />
           <${TakeawaySlide}
             chapter=${3}
-            title="TODO: title"
+            title="Architecture"
             compact=${true}
             items=${[
               {
                 n: 1,
+                text: "Tools",
+                detail:
+                  "Use WebMCP tools for your web AI tool calling. A shape you can depend on and then flexibly leverage.",
+              },
+              {
+                n: 2,
+                text: "Specific models",
+                detail:
+                  "Use domain-specific models for different given tasks. Saves on context and can pick better training data base. Fine-tune or post-train for application specific model behaviors you want.",
+              },
+              {
+                n: 3,
                 text: "Tradeoff time",
                 detail:
                   "For use of small, domain-specific tool and model calls. Use agents to shape up data in one step for context-efficient use in the next agent.",
               },
             ]}
             notes=${`
-              * TODO
-            `}
-          />
-          <${TilesSlide}
-            title="Move a <u>piece</u> to the browser"
-            tiles=${[
-              {
-                icon: "vector-three",
-                title: "Embeddings",
-                ready: true,
-                demo: true,
-              },
-              {
-                icon: "database",
-                title: "Vector database",
-                ready: true,
-                demo: true,
-              },
-              { icon: "tag", title: "Classifiers", ready: true },
-              { icon: "signpost", title: "Deciders", ready: true },
-              {
-                icon: "wrench",
-                title: "Tools",
-                demo: true,
-              },
-              {
-                icon: "brain",
-                title: "General models",
-                demo: true,
-              },
-              {
-                icon: "target",
-                title: "Fine-tuned models",
-              },
-            ]}
-            notes=${`
-              * Hybrid / modular future: use the parts that you want in the browser,
-                fall back to cloud for the rest. "Progressive enhancement."
-              * Here now: classifiers, embeddings and vector search already run well
-                in browsers. Emerging: tools (WebMCP), general models and fine-tuned models.
-                All of it is still young, though.
-              * Everything here is a model except the database and tools. Classifiers,
-                embeddings and deciders are small and fit a tab easily. General models
-                are hard to fit, and fine-tuning your own is more work again.
-              * The web agents demo uses four of these: embeddings, the vector
-                database, a general model, and tools.
+              * Specific models: a small model trained on one narrow task can match a much
+                bigger general one, and small is what fits in a tab.
               * TODO
             `}
           />
@@ -803,13 +764,18 @@
               ${icon("cpu")} [nearform.github.io/web-ai-demo](https://nearform.github.io/web-ai-demo/)
               ${icon("users-three")} [nearform.github.io/web-agents](https://nearform.github.io/web-agents/)
 
+              ***
+
+              ${icon("newspaper")} [Web AI runtimes: five ways to run a language model in the browser](https://nearform.com/digital-community/web-ai-runtimes-five-ways-to-run-a-language-model-in-the-browser)
+
               ::section
 
               ${qrCodeImg}
 
               Notes: \
                 All three demo apps are public and run entirely in the tab, so anyone \
-                can open them on the wifi here. TODO: add the article link once it is up.
+                can open them on the wifi here. The article is the deep dive on the \
+                runtime matrix.
 
               --- { "layout": "columns" }
 
