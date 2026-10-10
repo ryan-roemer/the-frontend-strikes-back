@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "at": "register-tool.js",
+    "kind": "recorded",
+    "about": "An edited code pane still reads as its filename plus a fenced block of source, the same as an untouched one.",
+    "recorded-outcome": "\"Replace search_documents in the code with booyah\" on slide 7 worked, and so did a second rename in the same pane. But the slide the model saw between the two had changed shape: `code: 1document.modelContext.registerTool({ 2 name: \"booyah\", 3 ...` on one line. The filename was gone, the fenced block was gone, and the line-number gutter was mixed into the code. `withEdits` replaced the pane's node text with the element's flattened `textContent`, so `codeFence` no longer found a source whose filename matched and printed nothing.",
+    "guards": "the code-pane branch of `withEdits` in `chat/edit/patches.js`, and `codeFence` preferring `node.source`. Revert either and the `code: register-tool.js` line after turn 0 comes back as one line of gutter-numbered code, with no fence under it."
+  },
+  "turns": [
+    {
+      "ask": "Replace \"search_documents\" in the code with \"booyah\"",
+      "replies": [
+        "```tool edit_text\n{\"find\": \"search_documents\", \"target\": \"code\", \"text\": \"booyah\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "find": "search_documents",
+              "target": "code",
+              "text": "booyah"
+            }
+          }
+        ],
+        "receipt": [
+          "Replaced \"search_documents\" with \"booyah\"",
+          "code — \"register-tool.js\""
+        ],
+        "slides": {
+          "{at}": [
+            "re:^<slide n=\"{at}\" .*>$",
+            "subtitle: WebMCP in one call",
+            "code: register-tool.js",
+            "```javascript",
+            "document.modelContext.registerTool({",
+            "  name: \"booyah\",",
+            "...",
+            "```",
+            "</slide>"
+          ]
+        }
+      }
+    },
+    {
+      "ask": "Replace \"modelContext\" in the code with \"booyahContext\"",
+      "replies": [
+        "```tool edit_text\n{\"find\": \"modelContext\", \"target\": \"code\", \"text\": \"booyahContext\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "find": "modelContext",
+              "target": "code",
+              "text": "booyahContext"
+            }
+          }
+        ],
+        "receipt": ["Replaced \"modelContext\" with \"booyahContext\""],
+        "slides": {
+          "{at}": [
+            "re:^<slide n=\"{at}\" .*>$",
+            "subtitle: WebMCP in one call",
+            "code: register-tool.js",
+            "```javascript",
+            "document.booyahContext.registerTool({",
+            "  name: \"booyah\",",
+            "...",
+            "```",
+            "</slide>"
+          ]
+        }
+      }
+    }
+  ]
+}
