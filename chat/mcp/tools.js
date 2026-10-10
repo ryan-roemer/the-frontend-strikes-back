@@ -66,7 +66,7 @@ import {
   STYLE_PROPS,
   undoEdit,
 } from "../edit/apply.js";
-import { asShown, summary, withEdits } from "../edit/patches.js";
+import { summary, withEdits } from "../edit/patches.js";
 import { start as startWatchdog } from "../edit/watchdog.js";
 import { nav } from "../nav.js";
 import { echo, resolveGroup, resolveTarget } from "./target.js";
@@ -119,7 +119,7 @@ const fail = (message, structured) => {
  * counting a deck nobody is looking at. `replaceText` already works off the live DOM, so
  * without this the advice and the tool that acts on it disagree.
  */
-const currentNodes = () => asShown(nodeIndex());
+const currentNodes = () => withEdits(nodeIndex());
 
 /** The shape of a node, for every `outputSchema` that returns one. */
 const NODE_SCHEMA = {

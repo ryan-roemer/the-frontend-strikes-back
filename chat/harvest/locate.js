@@ -43,7 +43,7 @@
  * can see; this file's job is to let a HUMAN skip that step and be understood
  * anyway.
  */
-import { asShown } from "../edit/patches.js";
+import { withEdits } from "../edit/patches.js";
 import { harvestSlide } from "./index.js";
 import { normalize } from "./nodes.js";
 import { position } from "./views.js";
@@ -305,7 +305,7 @@ const bySource = (harvested, nodes, phrase) => {
 
   for (const node of nodes) {
     if (node.role !== "code") continue;
-    // AN EDITED PANE CARRIES ITS OWN SOURCE, put there by `asShown` because the harvested
+    // AN EDITED PANE CARRIES ITS OWN SOURCE, put there by `withEdits` because the harvested
     // one is the authored text and stops matching the moment a rename lands -- renaming
     // `search_documents` to `search_hi` and then quoting the new name back would find
     // nothing, which is this file's own bug one rename later.
@@ -372,7 +372,7 @@ export const locate = (phrase, { slide } = {}) => {
   // THROUGH THE EDIT OVERLAY, so a phrase is matched against what the slide says now.
   // See the header: the raw harvest reports the authored wording forever, which makes
   // every edit the model just made unaddressable by the wording it was shown.
-  const nodes = asShown(harvested?.nodes ?? []);
+  const nodes = withEdits(harvested?.nodes ?? []);
 
   if (!nodes.length) {
     return result(

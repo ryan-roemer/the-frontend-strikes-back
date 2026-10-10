@@ -30,7 +30,7 @@
  *             per slide. Neither uses the cascade -- they have two fixed sources.
  */
 import { getSnapshot } from "../bus.js";
-import { asShown } from "../edit/patches.js";
+import { withEdits } from "../edit/patches.js";
 import { harvestDeck, harvestSlide, resolveNode } from "./index.js";
 
 /**
@@ -248,13 +248,17 @@ export const nodeLabels = (nodes) =>
  * Matched by FILE NAME rather than position: the node's text is exactly the key `render()`
  * builds its line from (`file ?? language`), and matching on order would silently pair the
  * wrong source on any slide that grows a second pane.
+ *
+ * An edited pane brings its own `source` (see `withEdits`), and that wins: the harvested
+ * one is the source as authored.
  */
 const codeFence = (slide, node) => {
   const entry = (slide.code ?? []).find(
     (c) => (c.file ?? c.language) === node.text,
   );
-  if (!entry?.source) return [];
-  return ["```" + (entry.language ?? ""), entry.source, "```"];
+  const source = node.source ?? entry?.source;
+  if (!source) return [];
+  return ["```" + (entry?.language ?? ""), source, "```"];
 };
 
 /**
@@ -340,7 +344,7 @@ export const describeNode = (id, { text } = {}) => {
   // the before because it took it off the element a moment earlier. Before this argument
   // existed it relied on the stale harvest to supply that half, which held only for a
   // node's first edit -- a second one reported the ORIGINAL wording as what it replaced.
-  const [shown] = asShown([node]);
+  const [shown] = withEdits([node]);
   return `slide ${node.slide}, ${label} — "${text ?? shown.text}"`;
 };
 

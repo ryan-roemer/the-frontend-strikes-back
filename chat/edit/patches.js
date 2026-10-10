@@ -245,35 +245,42 @@ const patchedText = (id) => {
   return null;
 };
 
-/** A slide's nodes with any edits applied, for anything showing them. */
+/**
+ * An edited code pane's current source, as it reads on screen, or null.
+ *
+ * Read from the `<code>` element with the line-number gutter taken out. Its plain
+ * `textContent` is the source with every line number glued to the front of its line
+ * -- `1document.modelContext...` -- and `patchedText` then collapses the newlines too,
+ * which is what the model was shown after its first edit to a pane.
+ */
+const codeSource = (id) => {
+  const code = resolveNode(id)?.element?.querySelector("code");
+  if (!code) return null;
+  const copy = code.cloneNode(true);
+  for (const gutter of copy.querySelectorAll(".linenumber")) gutter.remove();
+  return copy.textContent.replace(/\n+$/, "");
+};
+
+/**
+ * A slide's nodes with any edits applied, for showing them, matching a phrase against
+ * them, or quoting one back.
+ *
+ * AN EDITED CODE PANE KEEPS ITS FILENAME AS ITS TEXT and carries its current source
+ * alongside, the same split an untouched pane has. The filename is the only name a pane
+ * has: `locate.js` addresses it by that and a receipt quotes it back by that, so text
+ * that turned into source on the first edit made the pane unaddressable. And
+ * `views.js` prints the fence from `source`, so the slide reads the same after an edit
+ * as before it.
+ */
 export const withEdits = (nodes) =>
   nodes.map((node) => {
     const text = patchedText(node.id);
-    return text === null ? node : { ...node, text, edited: true };
+    if (text === null) return node;
+    if (node.role === "code") {
+      return { ...node, source: codeSource(node.id) ?? text, edited: true };
+    }
+    return { ...node, text, edited: true };
   });
-
-/**
- * The same overlay, for MATCHING A PHRASE against a node or QUOTING IT BACK.
- *
- * `withEdits` is for showing a slide's content, and code panes are where the two jobs
- * part company. An edited pane's element holds its whole source, so `withEdits` gives
- * that node six hundred characters of source as its text -- right for `get_slide`, whose
- * business is the content, and wrong here twice over. `locate.js` addresses a pane by its
- * FILENAME, the only name it has, so an edit anywhere inside it would make the pane
- * unaddressable; and a receipt quoting the node back would print the file instead of
- * naming it.
- *
- * So a pane keeps its filename and carries its current source alongside, which is what
- * `locate.js`'s `bySource` tier searches. Every other node is `withEdits` exactly.
- */
-export const asShown = (nodes) => {
-  const shown = withEdits(nodes);
-  return shown.map((node, i) =>
-    node.edited && node.role === "code"
-      ? { ...node, text: nodes[i].text, source: node.text }
-      : node,
-  );
-};
 
 /** Put every touched property back to the value the deck shipped with. */
 const restoreBaselines = () => {

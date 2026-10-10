@@ -1,24 +1,25 @@
 {
   "meta": {
-    "at": "JavaScript",
+    "at": "Pick the smallest model",
     "kind": "recorded",
-    "about": "A rename inside a code pane that adds a character. The 140-limit guards slide text that can overflow, not a pane that scrolls.",
+    "about": "A rename inside a node already past the 140-character limit that adds characters. The 140-limit guards an edit that CROSSES the limit, not one that grows a node already over it.",
     "recorded-outcome": "\"replace the text JavaScript with BooyaScript\" on slide 11, once the subtitle had already been renamed, refused with `Replacing \"JavaScript\" in 11.2 would make it 570 characters; anything over 140 overflows the slide.` The pane was already 569 and rendering fine — `.code-frame pre` is `overflow: auto` inside a capped frame, so its text scrolls at any length. The old rule was `after > MAX_TEXT && after > before`, which let a node already past the limit be edited only if the edit added no characters at all; BooyaScript is one letter longer than JavaScript.",
-    "guards": "the `before.length <= MAX_TEXT` clause in `planReplace`. Put back `after.length > before.length` and the replace touches one node instead of two, and the receipt carries a `Skipped:` line naming 11.2."
+    "retargeted": "recorded against a code pane whose node text was its source. A `CodePane` node's text is its filename now (see `chat/harvest/views.js`), and the code-pane slides were cut, so no editable node on the deck is a code body. Moved to the two takeaway details of \"Implementation\", which are both already past 140 and both contain \"smallest\". The rule under test does not care what role the node has, only that it was over the limit before the edit; \"most compact\" is longer than \"smallest\", so both nodes grow.",
+    "guards": "the `before.length <= MAX_TEXT` clause in `planReplace`. Put back `after.length > before.length` and both nodes are refused, so the receipt loses `2 occurrences across 2 nodes` and gains an `overflows the slide` line."
   },
   "turns": [
     {
-      "ask": "replace the text JavaScript with BooyaScript",
+      "ask": "replace the text smallest with most compact",
       "replies": [
-        "```tool edit_text\n{\"find\": \"JavaScript\", \"text\": \"BooyaScript\"}\n```"
+        "```tool edit_text\n{\"find\": \"smallest\", \"text\": \"most compact\"}\n```"
       ],
       "expect": {
         "calls": [
           {
             "name": "edit_text",
             "args": {
-              "find": "JavaScript",
-              "text": "BooyaScript"
+              "find": "smallest",
+              "text": "most compact"
             }
           }
         ],
@@ -30,8 +31,10 @@
         "slides": {
           "{at}": [
             "re:^<slide n=\"{at}\" .*>$",
-            "subtitle: ...or no BooyaScript at all",
-            "re:^code: .*No BooyaScript\\. Annotating the form.*$",
+            "...",
+            "re:^takeaway detail 1: Pick the most compact model that works.*$",
+            "...",
+            "re:^takeaway detail 2: .*Pick the most compact that works\\..*$",
             "..."
           ]
         }

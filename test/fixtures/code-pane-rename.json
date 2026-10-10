@@ -33,7 +33,13 @@
           }
         ],
         "slides": {
-          "{at}": ["...", "re:^code: .*name: \"search_hi\".*$", "..."]
+          "{at}": [
+            "...",
+            "code: register-tool.js",
+            "...",
+            "  name: \"search_hi\",",
+            "..."
+          ]
         }
       }
     }
