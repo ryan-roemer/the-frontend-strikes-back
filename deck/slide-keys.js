@@ -8,18 +8,19 @@
  * `DeckContext` callbacks Spectacle already exposes for it: `advanceSlide` and
  * `regressSlide`.
  *
- * Backwards lands on the previous slide with its reveals already played, which
- * is `regressSlide()`'s default and matches what a plain left arrow does when it
- * crosses a slide boundary. Coming back to a slide you have shown should look
- * the way you left it.
+ * Both directions land on the slide with every reveal already played. Backwards
+ * is `regressSlide()`'s default. Forwards is not: `advanceSlide()` always lands
+ * on step 0, so we `skipTo` the next slide with `stepIndex: null` instead --
+ * Spectacle's `GOTO_FINAL_STEP`, the same value `regressSlide()` sends. Moving
+ * around the deck, you want to see each slide whole.
  *
  * SHIFT IS FREE. Spectacle binds `left`/`right` through mousetrap, which
  * compares the event's modifier list against the binding's -- `right` with Shift
  * held matches nothing, so these presses reach us and nothing else.
  *
- * Out of range takes care of itself: Spectacle cancels a transition to a slide
- * that does not exist, so Shift+Right on the last slide is a no-op rather than a
- * deck pointed at nothing.
+ * Out of range: Spectacle cancels a regress to a slide that does not exist, so
+ * Shift+Left on the first slide is a no-op. `skipTo` does no bounds checking of
+ * its own, so Shift+Right checks `slideCount` first.
  */
 import { useContext, useEffect } from "react";
 import { DeckContext } from "spectacle";
@@ -53,8 +54,14 @@ const onKeyDown = (event) => {
   if (isTextEntry(event.target) || !deck) return;
 
   event.preventDefault();
-  if (forward) deck.advanceSlide();
-  else deck.regressSlide();
+  if (!forward) {
+    deck.regressSlide();
+    return;
+  }
+
+  const slideIndex = deck.pendingView.slideIndex + 1;
+  if (slideIndex < deck.slideCount)
+    deck.skipTo({ slideIndex, stepIndex: null });
 };
 
 // Module scope, not `mountChat()`: the arrows are the deck's, and they have to
