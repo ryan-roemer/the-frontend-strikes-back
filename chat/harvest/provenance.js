@@ -24,6 +24,7 @@
  */
 import { chapters } from "../../deck/chapters.js";
 import { AUDIENCES, VERDICTS, takeaways } from "../../deck/takeaways.js";
+import { PIECES } from "../../deck/pieces.js";
 
 /**
  * Shorter than this and a string match means nothing.
@@ -67,6 +68,9 @@ const dataPointers = () => {
   for (const [key, { title }] of Object.entries(VERDICTS)) {
     add(title, `deck/takeaways.js -> VERDICTS.${key}.title`);
   }
+  PIECES.forEach(({ title }, i) => {
+    add(title, `deck/pieces.js -> PIECES[${i}].title`);
+  });
   return map;
 };
 

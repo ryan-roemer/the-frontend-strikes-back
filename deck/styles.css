@@ -958,6 +958,30 @@ body::after {
   text-underline-offset: 0.15em;
 }
 
+/*
+ * `PieceMap`: the pieces slide as a 4 + 3 grid of icons. 300px fits four
+ * 60px tiles and their gaps, but not five, so it wraps like `TilesSlide`.
+ */
+.piece-map {
+  gap: 10px;
+}
+
+.piece-map__tile {
+  width: 60px;
+  height: 60px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.piece-map__tile--off {
+  opacity: 0.2;
+}
+
+#root .piece-map .tile__icon {
+  font-size: 28px;
+}
+
 #root .demo__open {
   margin-left: 0.5em;
   font-size: 30px;
@@ -1597,6 +1621,7 @@ body::after {
   #root .deck-meta,
   #root .divider__numeral,
   #root .tile-grid,
+  #root .piece-map,
   #root .takeaway-grid,
   #root .takeaway__body,
   #root .matrix,
@@ -1611,6 +1636,11 @@ body::after {
   /* The badge is a circle, so it needs its height back explicitly. */
   #root .takeaway__badge {
     height: 44px;
+  }
+
+  /* The demo-slide piece tiles are squares, and are cards too. */
+  #root .piece-map__tile {
+    height: 60px;
   }
 
   #root .takeaway--compact .takeaway__badge {

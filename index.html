@@ -145,6 +145,7 @@
       import { getExamples } from "./deck/examples.js";
       import { chapter, applyChapterStyles } from "./deck/chapters.js";
       import { AUDIENCES } from "./deck/takeaways.js";
+      import { PIECES } from "./deck/pieces.js";
       import {
         icon,
         Icon,
@@ -505,36 +506,7 @@
           <${TilesSlide}
             chapter=${2}
             title="The available <u>pieces</u>"
-            tiles=${[
-              {
-                icon: "vector-three",
-                title: "Embeddings",
-                ready: true,
-                demo: true,
-              },
-              {
-                icon: "database",
-                title: "Vector database",
-                ready: true,
-                demo: true,
-              },
-              { icon: "tag", title: "Classifiers", ready: true },
-              { icon: "signpost", title: "Deciders", ready: true },
-              {
-                icon: "wrench",
-                title: "Tools",
-                demo: true,
-              },
-              {
-                icon: "brain",
-                title: "Language models",
-                demo: true,
-              },
-              {
-                icon: "target",
-                title: "Fine-tuned models",
-              },
-            ]}
+            tiles=${PIECES}
             notes=${`
               * Hybrid / modular future: use the parts that you want in the browser,
                 fall back to cloud for the rest. "Progressive enhancement."
@@ -698,7 +670,7 @@
             chapter=${3}
             demo="web-agents"
             label="Live demo"
-            app="Nearform research agents"
+            app="Research agents"
             url="nearform.github.io/web-agents"
             points=${[
               "A coordinator, a researcher, and a writer.",

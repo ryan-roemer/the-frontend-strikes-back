@@ -28,6 +28,19 @@ export const DEMO_LINKS = {
 };
 
 /**
+ * The pieces each demo uses, by id from `PIECES` in `pieces.js`.
+ *
+ * A demo listed here gets the piece strip on its slide, and every piece named
+ * here gets the play icon on "The available pieces". The Claude Desktop demo is
+ * left out because it comes before that slide.
+ */
+export const DEMO_PIECES = {
+  "vector-search": ["embeddings", "vector-db"],
+  "web-ai": ["tools", "language-models"],
+  "web-agents": ["embeddings", "vector-db", "tools", "language-models"],
+};
+
+/**
  * Backup recordings for the live demos.
  *
  * The video button in the deck chrome reads the slide id and shows only when it

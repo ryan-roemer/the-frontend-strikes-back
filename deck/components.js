@@ -43,7 +43,8 @@ import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
 import { SlideKeys } from "./slide-keys.js";
 import { VideoToggle } from "./demo-video.js";
-import { DEMO_LINKS } from "./demos.js";
+import { DEMO_LINKS, DEMO_PIECES } from "./demos.js";
+import { PIECES } from "./pieces.js";
 import { DeckBridge } from "../chat/bridge.js";
 import { ChatToggle } from "../chat/toggle.js";
 import { ToolsToggle } from "../chat/tools/toggle.js";
@@ -946,12 +947,14 @@ export const TakeawaySlide = ({
  * The tiles wrap in a centered flex row instead of a grid, so a short last row
  * (seven tiles is 4 + 3) sits in the middle instead of hugging the left edge.
  *
- * Each tile is `{ icon, title, ready, demo }`. Neither flag adds text to the
- * tile: `ready` ("here now") tints the tile with the accent (an emerging
- * one stays plain, with a dashed border), and `demo` puts a play icon in its
- * top-right corner.
+ * Each tile is a piece from `pieces.js`. Neither mark adds text to the tile:
+ * `ready` ("here now") tints the tile with the accent (an emerging one stays
+ * plain, with a dashed border), and a piece some demo uses (`DEMO_PIECES`)
+ * gets a play icon in its top-right corner.
  * One legend line under the tiles says what both mean.
  */
+const piecesInDemos = new Set(Object.values(DEMO_PIECES).flat());
+
 export const TilesSlide = ({ chapter, title, tiles = [], notes }) => html`
   <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
     <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${markup(title)}</${SlideHeading}>
@@ -970,7 +973,7 @@ export const TilesSlide = ({ chapter, title, tiles = [], notes }) => html`
               <${FlexBox} justifyContent="space-between" alignItems="start">
                 <${Icon} name=${tile.icon} className="tile__icon" />
                 ${
-                  tile.demo
+                  piecesInDemos.has(tile.id)
                     ? html`<${Icon}
                         name="play-circle"
                         className="tile__demo"
@@ -1341,6 +1344,43 @@ const backupNote = (backup) => {
  * The icon is a sibling of the URL text, not inside it, so a chat edit that
  * rewrites the text can't drop the link.
  */
+/**
+ * "The available pieces" shrunk to icons, top right of a demo slide.
+ *
+ * Same 4 + 3 shape and order as `TilesSlide`, so it reads as that slide from a
+ * distance. The pieces in `inPlay` keep their here-now / emerging tile; the rest
+ * fade out.
+ */
+const PieceMap = ({ inPlay }) => html`
+  <${FlexBox}
+    className="piece-map"
+    position="absolute"
+    top="40px"
+    right="40px"
+    width="300px"
+    flexWrap="wrap"
+    justifyContent="center"
+  >
+    ${PIECES.map(
+      (piece) => html`
+        <${FlexBox}
+          key=${piece.id}
+          className=${[
+            "card card--tile piece-map__tile",
+            piece.ready ? "card--tile-ready" : "card--tile-emerging",
+            inPlay.includes(piece.id) ? null : "piece-map__tile--off",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          title=${piece.title}
+        >
+          <${Icon} name=${piece.icon} className="tile__icon" />
+        <//>
+      `,
+    )}
+  <//>
+`;
+
 export const DemoSlide = ({
   chapter,
   demo,
@@ -1390,6 +1430,7 @@ export const DemoSlide = ({
           : null
       }
     <//>
+    ${DEMO_PIECES[demo] ? html`<${PieceMap} inPlay=${DEMO_PIECES[demo]} />` : null}
     <${MdNotes}
       notes=${[notes && dedentNote(notes), backup && backupNote(backup)]
         .filter(Boolean)

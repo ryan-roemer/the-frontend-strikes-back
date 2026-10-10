@@ -36,7 +36,8 @@ gives two columns (the Links and Thanks slides use it).
 **`DemoSlide`**: `demo="<id>"` turns on the backup-video button, and the id must be in
 `deck/demos.js`. Leave it off for a demo with no recording. `label` defaults to
 "Live demo"; the vector search slide uses "Quick demo". `points` can carry inline
-markup such as `<code>`.
+markup such as `<code>`. A demo listed in `DEMO_PIECES` in `deck/demos.js` gets a
+small map of the pieces slide in its top-right corner, with its own pieces lit.
 
 **`TakeawaySlide`**: `items` is a list of `{ n, text, detail, verdict? }`. One item
 gets the large centered treatment; set `compact` for three or more cards so they fit.
@@ -55,9 +56,10 @@ the real code the snippet is based on.
 **`RowsSlide`**: `sections` is a list of `{ title, items: [{ text, icon }] }`; `dense`
 tightens the spacing.
 
-**`TilesSlide`**: `tiles` is a list of `{ icon, title, ready?, demo? }`. `ready` gives
-the solid "Here now" tile (otherwise it is dashed, "Emerging"), and `demo` adds the
-play icon. The title goes through `markup()`, so it can carry `<u>` or `em()`.
+**`TilesSlide`**: `tiles` is `PIECES` from `deck/pieces.js`, a list of
+`{ id, icon, title, ready? }`. `ready` gives the solid "Here now" tile (otherwise it is
+dashed, "Emerging"). A piece named in `DEMO_PIECES` in `deck/demos.js` gets the play
+icon. The title goes through `markup()`, so it can carry `<u>` or `em()`.
 
 **`SeamSlide`**: takes `points`, `agent`, `agentNote`, `boundary`, `tools`, `caption`
 and `impls`. It renders the diagram from those props.
