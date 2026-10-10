@@ -156,7 +156,11 @@ const target = (id) => {
   return { node, el: node.element };
 };
 
-export const setText = (id, text) => {
+/**
+ * One node's whole-text rewrite, planned but not pushed -- so `setTexts` can land several
+ * as ONE undoable group, the way `replaceText` plans before it applies.
+ */
+const planText = (id, text) => {
   const value = String(text ?? "");
   if (!value.trim()) {
     // The refusal stands -- a node blanked by rewriting leaves an empty box where the
@@ -213,15 +217,54 @@ export const setText = (id, text) => {
   // the AUTHORED wording however many times this node has been rewritten -- so the second
   // rename of a heading reported the wording two edits ago as the one it just replaced.
   const was = normalize(found.el.textContent ?? "");
+  // ICONS GO WITH THE WORDING. An `icon()` is an `<i>` with no text run, so blanking every
+  // run above still left it standing: rewriting the article bullet to "hi" showed the
+  // article icon followed by "hi". Hidden with a CSS patch in the SAME group, never
+  // removed -- see `applyDom` for why the child list is off limits -- so one undo brings
+  // the icon and the old wording back together.
+  const icons = found.el.querySelector('i[class*="ph-"]');
+  return {
+    ok: true,
+    id,
+    el: found.el,
+    was,
+    mixed,
+    patches: [
+      ...runs.map((run) => ({
+        kind: "text",
+        id,
+        runIndex: run.index,
+        text: run.index === mainIndex ? value : "",
+        label: `text ${id} → "${value}"`,
+      })),
+      icons && {
+        kind: "css",
+        id,
+        selector: `[data-deck-ref="${id}"] i[class*="ph-"]`,
+        declarations: "display: none",
+        label: `icons ${id} hidden`,
+      },
+    ],
+  };
+};
+
+/**
+ * Rewrite several nodes, each to its own text, as one change.
+ *
+ * ALL OR NOTHING. Every node is planned before anything is pushed, so one over-long item
+ * refuses the whole call rather than leaving half a list rewritten -- and one undo puts
+ * every node back, because "undo that" after "replace the bullets with ..." means all of
+ * them.
+ */
+export const setTexts = (pairs) => {
+  const plans = pairs.map(([id, text]) => planText(id, text));
+  const refused = plans.find((plan) => !plan.ok);
+  if (refused) return refused;
+
+  const said = pairs.map(([id, text]) => `text ${id} → "${text}"`).join("; ");
   pushAll(
-    runs.map((run) => ({
-      kind: "text",
-      id,
-      runIndex: run.index,
-      text: run.index === mainIndex ? value : "",
-      label: `text ${id} → "${value}"`,
-    })),
-    `text ${id} → "${value}"`,
+    plans.flatMap((plan) => plan.patches),
+    said,
   );
 
   // WHAT THE SLIDE NOW SAYS, read back off the element rather than echoed from
@@ -230,14 +273,20 @@ export const setText = (id, text) => {
   // BOTH SIDES, and the new one last. `describeNode` reports what the slide says NOW, so
   // the before half is handed to it -- a receipt quoting the current text twice reads as
   // a no-op, and one quoting the harvest reads as a no-op the other way round.
-  const now = normalize(found.el.textContent ?? "");
+  const lines = plans.map(({ id, el, was }) => {
+    const now = normalize(el.textContent ?? "");
+    return `${describeNode(id, { text: was }) ?? `${id} — "${was}"`} → "${now}"`;
+  });
+  const mixed = plans.filter((plan) => plan.mixed).map((plan) => plan.id);
   return done(
-    `${describeNode(id, { text: was }) ?? `${id} — "${was}"`} → "${now}"`,
-    mixed
-      ? `${id} had part of its wording styled differently (bold, emphasis, or similar); that styling is gone now that the whole line was replaced.`
+    lines.join("\n"),
+    mixed.length
+      ? `${mixed.join(", ")} had part of ${mixed.length === 1 ? "its" : "their"} wording styled differently (bold, emphasis, or similar); that styling is gone now that the whole line was replaced.`
       : null,
   );
 };
+
+export const setText = (id, text) => setTexts([[id, text]]);
 
 /** `find`, as a regex matching it literally, every occurrence. */
 const literally = (find, matchCase) =>

@@ -122,6 +122,9 @@ const LAST = new Set(["last", "final"]);
 
 const clean = (phrase) => normalize(String(phrase ?? "")).toLowerCase();
 
+/** `18.bullets`, `18.title`, `18.bullet 2` -- a slide number, then a role. See `locate`. */
+const SLIDE_PREFIX = /^(\d{1,3})\.\s*([a-z-]+(?:\s+\d{1,2})?)$/;
+
 const result = (match, nodes, phrase, note = null) => ({
   match,
   nodes,
@@ -352,8 +355,19 @@ export const locate = (phrase, { slide } = {}) => {
   // slide 0". Callers should reject an out-of-range slide before this, but the
   // two lines still have to mean the same thing.
   const given = slide !== undefined && slide !== null;
-  const number = given ? Number(slide) : position().slide;
-  const said = clean(phrase);
+  // A SLIDE NUMBER WRITTEN LIKE AN ID. Node ids are `18.4`, so the model writes
+  // `18.bullets` and `18.title` for "the bullets / the title on slide 18". Read whole,
+  // the 18 became an ordinal: `18.title` worked only because a slide has one title, and
+  // `18.bullets` was refused as "there are only 4 bullets on this slide". Only when the
+  // rest is nothing but role words, so a quoted "1. Local model" stays a phrase.
+  const prefixed = SLIDE_PREFIX.exec(clean(phrase));
+  const scoped = prefixed && rolesIn(prefixed[2]) ? prefixed : null;
+  const number = scoped
+    ? Number(scoped[1])
+    : given
+      ? Number(slide)
+      : position().slide;
+  const said = scoped ? scoped[2] : clean(phrase);
   const harvested = Number.isInteger(number) ? harvestSlide(number) : null;
   // THROUGH THE EDIT OVERLAY, so a phrase is matched against what the slide says now.
   // See the header: the raw harvest reports the authored wording forever, which makes

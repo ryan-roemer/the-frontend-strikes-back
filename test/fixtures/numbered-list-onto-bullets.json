@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "at": {
+      "nodes": {
+        "bullet": 4
+      }
+    },
+    "kind": "recorded",
+    "about": "One `edit_text` whose `text` is a numbered list, aimed at a group with exactly that many nodes, rewrites each node to its own item -- and the target is written `N.bullets`, a slide number in id position.",
+    "recorded-outcome": "on the Web AI demos slide, asked to \"replace bullets 1-4 with 1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!\", Gemma (LiteRT, native tools) sent edit_text({\"target\": \"18.bullets\", \"text\": \"1. Local model ..., 2. ..., 3. ..., 4. ...\"}). locate() read the 18 as an ordinal and refused with \"there are only 4 bullets on this slide\"; the model then claimed in prose that it had replaced them. Nothing changed.",
+    "guards": "two fixes, either alone fails this. Drop `SLIDE_PREFIX` from locate() and `{at}.bullets` refuses as \"only 4 bullets\" again -- no bullet lines match. Drop the `listItems` branch from edit_text and the group falls through to a single-node rewrite, which refuses the same way."
+  },
+  "turns": [
+    {
+      "ask": "Let's replace bullets 1-4 with 1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!",
+      "replies": [
+        "```tool edit_text\n{\"target\": \"{at}.bullets\", \"text\": \"1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "target": "{at}.bullets",
+              "text": "1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!"
+            }
+          }
+        ],
+        "slides": {
+          "{at}": [
+            "...",
+            "bullet 1: Local model in the deck frontend app",
+            "bullet 2: Context from entire deck and current slide",
+            "bullet 3: All deck WebMCP tools available",
+            "bullet 4: Let's see what we can get up to!",
+            "..."
+          ]
+        }
+      }
+    }
+  ]
+}

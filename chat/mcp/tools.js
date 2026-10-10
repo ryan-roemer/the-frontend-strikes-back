@@ -61,6 +61,7 @@ import {
   resetSlide,
   setStyles,
   setText,
+  setTexts,
   setVariable,
   STYLE_PROPS,
   undoEdit,
@@ -745,6 +746,25 @@ const EDIT_SCHEMA = {
  */
 const DECK_LIMIT = 25;
 
+/** `1. `, `2) ` -- an item marker at the start or after a comma, semicolon or newline. */
+const ITEM_MARK = /(?:^|[,;]?\s+)(\d{1,2})[.)]\s+/g;
+
+/**
+ * "1. A, 2. B, 3. C" -> ["A", "B", "C"], or null when the text is not a list.
+ *
+ * Strict on purpose, because a hit splits one string across several nodes: the text has
+ * to OPEN with "1." and number 1, 2, 3 ... with nothing skipped. A sentence that happens
+ * to contain "step 2. then" never starts at 1, so it stays one piece of text.
+ */
+const listItems = (text) => {
+  const marks = [...String(text).matchAll(ITEM_MARK)];
+  if (marks.length < 2 || marks[0].index !== 0) return null;
+  if (marks.some((mark, i) => Number(mark[1]) !== i + 1)) return null;
+  return marks.map((mark, i) =>
+    text.slice(mark.index + mark[0].length, marks[i + 1]?.index).trim(),
+  );
+};
+
 /**
  * The editing tools, and the watchdog they need.
  *
@@ -816,6 +836,34 @@ const EDIT_TOOLS = [
         return fail("Give me the new text.");
       }
       const needle = String(find ?? "").trim();
+
+      // A NUMBERED LIST ONTO A GROUP OF THE SAME SIZE: one item per node. Asked to
+      // "replace bullets 1-4 with 1. Local model ..., 2. Context ..., 3. ..., 4. ...",
+      // Gemma sent ONE call -- `{ target: "18.bullets", text: "1. Local model ..., 2. ..." }`
+      // -- which is a complete, unambiguous instruction that `edit_text` had no way to
+      // take: a rewrite named one node. Only on an exact count; a list of three over four
+      // bullets has no single right reading, so it falls through to the old path.
+      const items = target && !needle ? listItems(value) : null;
+      if (items) {
+        const group = resolveGroup(target, { slide });
+        if (group.ok && group.nodes.length === items.length) {
+          const result = setTexts(
+            group.nodes.map((node, i) => [node.id, items[i]]),
+          );
+          if (!result.ok) {
+            return fail(
+              result.message,
+              result.retry ? { applied: false, retry: true } : undefined,
+            );
+          }
+          return ok([result.label, result.note], {
+            applied: true,
+            node: nodeData(group.nodes[0]),
+            nodes: group.nodes.map(nodeData),
+            edits: summary(),
+          });
+        }
+      }
 
       // Whole-node rewrite: a target, and nothing named to change inside it.
       if (target && !needle) {
