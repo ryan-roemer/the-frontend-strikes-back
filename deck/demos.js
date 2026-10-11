@@ -37,7 +37,13 @@ export const DEMO_LINKS = {
 export const DEMO_PIECES = {
   "vector-search": ["embeddings", "vector-db"],
   "web-ai": ["tools", "language-models"],
-  "web-agents": ["embeddings", "vector-db", "tools", "language-models"],
+  "web-agents": [
+    "embeddings",
+    "vector-db",
+    "deciders",
+    "tools",
+    "language-models",
+  ],
 };
 
 /**

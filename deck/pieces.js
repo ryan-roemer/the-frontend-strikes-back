@@ -12,7 +12,7 @@ export const PIECES = [
   { id: "embeddings", icon: "vector-three", title: "Embeddings", ready: true },
   { id: "vector-db", icon: "database", title: "Vector database", ready: true },
   { id: "classifiers", icon: "tag", title: "Classifiers", ready: true },
-  { id: "deciders", icon: "signpost", title: "Deciders", ready: true },
+  { id: "deciders", icon: "signpost", title: "Deciders" },
   { id: "tools", icon: "wrench", title: "Tools" },
   { id: "language-models", icon: "brain", title: "Language models" },
   { id: "fine-tuned-models", icon: "target", title: "Fine-tuned models" },

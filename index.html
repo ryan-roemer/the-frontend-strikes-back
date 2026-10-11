@@ -510,15 +510,17 @@
               * Hybrid / modular future: use the parts that you want in the browser,
                 fall back to cloud for the rest. "Progressive enhancement."
               * Here now: classifiers, embeddings and vector search already run well
-                in browsers. Emerging: tools (WebMCP), language models and fine-tuned models.
-                All of it is still young, though.
+                in browsers. Emerging: deciders (Chrome's experimental Decisions API),
+                tools (WebMCP), language models and fine-tuned models. All of it is
+                still young, though.
               * Everything here is a model except the database and tools. Classifiers,
                 embeddings and deciders are small and fit a tab easily. Language models
                 are hard to fit, and fine-tuning your own is more work again.
               * Play icon: the pieces we demo today. Embeddings and the vector database
                 are next, in vector search. Language models and tools come in the web AI
-                demo, and all four come together in the web agents demo.
-              * Classifiers and deciders: here now, but no demo today.
+                demo, and all four come together in the web agents demo, plus a decider
+                for its "research again or reuse the notes?" step.
+              * Classifiers: here now, but no demo today.
               * TODO
             `}
           />
@@ -680,6 +682,10 @@
             notes=${`
               * TODO: review points and notes against the new outline.
               * TODO: LINK https://nearform.com/digital-community/webmcp-turning-web-pages-into-tools-for-ai-agents/
+              * Optional: the decider. On the experiment/chrome-decider branch in Chrome
+                Canary, the coordinator's "research again or reuse the notes?" step runs
+                on the experimental Decisions API (DecisionModel) in place of a Prompt
+                API call. Its answer is a probability, not generated text.
             `}
           />
           <${TakeawaySlide}
