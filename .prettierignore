@@ -1,1 +1,3 @@
 .data
+# Shown on a slide; Prettier's one-attribute-per-line form doesn't fit.
+examples/declarative-tool.html

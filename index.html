@@ -392,6 +392,48 @@
                 * Liad Yosef, "How Agents Really See the Web" (TODO: confirm time)
             `}
           />
+          <${JsSlide} chapter=${1} title="Your functions, agent-callable"
+            filename=${examples.toolHandler.file} code=${examples.toolHandler.code}
+            language=${examples.toolHandler.language}
+            notes=${`
+              * Zooming in on \`execute\`: this is where a frontend function becomes
+                agent-callable.
+              * It runs in the user's tab, so the session, preferences and app state are
+                just there. No tokens to mint, no second backend.
+              * It calls the same search the UI does, then updates the UI, so the human
+                sees what the agent did.
+              * Results go back as MCP content blocks. \`isError\` tells the model the call
+                failed, so it can recover or tell the user, instead of guessing.
+            `}
+          />
+          <${JsSlide} chapter=${1} title="Or, just a form"
+            filename=${examples.declarativeTool.file} code=${examples.declarativeTool.code}
+            language=${examples.declarativeTool.language}
+            source=${{
+              href: "https://github.com/webmachinelearning/webmcp/blob/main/declarative-api-explainer.md",
+              title: "The declarative API explainer",
+            }}
+            notes=${`
+              * The declarative API: the same tool as \`registerTool\`, from a form you
+                probably already have.
+              * \`toolname\` and \`tooldescription\` on the form are the tool's name and
+                description. Each field's \`name\` becomes a schema property, and
+                \`toolparamdescription\` its description. \`required\` carries over.
+              * \`toolautosubmit\` lets the agent submit it. Without it, the browser fills
+                the form, focuses the submit button, and the user checks and submits.
+              * The script is the one bit of JS: the result. \`agentInvoked\` is true only
+                for an agent's submit, and \`respondWith()\` hands it the search results
+                instead of loading \`/search\`. The browser JSON-serializes them. People
+                still get the normal form post.
+              * Without it, what the agent gets after the page navigates is still being
+                decided (webmcp#135).
+              * Also still settling: exactly how fields map to a schema (\`<select>\`,
+                \`min\`, \`step\`).
+              * To try one: Google's Le Petit Bistro demo
+                (googlechromelabs.github.io/webmcp-tools/demos/french-bistro) with the
+                Model Context Tool Inspector extension.
+            `}
+          />
           <${DemoSlide}
             chapter=${1}
             demo="chatgpt-desktop"

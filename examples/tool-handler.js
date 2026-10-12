@@ -1,15 +1,13 @@
 const text = (s) => ({ type: "text", text: s });
 
-// Session auth, preferences, and business logic come free: this runs *inside*
-// the page the user is already signed in to.
+// Runs *inside* the page the user is signed in to, with auth and prefs.
 export const execute = async (args) => {
   const { session, prefs, documents } = window.app.getState();
   if (!session) return { isError: true, content: [text("Not signed in.")] };
 
-  // The same search the human UI already uses -- no duplicate backend.
+  // Reuse the frontend code the app already uses.
   const results = await documents.search({ ...args, locale: prefs.locale });
-
-  // Keep the UI in sync, so the human sees what the agent did.
+  // Optional: sync the app UI.
   window.app.setSearchResults(results);
   return { content: results.map((d) => text(d.title)) };
 };
