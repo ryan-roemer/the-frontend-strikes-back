@@ -555,8 +555,8 @@ body::after {
  * labels overrun the canvas by roughly 200px.
  */
 .takeaway--compact {
-  padding: 20px 28px;
-  gap: 22px;
+  padding: 16px 26px;
+  gap: 20px;
 }
 
 #root .takeaway--compact .takeaway__badge {
@@ -609,6 +609,15 @@ body::after {
 
 #root .takeaway__detail {
   color: var(--muted);
+}
+
+/* An open-link icon after a takeaway's heading, like `.demo__open`. */
+#root .takeaway__link {
+  margin-left: 0.3em;
+  font-size: 0.9em;
+  line-height: 1;
+  color: var(--chapter-accent);
+  text-decoration: none;
 }
 
 /*

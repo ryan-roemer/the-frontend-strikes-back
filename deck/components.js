@@ -833,12 +833,12 @@ export const TakeawayCard = ({
     >
       <${Box} className="takeaway__badge">${n}<//>
       <${Box} className="takeaway__body">
-        <${Text} className="takeaway__text" fontSize=${compact ? "28px" : solo ? "52px" : "30px"} margin="0px" padding="0px">
+        <${Text} className="takeaway__text" fontSize=${compact ? "26px" : solo ? "52px" : "30px"} margin="0px" padding="0px">
           ${text}
         </${Text}>
         ${
           detail && detailText
-            ? html`<${Text} className="takeaway__detail" fontSize=${compact ? "24px" : solo ? "34px" : "24px"} margin=${solo ? "10px 0 0" : "8px 0 0"} padding="0px">
+            ? html`<${Text} className="takeaway__detail" fontSize=${compact ? "22px" : solo ? "34px" : "24px"} margin=${solo ? "10px 0 0" : "8px 0 0"} padding="0px">
                 ${detailText}
               </${Text}>`
             : null
@@ -875,7 +875,7 @@ export const TakeawayList = ({
   <${Grid}
     className="takeaway-grid"
     gridTemplateColumns=${`repeat(${columns}, 1fr)`}
-    gridGap="18px"
+    gridGap=${compact ? "14px" : "18px"}
   >
     ${items.map(
       (item) =>

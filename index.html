@@ -362,7 +362,7 @@
 
               * **MCP tools, served by your web page.** An emerging W3C Community Group standard.
               * **Two APIs:** *Imperative* JavaScript, *declarative* HTML forms.
-              * **In browsers now:** origin trial in Chrome and Edge.
+              * **In browsers now:** origin trial in **Chrome** and **Edge**. (With many brower extensions to help.)
               * **Already in use:** Shopify storefronts, ChatGPT desktop, ...
             `}
           </${MdSlide}>
@@ -438,6 +438,16 @@
                 speak WebMCP yet. WebMCP itself doesn't need it.
             `}
           />
+          <${DemoSlide}
+            chapter=${1}
+            demo="deck-tools"
+            label="Bonus demo"
+            app="This deck has WebMCP tools"
+            notes=${`
+              * Open the deck's WebMCP tools (⇧⌥T) and call \`go_to_slide\` with
+                \`{ "move": "next" }\` to move to the next slide.
+            `}
+          />
           <${TakeawaySlide}
             chapter=${1}
             title="Why WebMCP?"
@@ -447,24 +457,44 @@
                 n: 1,
                 text: html`A good future bet, which you can start <u>now</u>`,
                 detail:
-                  "Straightforward to implement: your tools reuse the code your UI already calls. Already have agents / agentic tools consuming and more to come.",
+                  "Tools reuse the code your UI already calls, and agents already call them.",
               },
               {
                 n: 2,
-                text: "Auth, intranet solution",
-                detail:
-                  "Can simplify tools for agents that would otherwise be a pain to implement, especially in legacy systems.",
+                text: html`An active, growing community
+                  <${Link}
+                    className="takeaway__link"
+                    href="https://webmachinelearning.github.io/webmcp/"
+                    target="_blank"
+                    title="The WebMCP spec"
+                  >
+                    <${Icon} name="arrow-square-out" fill=${false} />
+                  </${Link}>`,
+                detail: html`4.6K+ stars on the${" "}
+                  <${Link} href="https://github.com/webmachinelearning/webmcp" target="_blank" fontSize="inherit">spec repo</${Link}>,${" "}
+                  with Google, Microsoft and others building in the open.`,
               },
               {
                 n: 3,
+                text: "Auth, intranet solution",
+                detail:
+                  "Simpler agent tools where a server would be a pain, like legacy systems.",
+              },
+              {
+                n: 4,
                 text: "Standards lead the hard parts",
                 detail:
-                  "You write a function. Browsers and the standards groups drive permissions, origin boundaries, user consent, etc.",
+                  "You write a function. Browsers handle permissions, origins and consent.",
               },
             ]}
             notes=${`
               * Code reuse: \`execute\` calls the same functions as the search box, so
                 there's no second implementation to build or keep in sync.
+              * Community: [webmachinelearning/webmcp](https://github.com/webmachinelearning/webmcp)
+                had 4.6K stars, 325 forks and 120+ open issues on Oct 12. Lots of
+                discussion in the issues, and the spec is published at
+                [webmachinelearning.github.io/webmcp](https://webmachinelearning.github.io/webmcp/).
+                Recheck the star count before the talk.
               * The hard parts: security, permissions and consent are the browser's job,
                 worked out in the open by the W3C group, not something each site reinvents.
               * Be honest if asked: the spec's security section (prompt injection
