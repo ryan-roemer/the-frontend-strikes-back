@@ -334,14 +334,15 @@
                   called it "ready for testing" on September 21.
                 * **Safari and Firefox:** nothing public.
                 * **You don't need a browser that supports it** to use WebMCP: polyfills and
-                  relays such as MCP-B fill the gap, and the demo uses one.
+                  relays such as MCP-B fill the gap. The first demo (ChatGPT) needs nothing
+                  extra; the second (Claude) uses a relay.
                 * An ${em("official")} W3C polyfill is coming, faster than you might think:
                   the group resolved on Aug 20 to host one in its GitHub org
                   ([webmcp#252](https://github.com/webmachinelearning/webmcp/issues/252)).
               * **Point 4: already in use**
                 * **Shopify:** WebMCP tools on every Liquid storefront, with nothing to
                   install: search, product, cart, and (since September) checkout with buyer
-                  confirmation. You can see it on reebok.com. Agent support is Chromium
+                  confirmation. Reebok.com is the first demo. Agent support is Chromium
                   origin trial only.
                   * Shopify changelog, Aug 5: tools are on "every Liquid storefront and on
                     the Hydrogen developer preview", and agent support is "limited to
@@ -360,7 +361,7 @@
               # What is WebMCP?
 
               * **MCP tools, served by your web page.** An emerging W3C Community Group standard.
-              * **Two APIs:** *Imperative* JavaScript, *Declarative* HTML forms.
+              * **Two APIs:** *Imperative* JavaScript, *declarative* HTML forms.
               * **In browsers now:** origin trial in Chrome and Edge.
               * **Already in use:** Shopify storefronts, ChatGPT desktop, ...
             `}
@@ -383,7 +384,7 @@
               * The agent can be just about anywhere: Claude Desktop over a relay, a
                 browser extension, or code in the page itself.
               * The real version is one click away (GitHub icon): \`search_nearform_knowledge\`
-                in vector-search-web, which is what Claude calls on the next slide.
+                in vector-search-web, which is what Claude calls in the second demo.
               * I'm only giving you the shape today. For the deep dive:
                 * Sarah Drasner's keynote, "The Agentic Web" (Thu 2:00pm, earlier today)
                 * Liad Yosef and Dominic Farolino, "MCP Apps + WebMCP: The Next Era of
@@ -393,8 +394,31 @@
           />
           <${DemoSlide}
             chapter=${1}
+            demo="chatgpt-desktop"
+            label="Live demo · any WebMCP site"
+            app="ChatGPT shops reebok.com"
+            url="reebok.com"
+            points=${[
+              'ChatGPT desktop\'s built-in browser calls WebMCP "site tools"',
+              "Shopify ships WebMCP tools on every Liquid storefront",
+            ]}
+            backup=${`TODO: BACKUP`}
+            notes=${`
+              * Two demos, two ways in. This one works out of the box:
+                ${em("someone else's")} site, a client with WebMCP built in.
+              * Reebok didn't write any of this. Shopify turned it on for every Liquid
+                storefront: search, product, cart, and checkout with buyer confirmation.
+              * ChatGPT's browser finds the page's tools and calls them, with nothing to set up.
+              * Still rolling out in ChatGPT, and only on some models.
+              * Other ways to try a WebMCP site today: Google's Model Context Tool Inspector
+                extension in Chrome (with the WebMCP flag on) lists and calls a page's
+                tools by hand.
+            `}
+          />
+          <${DemoSlide}
+            chapter=${1}
             demo="claude-desktop"
-            label="Live demo"
+            label="Live demo · any MCP client"
             app="Claude Desktop calls our page"
             url="nearform.github.io/vector-search-web"
             points=${[
@@ -404,9 +428,14 @@
             ]}
             backup=${`TODO: BACKUP`}
             notes=${`
+              * The other way in: ${em("our")} site, ${em("any")} MCP client, even one that
+                doesn't speak WebMCP yet.
               * Let's say we have an internal knowledge base, gated by company SSO auth.
               * We want Claude to be able to use this internal data alongside normal inputs.
               * And we want it way simpler than a normal Claude connecter.
+              * The relay is a plain local MCP server, so it isn't Claude-specific: Cursor,
+                VS Code, or any MCP client works the same way. It bridges clients that don't
+                speak WebMCP yet. WebMCP itself doesn't need it.
             `}
           />
           <${TakeawaySlide}

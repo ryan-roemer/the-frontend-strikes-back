@@ -32,16 +32,17 @@ Desktop won't load. Use the backup recordings. See [At the venue](#at-the-venue)
 
 ## The demos
 
-| Slide (chapter)               | Demo id          | Opens                                                |
-| ----------------------------- | ---------------- | ---------------------------------------------------- |
-| Claude Desktop calls our page | `claude-desktop` | `nearform.github.io/vector-search-web/?present=true` |
-| Vector search (2)             | `vector-search`  | `nearform.github.io/vector-search-web/?relay=false`  |
-| Web AI demos (2)              | `web-ai`         | `nearform.github.io/web-ai-demo/`                    |
-| Nearform research agents (3)  | `web-agents`     | `nearform.github.io/web-agents/?relay=false`         |
+| Slide (chapter)               | Demo id           | Opens                                                |
+| ----------------------------- | ----------------- | ---------------------------------------------------- |
+| ChatGPT shops reebok.com      | `chatgpt-desktop` | `www.reebok.com/`                                    |
+| Claude Desktop calls our page | `claude-desktop`  | `nearform.github.io/vector-search-web/?present=true` |
+| Vector search (2)             | `vector-search`   | `nearform.github.io/vector-search-web/?relay=false`  |
+| Web AI demos (2)              | `web-ai`          | `nearform.github.io/web-ai-demo/`                    |
+| Nearform research agents (3)  | `web-agents`      | `nearform.github.io/web-agents/?relay=false`         |
 
 - **On the slide:** the ↗ icon after the URL opens the demo in a new tab. It's there on the
   published deck too.
-- **All at once:** `npm run talk:open` opens the deck and all four, in this order, then brings
+- **All at once:** `npm run talk:open` opens the deck and all five, in this order, then brings
   the deck tab to the front. It skips tabs already open at the same URL. It **closes** any deck
   tab without `?offline` (the one `cdp:talk` opens), because that tab is blank with no network.
 - `?present=true` gives vector-search-web a generic title for the projector.
