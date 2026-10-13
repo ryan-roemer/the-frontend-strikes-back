@@ -143,7 +143,7 @@ const Overlay = ({ id }) => {
               <code>${videoPath(id)}</code> is missing. Add it with:
             </${Text}>
             <${Text} fontSize="22px" margin="8px 0px 0px">
-              <code>${`npm run video:add -- <file.mov> ${id}`}</code>
+              <code>${`npm run video:add -- <recording> ${id}`}</code>
             </${Text}>
             <${Text} fontSize="18px" margin="24px 0px 0px">Esc to go back</${Text}>
           </div>`

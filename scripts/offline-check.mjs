@@ -386,7 +386,7 @@ const main = async () => {
     for (const { id, url, status } of videos)
       console.log(`    ${String(status).padEnd(9)}  ${id}  ${url}`);
     if (videos.length) {
-      console.log("    → npm run video:add -- <file.mov> <demo-id>");
+      console.log("    → npm run video:add -- <recording> <demo-id>");
     }
   }
 

@@ -217,18 +217,51 @@ as planned. A demo without its file shows "No recording yet" instead.
 
 ## Add a recording
 
-1. Record the demo with ⇧⌘5 → **Record Selected Portion** (or the whole screen), **no
-   microphone**. Stop from the menu bar. You get a `.mov` on the Desktop.
-2. Encode it, from a normal terminal (not Claude's sandbox):
+1. Record the demo with [OBS](https://obsproject.com) (free). It records one app window,
+   and its Stop button stays put. One-time setup:
+   - **Settings → Video:** base and output 1920×1080, 30 FPS.
+   - **Settings → Output → Recording:** MP4 (or Hybrid MP4). Files land in `~/Movies`.
+   - **Sources → + → macOS Screen Capture**, method **Window Capture**, pick the app.
+     Right-click it → **Transform → Fit to screen**.
+   - Grant Screen Recording in System Settings → Privacy & Security, then restart OBS.
+
+   Then **Start Recording** / **Stop Recording** in the Controls panel. Make the app's text
+   bigger first (⌘+), turn on Do Not Disturb, and leave a still second at each end.
+
+   ⇧⌘5 → **Record Selected Portion** works too, with no install: drag the box around the
+   window, **no microphone**, stop from the menu bar (or ⌃⌘Esc). You get a `.mov` on the
+   Desktop. It can't follow a single window, and the stop button hides behind the notch.
+
+2. Optional: speed up the waiting. A demo that sits on a spinner can play that stretch fast
+   instead of cutting it, so the audience still sees it happen. With ffmpeg
+   (`brew install ffmpeg`), this plays 19–54s at 8× and the whole result at 2×:
 
    ```sh
-   npm run video:add -- ~/Desktop/"Screen Recording ….mov" web-agents
+   ffmpeg -i ~/Movies/"2026-10-13 14-48-53.mp4" -filter_complex \
+     "[0:v]trim=0:19,setpts=PTS-STARTPTS[a]; \
+      [0:v]trim=19:54,setpts=(PTS-STARTPTS)/8[b]; \
+      [0:v]trim=54,setpts=PTS-STARTPTS[c]; \
+      [a][b][c]concat=n=3:v=1:a=0,setpts=PTS/2,fps=30[v]" \
+     -map "[v]" -an -c:v libx264 -crf 18 -pix_fmt yuv420p ~/Movies/chatgpt-fast.mp4
    ```
 
-   This writes `media/videos/web-agents.mp4` (H.264, at most 1920×1080, no audio) and a
-   `.jpg` poster, replacing any earlier ones, and prints the size.
+   The cut points are in the original recording's time. Drop `,setpts=PTS/2` to keep the
+   rest at normal speed. `fps=30` drops the surplus frames, which would otherwise claim
+   hundreds of FPS in the fast stretch. Watch the result once: the prompt and the answer
+   must stay readable from the back of the room. For a plain cut with no install, use
+   QuickTime: **Edit → Split Clip** (⌘Y) at both ends, then delete the middle clip.
 
-3. Check it on the slide with ⇧⌥V. `offline:check` then counts it as present.
+3. Encode it, from a normal terminal (not Claude's sandbox). Any `.mov` or `.mp4` works:
+
+   ```sh
+   npm run video:add -- ~/Movies/chatgpt-fast.mp4 chatgpt-desktop
+   ```
+
+   This writes `media/videos/chatgpt-desktop.mp4` (H.264, at most 1920×1080, no audio) and
+   a `.jpg` poster, replacing any earlier ones, and prints the size. Keep the original
+   recording too, in case you want to re-cut it.
+
+4. Check it on the slide with ⇧⌥V. `offline:check` then counts it as present.
 
 `media/videos/` is gitignored: back up the recordings yourself. The demo ids are in
 `deck/demos.js`. A new one also needs `demo="<id>"` on its `DemoSlide` in `index.html`.

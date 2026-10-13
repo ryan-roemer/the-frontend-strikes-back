@@ -1,6 +1,6 @@
 // Encodes a screen recording into a demo's backup video, plus a poster.
 //
-//   npm run video:add -- ~/Desktop/rec.mov <demo-id>
+//   npm run video:add -- ~/Movies/recording.mp4 <demo-id>
 //
 // Writes `media/videos/<demo-id>.mp4` and `.jpg` (gitignored), replacing any earlier
 // ones. The demo id must be listed in `deck/demos.js`. See docs/offline.md.
@@ -98,7 +98,7 @@ const main = async () => {
   const ids = Object.keys(DEMO_VIDEOS);
   if (!source || !id) {
     throw new Error(
-      `usage: npm run video:add -- <file.mov> <demo-id>\n  demo ids: ${ids.join(", ")}`,
+      `usage: npm run video:add -- <recording> <demo-id>\n  demo ids: ${ids.join(", ")}`,
     );
   }
   if (!ids.includes(id)) {
