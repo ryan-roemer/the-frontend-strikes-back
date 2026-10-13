@@ -48,15 +48,16 @@ export const backgrounds = {
   // TODO: Replace with an AgntCon / MCPCon venue image.
   venue: `https://images.unsplash.com/photo-1745816731674-d9c33eaa4f3a?${UNSPLASH_QUERY}`,
   city: `https://images.unsplash.com/photo-1449157291145-7efd050a4d0e?${UNSPLASH_QUERY}`,
-  networkCables: `https://images.unsplash.com/photo-1558494949-ef010cbdcc31?${UNSPLASH_QUERY}`,
+  blueWires: `https://images.unsplash.com/photo-1683322499436-f4383dd59f5a?${UNSPLASH_QUERY}`,
   bookStacks: `https://images.unsplash.com/photo-1550399105-c4db5fb85c18?${UNSPLASH_QUERY}`,
-  oldComputer: `https://images.unsplash.com/photo-1561990975-6cfff5661206?${UNSPLASH_QUERY}`,
-  // Ch. 4's agents keep notes for each other (`take_notes` / `read_notes`), so
-  // the divider is a wall of them.
-  postits: `https://images.unsplash.com/photo-1507925921958-8a62f3d1a50d?${UNSPLASH_QUERY}`,
+  circuitBlue: `https://images.unsplash.com/photo-1562408590-e32931084e23?${UNSPLASH_QUERY}`,
+  chessBlack: `https://images.unsplash.com/photo-1580541832626-2a7131ee809f?${UNSPLASH_QUERY}`,
   mopop: `https://images.unsplash.com/photo-1508858648555-ba5da0be9511?${UNSPLASH_QUERY}`,
 
   // Library: unused, but known-good. Swap any of these into the list above.
+  networkCables: `https://images.unsplash.com/photo-1558494949-ef010cbdcc31?${UNSPLASH_QUERY}`,
+  oldComputer: `https://images.unsplash.com/photo-1561990975-6cfff5661206?${UNSPLASH_QUERY}`,
+  postits: `https://images.unsplash.com/photo-1507925921958-8a62f3d1a50d?${UNSPLASH_QUERY}`,
   danger: `https://images.unsplash.com/photo-1587065915399-8f8c714ab540?${UNSPLASH_QUERY}`,
   greenCode: `https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?${UNSPLASH_QUERY}`,
   cuttingBoard: `https://images.unsplash.com/photo-1690983321709-0eccbcb20d00?${UNSPLASH_QUERY}`,

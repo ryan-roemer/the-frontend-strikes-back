@@ -48,21 +48,21 @@ export const chapters = [
     pillar: "Interface",
     title: "WebMCP",
     accent: ACCENTS.blue,
-    background: backgrounds.networkCables,
+    background: backgrounds.blueWires,
   },
   {
     n: 2,
     pillar: "Runtime",
     title: "AI in the browser",
     accent: ACCENTS.darkGreen,
-    background: backgrounds.oldComputer,
+    background: backgrounds.circuitBlue,
   },
   {
     n: 3,
     pillar: "Web agents",
     title: "Agents in the browser",
     accent: ACCENTS.purple,
-    background: backgrounds.postits,
+    background: backgrounds.chessBlack,
   },
 ];
 
