@@ -1384,7 +1384,7 @@ const PieceMap = ({ inPlay }) => html`
 export const DemoSlide = ({
   chapter,
   demo,
-  label = "Live demo",
+  label = "Demo",
   app,
   url,
   points = [],

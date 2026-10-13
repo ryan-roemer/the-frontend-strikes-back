@@ -1,6 +1,6 @@
 document.modelContext.registerTool({
   name: "search_documents",
-  description: "Search the user's documents and return matching excerpts.",
+  description: "Search documents and return matching excerpts.",
   inputSchema: {
     type: "object",
     properties: {
@@ -8,5 +8,6 @@ document.modelContext.registerTool({
     },
     required: ["query"],
   },
+  // Use any existing app code, context, auth, prefs. Can update UI too.
   execute: ({ query }) => window.app.searchDocuments(query),
 });

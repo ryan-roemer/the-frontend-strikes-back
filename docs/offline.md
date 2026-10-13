@@ -211,9 +211,9 @@ Click it or press **⇧⌥V** to play the recording fullscreen.
 
 The deck doesn't move while it's up. Only on `localhost`: the published deck has no button.
 
-Recordings: `claude-desktop` (the relay demo) and `web-agents`. A demo without its file
-shows "No recording yet" instead. `vector-search` and `web-ai` have no recording slot yet:
-add them to `DEMO_VIDEOS` in `deck/demos.js` to get the button.
+Every demo slide has a recording slot in `DEMO_VIDEOS` (`deck/demos.js`), so any demo can be
+swapped for its video on the day. The slides say "Demo", not "Live demo", so a video reads
+as planned. A demo without its file shows "No recording yet" instead.
 
 ## Add a recording
 

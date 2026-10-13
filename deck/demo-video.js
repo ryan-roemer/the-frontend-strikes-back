@@ -131,7 +131,7 @@ const Overlay = ({ id }) => {
     className="demo-video"
     role="dialog"
     aria-modal="true"
-    aria-label=${`Backup recording: ${DEMO_VIDEOS[id]}`}
+    aria-label=${`Demo video: ${DEMO_VIDEOS[id]}`}
     tabindex=${-1}
     onKeyDownCapture=${onKeyDown}
   >
@@ -161,7 +161,7 @@ const Overlay = ({ id }) => {
       className="chat-toggle demo-video__close"
       onClick=${close}
       title="Close (Esc)"
-      aria-label="Close the recording"
+      aria-label="Close the demo video"
     >
       <i className="ph-fill ph-x" aria-hidden="true"></i>
     </button>
@@ -206,8 +206,8 @@ export const VideoToggle = () => {
       store=${openStore}
       onToggle=${toggle}
       icon="ph-film-strip"
-      labelOn=${`Close the backup recording (${VIDEO_KEY_HINT})`}
-      labelOff=${`Play the backup recording (${VIDEO_KEY_HINT})`}
+      labelOn=${`Close the demo video (${VIDEO_KEY_HINT})`}
+      labelOff=${`Play the demo video (${VIDEO_KEY_HINT})`}
       modifier="chat-toggle--video"
     />
     ${open === id && createPortal(html`<${Overlay} id=${id} />`, document.body)}

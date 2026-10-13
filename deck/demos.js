@@ -58,8 +58,11 @@ export const DEMO_PIECES = {
  * docs/offline.md, "When a live demo fails".
  */
 export const DEMO_VIDEOS = {
-  "claude-desktop": "Claude Desktop calls our page over the relay",
   "chatgpt-desktop": "ChatGPT shops reebok.com with its site tools",
+  "claude-desktop": "Claude Desktop calls our page over the relay",
+  "deck-tools": "This deck has WebMCP tools",
+  "vector-search": "Vector search",
+  "web-ai": "Web AI demos",
   "web-agents": "Nearform research agents",
 };
 
