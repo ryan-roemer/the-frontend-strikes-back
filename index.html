@@ -181,6 +181,51 @@
 
       const qrCodeImg = `<img class="qr-card" src="${images.qrCode}" width="200px" style="margin-top: calc(22vh);" />`;
 
+      // Links on the "Thanks!" slide.
+      const SOCIAL_LINKS = [
+        {
+          icon: "github-logo",
+          text: "ryan-roemer",
+          href: "https://github.com/ryan-roemer/",
+        },
+        {
+          icon: "linkedin-logo",
+          text: "in/ryanroemer",
+          href: "https://www.linkedin.com/in/ryanroemer/",
+        },
+        {
+          icon: "butterfly",
+          text: "@ryan-roemer.bsky.social",
+          href: "https://bsky.app/profile/ryan-roemer.bsky.social",
+        },
+        {
+          icon: "envelope",
+          text: "ryan.roemer@nearform.com",
+          href: "mailto:ryan.roemer@nearform.com",
+        },
+      ];
+      const DECK_LINKS = [
+        {
+          icon: "browser",
+          text: "ryan-roemer.github.io/the-frontend-strikes-back",
+          href: "https://ryan-roemer.github.io/the-frontend-strikes-back/",
+        },
+        {
+          icon: "github-logo",
+          text: "github.com/ryan-roemer/the-frontend-strikes-back",
+          href: "https://github.com/ryan-roemer/the-frontend-strikes-back",
+        },
+      ];
+      const linkLines = (links, fontSize) =>
+        links.map(
+          ({ icon: name, text, href }) => html`
+            <${Text} key=${href} fontSize=${fontSize} margin="6px 0" padding="0px">
+              <${Icon} name=${name} color="var(--chapter-accent)" />${" "}
+              <${Link} href=${href} fontSize=${fontSize}>${text}</${Link}>
+            </${Text}>
+          `,
+        );
+
       // The presentation deck.
       //
       // `backgroundImage` on the Deck is inherited by every slide that does not
@@ -838,6 +883,40 @@
             </${SlideHeading}>
             <${AudienceCards} audiences=${AUDIENCES} action=${true} />
           </${DeckSlide}>
+          <${DeckSlide}>
+            <${FlexBox} height="100%" justifyContent="space-between" alignItems="center">
+              <${FlexBox} flexDirection="column" alignItems="start">
+                <${SlideHeading} fontSize="h1" textAlign="left" margin="0px" padding="0px">Thanks!</${SlideHeading}>
+                <${AccentRule} />
+                <${FlexBox} flexDirection="column" alignItems="start" margin="28px 0 0">
+                  ${linkLines(SOCIAL_LINKS, "34px")}
+                </${FlexBox}>
+                <${Text} className="eyebrow" fontSize="20px" margin="44px 0 8px" padding="0px">
+                  Slides & source
+                </${Text}>
+                ${linkLines(DECK_LINKS, "28px")}
+              </${FlexBox}>
+              <${FlexBox} flexDirection="column" alignItems="center">
+                <${Image} className="qr-card" src=${images.qrCode} width="260px" height="260px" />
+                <${Text} className="qr-caption" fontSize="18px" margin="16px 0 0" padding="0px">
+                  Scan for slides
+                </${Text}>
+              </${FlexBox}>
+            </${FlexBox}>
+            <${Notes}>
+              <${Markdown} className="notes">
+                ${`
+                  * Find me in the hall! Love to talk agents, the web platform, and code.
+                  * Stickers and t-shirts.
+                  * The deck and its source are linked at the bottom, and the QR code
+                    opens the slides.
+                `}
+              </${Markdown}>
+            </${Notes}>
+          </${DeckSlide}>
+          ${
+            "" /*
+          // TODO: REMOVE? The old links slide. The deck links now live on "Thanks!".
           <${MarkdownSlideSet} ...${mdSlideProps()}>
             ${`
               --- { "layout": "columns" }
@@ -862,27 +941,10 @@
               Notes: \
                 All three demo apps are public and run entirely in the tab, so anyone \
                 can open them on the wifi here.
-
-              --- { "layout": "columns" }
-
-              ::section
-
-              # Thanks!
-
-              ${icon("github-logo")} [ryan-roemer](https://github.com/ryan-roemer/)
-              ${icon("linkedin-logo")} [in/ryanroemer](https://www.linkedin.com/in/ryanroemer/)
-              ${icon("butterfly")} [@ryan-roemer.bsky.social](https://bsky.app/profile/ryan-roemer.bsky.social)
-              ${icon("envelope")} [ryan.roemer@nearform.com](mailto:ryan.roemer@nearform.com)
-
-              ::section
-
-              ${qrCodeImg}
-
-              Notes: \
-                Find me in the hall! Love to talk agents, the web platform, and code. \
-                Stickers and t-shirts.
             `}
           </${MarkdownSlideSet}>
+          */
+          }
         </${Deck}>
       `;
 
