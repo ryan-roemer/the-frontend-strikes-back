@@ -11,11 +11,11 @@
  * the same tools would drift, and under `?safe` the editing tools are never registered, so
  * they are never declared either.
  *
- * `execute` RUNS THE SAME `guard()`ed FUNCTION as everything else. The prompted path, the
- * inspector and a WebMCP host all call `tool.call`, and so does this. What differs is only
- * who decided to make the call.
+ * `execute` RUNS THE SAME `guard()`ed FUNCTION as everything else, through `callTool`:
+ * the browser's `executeTool` where there is one, `tool.call` directly where there is not.
+ * Both routes end at the same function. What differs is only who decided to make the call.
  */
-import { getTools } from "../../mcp/index.js";
+import { callTool, getTools } from "../../mcp/index.js";
 import { summarize } from "../../mcp/schema.js";
 import { MIN_SUMMARY, registeredExamples } from "./catalog.js";
 import { invalidate } from "./invalidate.js";
@@ -57,7 +57,7 @@ const forModel = (result) => ({
 /**
  * The declarations for one turn.
  *
- * `onCall` receives `{ name, args, result }` after each call, with the full MCP result, so
+ * `onCall` receives `{ name, args, result, via }` after each call, with the full MCP result, so
  * `respond.js` can build the same receipt the prompted path shows. Per turn rather than
  * once at mount, because the receipt belongs to the turn that made the call.
  *
@@ -72,9 +72,9 @@ export const nativeTools = ({ onCall } = {}) =>
     description: summarize(tool.description, { atLeast: MIN_SUMMARY }),
     inputSchema: stripSchema(tool.inputSchema),
     execute: async (args) => {
-      const result = await tool.call(args ?? {});
+      const { result, via } = await callTool(tool, args ?? {});
       invalidate(tool.name, result);
-      onCall?.({ name: tool.name, args: args ?? {}, result });
+      onCall?.({ name: tool.name, args: args ?? {}, result, via });
       return forModel(result);
     },
   }));

@@ -81,13 +81,15 @@ downstream can recover from.
 
 `window.deckMcp` is installed whether or not a `modelContext` exists:
 
-|                    |                                                                                                                         |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `list()`           | every tool: `short` (a call signature like `find_nodes({ query, slide, scope })`), `name`, `description`, `inputSchema` |
-| `call(name, args)` | run one. Throws only for an unknown tool name — everything else comes back as a result                                  |
-| `schema(name)`     | the tool's declared `outputSchema`, for checking results against their own contract                                     |
-| `writes`           | whether the writing tools are registered (false under `?safe`)                                                          |
-| `host`             | whether a real `modelContext` was found                                                                                 |
+|                        |                                                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `list()`               | every tool: `short` (a call signature like `find_nodes({ query, slide, scope })`), `name`, `description`, `inputSchema`                |
+| `call(name, args)`     | run one. Throws only for an unknown tool name — everything else comes back as a result                                                 |
+| `dispatch(name, args)` | run one the way the chat panel does: through the browser's `executeTool` if it has one, directly if not. Resolves to `{ result, via }` |
+| `via`                  | `"webmcp"` or `"direct"`: the route `dispatch` and the chat would take now. `?direct` forces `"direct"`                                |
+| `schema(name)`         | the tool's declared `outputSchema`, for checking results against their own contract                                                    |
+| `writes`               | whether the writing tools are registered (false under `?safe`)                                                                         |
+| `host`                 | whether a real `modelContext` was found                                                                                                |
 
 ```js
 deckMcp.list().map((t) => t.short); // what can I call?

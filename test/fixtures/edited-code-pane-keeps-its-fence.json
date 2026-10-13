@@ -30,7 +30,7 @@
         "slides": {
           "{at}": [
             "re:^<slide n=\"{at}\" .*>$",
-            "subtitle: WebMCP in one call",
+            "subtitle: One tool, up close",
             "code: register-tool.js",
             "```javascript",
             "document.modelContext.registerTool({",
@@ -62,7 +62,7 @@
         "slides": {
           "{at}": [
             "re:^<slide n=\"{at}\" .*>$",
-            "subtitle: WebMCP in one call",
+            "subtitle: One tool, up close",
             "code: register-tool.js",
             "```javascript",
             "document.booyahContext.registerTool({",

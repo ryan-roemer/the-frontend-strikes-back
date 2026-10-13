@@ -27,7 +27,7 @@
           "{at}": [
             "re:^<slide n=\"{at}\" .*>$",
             "...",
-            "subtitle: in one call",
+            "subtitle: The API",
             "..."
           ]
         }
@@ -36,7 +36,7 @@
     {
       "ask": "Did that work?",
       "replies": [
-        "Yes — the heading now reads \"in one call\". Nothing else on the slide changed."
+        "Yes — the heading now reads \"The API\". Nothing else on the slide changed."
       ],
       "expect": {
         "calls": []

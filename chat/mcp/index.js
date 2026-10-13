@@ -16,6 +16,7 @@
  * only new variable is the model.
  */
 import { installEditTools, READ_TOOLS, NAV_TOOLS } from "./tools.js";
+import { createDispatch } from "./host.js";
 import { flag } from "../url.js";
 
 /**
@@ -95,6 +96,20 @@ let registry = [];
 export const getTools = () => registry;
 
 /**
+ * Run a registry tool the way the page's own callers should: through the browser's
+ * `executeTool` when it has one, and directly when it does not (Firefox, Safari, a
+ * Chrome without WebMCP). Resolves to `{ result, via }`; see `host.js`.
+ *
+ * `?direct` forces the direct route in a browser that has the host, so the two can be
+ * compared without switching browsers.
+ */
+export const callTool = createDispatch({
+  getModelContext,
+  win: window,
+  enabled: () => !flag("direct"),
+});
+
+/**
  * Register the deck's tools, and leave a console harness behind either way.
  *
  * Returns a teardown, matching `mountChat()`. There is no unregister in the API
@@ -141,6 +156,7 @@ export const installTools = () => {
     stopWatchdog();
     registry = [];
     installed = false;
+    callTool.reset();
     delete window.deckMcp;
   };
 
@@ -167,6 +183,13 @@ export const installTools = () => {
       if (!tool) throw new Error(`no such tool: ${name}`);
       return tool.call(args);
     },
+    // `call` stays direct: it is how to tell a broken tool from a broken host. This
+    // is the route the chat panel takes, host first, resolving to `{ result, via }`.
+    dispatch: (name, args) => {
+      const tool = tools.find((t) => t.name === name);
+      if (!tool) throw new Error(`no such tool: ${name}`);
+      return callTool(tool, args);
+    },
     // The declared shape of a tool's `structuredContent`. Exposed so the
     // contract can be CHECKED against what the tool actually returns -- a value
     // the code emits and the schema does not list is a result a strict host is
@@ -174,6 +197,10 @@ export const installTools = () => {
     schema: (name) => tools.find((t) => t.name === name)?.outputSchema ?? null,
     writes: writesEnabled(),
     host: !!getModelContext(),
+    // A getter, because `?direct` and the host can both change after install.
+    get via() {
+      return callTool.via();
+    },
   };
 
   const mc = getModelContext();
@@ -191,15 +218,16 @@ export const installTools = () => {
       name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema,
-      // The SAME guarded function the harness calls, not a second wrapping of the
-      // same tool. Two wrappers behave identically, but only one of them can be
-      // the thing a console session is exercising.
-      execute: tool.call,
+      // The SAME guarded function the harness calls, looked up when the host calls
+      // it rather than captured now. The chat panel's own calls come back in through
+      // here (see `host.js`), and the replay spy swaps `tool.call` for the length of
+      // a turn: a captured reference would run past the spy.
+      execute: (args) => tool.call(args),
     });
   }
 
   console.info(
-    `[mcp] registered ${tools.length} tools${writesEnabled() ? "" : " (read-only: ?safe)"}`,
+    `[mcp] registered ${tools.length} tools${writesEnabled() ? "" : " (read-only: ?safe)"}; chat calls go ${callTool.via() === "webmcp" ? "through executeTool" : "direct"}`,
   );
 
   return teardown;

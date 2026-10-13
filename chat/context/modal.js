@@ -46,6 +46,7 @@ const ROLES = {
   tool: "Tool",
   tools: "Tools",
   receipt: "Receipt",
+  calls: "Calls",
 };
 
 /**
@@ -75,6 +76,24 @@ const toolsText = (context) =>
  */
 const nativeTurnOf = (context) =>
   context.turn?.receipts?.length ? context.turn : null;
+
+/**
+ * The tool calls this turn made, and which route each took: through the browser's
+ * `executeTool`, or straight to the registry where there is no WebMCP host. Attached by
+ * `act/respond.js` on both paths. Shown here rather than in the bubble, because it is a
+ * question about the plumbing, not part of the answer.
+ */
+const callsText = (context) =>
+  (context.calls ?? [])
+    .map(({ name, args, via }) => {
+      const shown =
+        args && Object.keys(args).length ? JSON.stringify(args) : "";
+      const route = via === "webmcp" ? "via executeTool" : "direct";
+      return `${name}(${shown}) · ${route}`;
+    })
+    .join("\n");
+
+const CALLS_NOTE = "how the deck ran each call";
 
 const RECEIPT_NOTE = "written by the deck, not the model";
 const NO_REPLY = "(no text: the receipt above is the whole answer)";
@@ -175,6 +194,9 @@ const ContextModal = ({ context }) => {
         ...(context.answer
           ? [
               ANSWER_RULE,
+              ...(context.calls?.length
+                ? [`[${ROLES.calls}] (${CALLS_NOTE})\n${callsText(context)}`]
+                : []),
               ...(nativeTurnOf(context)
                 ? [
                     ...context.turn.receipts.map(
@@ -326,6 +348,15 @@ const ContextModal = ({ context }) => {
                   <div className="chat-context__rule" role="separator">
                     <span>replied</span>
                   </div>
+                  ${
+                    context.calls?.length
+                      ? html`<${Message}
+                          role="calls"
+                          content=${callsText(context)}
+                          note=${CALLS_NOTE}
+                        />`
+                      : null
+                  }
                   ${
                     nativeTurnOf(context)
                       ? html`

@@ -8,7 +8,12 @@ import {
   useState,
 } from "react";
 import htm from "htm";
-import { getModelContext, getTools, writesEnabled } from "../mcp/index.js";
+import {
+  callTool,
+  getModelContext,
+  getTools,
+  writesEnabled,
+} from "../mcp/index.js";
 import { setOpen, initialTool } from "./state.js";
 import { useCopy } from "../ui/use-copy.js";
 import { useDismissKeys } from "../ui/use-dismiss-keys.js";
@@ -26,9 +31,10 @@ const html = htm.bind(createElement);
  * discovering and the calling, on screen, driven by a person instead of a model.
  *
  * IT CALLS THE REGISTERED TOOLS. `getTools()` hands back the same `guard()`ed
- * functions that went to `registerTool`, so what happens when this Execute
- * button is pressed is what happens when an agent calls the tool -- not a
- * parallel implementation that agrees with it today.
+ * functions that went to `registerTool`, and Execute runs them through
+ * `callTool`: the browser's `executeTool` where there is one. So what happens
+ * when this button is pressed is what happens when an agent calls the tool --
+ * not a parallel implementation that agrees with it today.
  *
  * Lazily loaded; see `gate.js`. Default export because `lazy()` requires one.
  */
@@ -55,6 +61,7 @@ const ToolDetail = ({ tool }) => {
   const [args, setArgs] = useState(() => initialArgs(fields));
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
+  const [via, setVia] = useState(null);
   const output = useRef(null);
 
   const change = useCallback(
@@ -77,9 +84,16 @@ const ToolDetail = ({ tool }) => {
       // which is the point. What must not also happen is Execute staying disabled
       // forever: without this, one tool that broke the contract left the sheet with no
       // way back except closing it.
+      //
+      // Through `callTool`, so Execute takes the route an agent's call takes: the
+      // browser's `executeTool` where there is one.
       try {
-        const value = await tool.call(toArgs(fields, args));
+        const { result: value, via: route } = await callTool(
+          tool,
+          toArgs(fields, args),
+        );
         setResult(value);
+        setVia(route);
       } finally {
         setBusy(false);
       }
@@ -175,6 +189,13 @@ const ToolDetail = ({ tool }) => {
             >Result${
               failed &&
               html` <span className="chat-tools__error-chip">isError</span>`
+            }${
+              result != null &&
+              via &&
+              html` <span
+                className=${`chat-tools__via-chip chat-tools__via-chip--${via}`}
+                >${via === "webmcp" ? "via executeTool" : "direct"}</span
+              >`
             }</span
           >
           ${

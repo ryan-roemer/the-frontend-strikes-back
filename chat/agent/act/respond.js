@@ -41,6 +41,7 @@
 import { activeProvider } from "../model-state.js";
 import { streamAnswer } from "../session.js";
 import { byName, toolNames } from "./catalog.js";
+import { callTool } from "../../mcp/index.js";
 import { invalidate } from "./invalidate.js";
 import { nativeTools } from "./native.js";
 import { parseCall, sniff } from "./parse.js";
@@ -77,11 +78,13 @@ const respondNative = async ({ text, onChunk, signal, onPrompt }) => {
   // object, `ui/transcript.js` spreads it on click -- so both fields are complete by the
   // time anyone reads them.
   const turn = { receipts: [], reply: "" };
+  const calls = [];
   const bubble = () =>
     [...turn.receipts, turn.reply.trim()].filter(Boolean).join("\n\n");
 
   const tools = nativeTools({
-    onCall: ({ name, args, result }) => {
+    onCall: ({ name, args, result, via }) => {
+      calls.push({ name, args, via });
       turn.receipts.push(receiptText(name, args, result));
       onChunk?.(bubble());
     },
@@ -91,7 +94,8 @@ const respondNative = async ({ text, onChunk, signal, onPrompt }) => {
     await streamAnswer({
       text,
       signal,
-      onPrompt: onPrompt && ((context) => onPrompt({ ...context, turn })),
+      onPrompt:
+        onPrompt && ((context) => onPrompt({ ...context, turn, calls })),
       tools,
       onStatus: (line) => onChunk?.(line),
       onChunk: (accumulated) => {
@@ -198,7 +202,17 @@ export const respond = async ({ text, onChunk, signal, onPrompt }) => {
     return respondNative({ text, onChunk, signal, onPrompt });
   }
 
-  const first = await ask({ text, onChunk, signal, onPrompt });
+  // Which route each call took, for the context viewer. Kept by reference like the
+  // native path's `turn`: `onPrompt` fires before any tool runs.
+  const calls = [];
+  const report = onPrompt && ((context) => onPrompt({ ...context, calls }));
+  const run = async (tool, args) => {
+    const { result, via } = await callTool(tool, args);
+    calls.push({ name: tool.name, args, via });
+    return result;
+  };
+
+  const first = await ask({ text, onChunk, signal, onPrompt: report });
   if (!first.call) return first.answer;
 
   let call = first.call;
@@ -213,7 +227,7 @@ export const respond = async ({ text, onChunk, signal, onPrompt }) => {
       text: `${badCall(call)}\n\nThe request was: ${text}`,
       onChunk,
       signal,
-      onPrompt,
+      onPrompt: report,
     });
     // Prose after a failed call is a fine outcome: the model decided it did not need a
     // tool, and that answer has already streamed to the transcript through `ask`.
@@ -231,11 +245,10 @@ export const respond = async ({ text, onChunk, signal, onPrompt }) => {
     }
   }
 
-  // `tool.call` is the SAME `guard()`ed function `mcp/index.js` handed the host, not a
-  // second path to the same tool. The in-page model and a browser extension are running
-  // identical code, which is the only version of this worth demoing -- and it means a
-  // throw becomes an MCP error result rather than a rejected promise here.
-  let result = await tool.call(call.args);
+  // Through the browser's `executeTool` where there is one, so the in-page model calls
+  // the tool the way a browser extension would. Either route ends at the same `guard()`ed
+  // function, so a throw becomes an MCP error result rather than a rejected promise here.
+  let result = await run(tool, call.args);
   invalidate(call.name, result);
 
   if (retryable(result) && !signal?.aborted) {
@@ -257,14 +270,14 @@ export const respond = async ({ text, onChunk, signal, onPrompt }) => {
       text: retryText(call.name, call.args, result, text),
       onChunk,
       signal,
-      onPrompt,
+      onPrompt: report,
     });
 
     if (retry.call) {
       const second = byName(retry.call.name);
       if (second && retry.call.args !== null) {
         call = retry.call;
-        result = await second.call(call.args);
+        result = await run(second, call.args);
         invalidate(call.name, result);
       }
     } else if (retry.answer) {

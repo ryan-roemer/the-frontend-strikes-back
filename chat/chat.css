@@ -1279,12 +1279,25 @@
   color: var(--muted, #97a1b8);
 }
 
-.chat-tools__error-chip {
+.chat-tools__error-chip,
+.chat-tools__via-chip {
   margin-left: 6px;
   padding: 1px 5px;
   border: 1px solid var(--nf-feedback-error, #fc6986);
   border-radius: 4px;
   color: var(--nf-feedback-error, #fc6986);
+}
+
+/* Which route the call took. Lit only for WebMCP, the route the slides are about;
+ * "direct" stays muted, like "no host" in the header. */
+.chat-tools__via-chip {
+  border-color: var(--hairline, rgba(255, 255, 255, 0.1));
+  color: inherit;
+}
+
+.chat-tools__via-chip--webmcp {
+  border-color: var(--chapter-accent, #78eec5);
+  color: var(--chapter-accent, #78eec5);
 }
 
 .chat-tools__result {
@@ -1426,12 +1439,14 @@
 
 /* Tool declarations: sent, but beside the messages rather than as one, so dashed like
  * the deck blocks. Receipts: came back, but written by the deck rather than the model,
- * so dotted -- distinct from the solid accent on the model's own reply. */
+ * so dotted -- distinct from the solid accent on the model's own reply. The calls list is
+ * the deck's too: which route each one took. */
 .chat-context__message--tools {
   border-left-style: dashed;
 }
 
-.chat-context__message--receipt {
+.chat-context__message--receipt,
+.chat-context__message--calls {
   border-left-style: dotted;
   border-left-color: var(--chapter-accent, #78eec5);
 }

@@ -45,7 +45,7 @@
           "{at}": [
             "re:^<slide n=\"{at}\" .*>$",
             "...",
-            "bullet 2: Two APIs: Imperative TypeScript, Declarative HTML forms.",
+            "bullet 2: Two APIs: Imperative TypeScript, declarative HTML forms.",
             "..."
           ]
         }
