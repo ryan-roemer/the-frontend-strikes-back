@@ -228,6 +228,20 @@ as planned. A demo without its file shows "No recording yet" instead.
    Then **Start Recording** / **Stop Recording** in the Controls panel. Make the app's text
    bigger first (⌘+), turn on Do Not Disturb, and leave a still second at each end.
 
+   Size the window to 16:9 first, so it fills the frame with no black bars. 1600×900
+   points records at 3200×1800 on Retina and scales cleanly to 1920×1080. The first run
+   asks to allow your terminal under Privacy & Security → Accessibility:
+
+   ```sh
+   # Claude Desktop: name the window. Its "front window" is a hidden 66×20 helper.
+   osascript -e 'tell application "System Events" to tell process "Claude" to set size of window "Claude" to {1600, 900}'
+   # ChatGPT desktop
+   osascript -e 'tell application "System Events" to tell process "ChatGPT" to set size of front window to {1600, 900}'
+   ```
+
+   For another app, list its windows first (names, then sizes) and pick the big one:
+   `osascript -e 'tell application "System Events" to tell process "<App>" to get {name, size} of every window'`.
+
    ⇧⌘5 → **Record Selected Portion** works too, with no install: drag the box around the
    window, **no microphone**, stop from the menu bar (or ⌃⌘Esc). You get a `.mov` on the
    Desktop. It can't follow a single window, and the stop button hides behind the notch.
