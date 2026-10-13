@@ -16,6 +16,10 @@
  *     `null` if the call navigated the page.
  *   - It does not check arguments against `inputSchema`. A bad slide number reaches the
  *     tool, and the tool's own refusal comes back.
+ *   - Chrome 154 and earlier take the arguments as a JSON STRING, and reject an object
+ *     with "Failed to parse input arguments" before the tool runs. 155 takes the object.
+ *     There is no flag to tell them apart, so the first refusal is the test: see
+ *     `execute` below.
  *
  * No DOM imports, so `test/host.test.js` can run it in node against a fake host.
  */
@@ -47,6 +51,9 @@ export const fromHost = (value) => {
     return textResult(value);
   }
 };
+
+/** How Chrome 154 and earlier refuse arguments passed as an object. */
+const STRING_ARGS_REFUSAL = /parse input arguments/i;
 
 /**
  * Build the dispatcher.
@@ -108,6 +115,29 @@ export const createDispatch = ({
   // Tool names already warned about, so a missing tool says so once, not every turn.
   const warned = new Set();
 
+  // The host found to want its arguments as a JSON string (Chrome 154 and earlier).
+  let stringHost = null;
+
+  /**
+   * `executeTool`, with the arguments in whichever form this host takes.
+   *
+   * Objects first, as 155+ wants. A parse refusal is safe to retry: the host rejected the
+   * call before running the tool, so nothing happened twice. The answer is kept per host,
+   * so later calls go straight to the string form.
+   */
+  const execute = async (mc, found, args) => {
+    if (stringHost !== mc) {
+      try {
+        return await mc.executeTool(found, args);
+      } catch (error) {
+        if (!STRING_ARGS_REFUSAL.test(error?.message ?? "")) throw error;
+        stringHost = mc;
+        console.warn("[mcp] host wants JSON-string arguments (Chrome < 155)");
+      }
+    }
+    return mc.executeTool(found, JSON.stringify(args ?? {}));
+  };
+
   /**
    * Run one registry tool, through the host when there is one.
    *
@@ -134,7 +164,7 @@ export const createDispatch = ({
 
     try {
       return {
-        result: fromHost(await mc.executeTool(found, args)),
+        result: fromHost(await execute(mc, found, args)),
         via: VIA.webmcp,
       };
     } catch (error) {
@@ -154,6 +184,7 @@ export const createDispatch = ({
   /** Forget the cached list, for teardown and for a test. */
   dispatch.reset = () => {
     listing = null;
+    stringHost = null;
     warned.clear();
   };
 

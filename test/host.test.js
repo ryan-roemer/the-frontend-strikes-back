@@ -190,6 +190,52 @@ test("?direct (enabled false) skips the host even when there is one", async () =
   assert.equal(mc.executed.length, 0);
 });
 
+/** A Chrome 154 host: arguments must be a JSON string, an object is refused unrun. */
+const chrome154 = () => {
+  const mc = host();
+  const run = mc.executeTool;
+  mc.ran = [];
+  mc.executeTool = async (found, args) => {
+    if (typeof args !== "string") {
+      mc.executed.push({ found, args, refused: true });
+      throw new Error("Failed to parse input arguments");
+    }
+    mc.ran.push(args);
+    return run(found, args);
+  };
+  return mc;
+};
+
+test("Chrome 154: an object is refused, so the JSON string is sent", async () => {
+  const mc = chrome154();
+  const { result, via } = await dispatchFor(mc)(tool(), { move: "last" });
+  assert.equal(via, VIA.webmcp);
+  assert.deepEqual(mc.ran, ['{"move":"last"}']);
+  assert.deepEqual(result, OK);
+});
+
+test("Chrome 154: once found out, later calls go straight to the string", async () => {
+  const mc = chrome154();
+  const dispatch = dispatchFor(mc);
+  await dispatch(tool(), { slide: 1 });
+  await dispatch(tool(), { slide: 2 });
+  assert.equal(mc.executed.filter((call) => call.refused).length, 1);
+  assert.deepEqual(mc.ran, ['{"slide":1}', '{"slide":2}']);
+});
+
+test("a different rejection is not retried as a string", async () => {
+  let calls = 0;
+  const mc = host({
+    run: () => {
+      calls += 1;
+      throw new Error("tool is busy");
+    },
+  });
+  const { result } = await dispatchFor(mc)(tool(), {});
+  assert.equal(calls, 1);
+  assert.equal(result.isError, true);
+});
+
 test("fromHost: null is the navigation case; non-JSON text is kept", () => {
   assert.match(fromHost(null).content[0].text, /navigated/);
   assert.deepEqual(fromHost("plain words"), {
