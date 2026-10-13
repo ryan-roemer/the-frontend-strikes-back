@@ -8,12 +8,12 @@
 // `language` is the Prism grammar for the code pane; it defaults to JavaScript,
 // so only the non-JS examples name one.
 const EXAMPLES_PATHS = {
+  modelContext: { code: "./examples/model-context.js" },
   registerTool: { code: "./examples/register-tool.js" },
   declarativeTool: {
     code: "./examples/declarative-tool.html",
     language: "html",
   },
-  toolHandler: { code: "./examples/tool-handler.js" },
 };
 
 const getExample = async (name, path, language) => {

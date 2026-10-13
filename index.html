@@ -366,7 +366,34 @@
               * **Already in use:** Shopify storefronts, ChatGPT desktop, ...
             `}
           </${MdSlide}>
-          <${JsSlide} chapter=${1} title="WebMCP in one call"
+          <${JsSlide} chapter=${1} title="The WebMCP API"
+            filename=${examples.modelContext.file} code=${examples.modelContext.code}
+            language=${examples.modelContext.language}
+            source=${{
+              href: "https://developer.chrome.com/docs/ai/webmcp/imperative-api",
+              title: "Chrome's imperative API docs",
+            }}
+            notes=${`
+              * One object, \`document.modelContext\`, with two sides: pages ${em("offer")}
+                tools, agents ${em("find and call")} them.
+              * The page side: \`registerTool\`. There's no \`unregisterTool\`; pass a
+                \`signal\` and abort it. Since Chrome 153 that doesn't break calls already
+                in flight.
+              * The agent side: \`getTools\` lists name, description, schema, annotations
+                and origin. \`executeTool\` calls one, and resolves to the result, or
+                \`null\` if the call navigated the page.
+              * \`toolchange\` fires when the list changes, for either side.
+              * So the agent can be just about anywhere: Claude Desktop over a relay, a
+                browser extension, ChatGPT's browser, or code in the page itself. That
+                last one is chapter 2.
+              * Also: \`annotations\` hints (\`readOnlyHint\`, \`consequentialHint\`,
+                \`untrustedContentHint\`), and \`exposedTo\` to share a tool with other
+                origins.
+              * \`getTools\`/\`executeTool\` and \`signal\` are Chrome's implementation;
+                say "in Chrome" rather than "in the spec".
+            `}
+          />
+          <${JsSlide} chapter=${1} title="One tool, up close"
             filename=${examples.registerTool.file} code=${examples.registerTool.code}
             language=${examples.registerTool.language}
             source=${{
@@ -374,15 +401,15 @@
               title: "The real search tool in vector-search-web",
             }}
             notes=${`
-              * WebMCP: the page registers tools; an agent discovers and calls them.
-                One API, \`document.modelContext\`. A W3C Community Group proposal.
               * Name, description, schema, execute. That's all of it.
               * Descriptions are ${em("prompt engineering")}: the model reads them to
                 decide whether to call the tool at all.
               * \`execute\` calls what the search box already calls, inside the page the
-                user is signed in to. Auth, state and business logic come for free.
-              * The agent can be just about anywhere: Claude Desktop over a relay, a
-                browser extension, or code in the page itself.
+                user is signed in to. Auth, state and business logic come for free: no
+                tokens to mint, no second backend.
+              * Return any JSON-serializable value; the browser stringifies it for the
+                agent. MCP's \`{ content: [...] }\` shape is a convention most clients
+                understand. Throw (or reject) for a real failure.
               * The real version is one click away (GitHub icon): \`search_nearform_knowledge\`
                 in vector-search-web, which is what Claude calls in the second demo.
               * I'm only giving you the shape today. For the deep dive:
@@ -390,20 +417,6 @@
                 * Liad Yosef and Dominic Farolino, "MCP Apps + WebMCP: The Next Era of
                   Interface" (TODO: confirm time)
                 * Liad Yosef, "How Agents Really See the Web" (TODO: confirm time)
-            `}
-          />
-          <${JsSlide} chapter=${1} title="Your functions, agent-callable"
-            filename=${examples.toolHandler.file} code=${examples.toolHandler.code}
-            language=${examples.toolHandler.language}
-            notes=${`
-              * Zooming in on \`execute\`: this is where a frontend function becomes
-                agent-callable.
-              * It runs in the user's tab, so the session, preferences and app state are
-                just there. No tokens to mint, no second backend.
-              * It calls the same search the UI does, then updates the UI, so the human
-                sees what the agent did.
-              * Results go back as MCP content blocks. \`isError\` tells the model the call
-                failed, so it can recover or tell the user, instead of guessing.
             `}
           />
           <${JsSlide} chapter=${1} title="Or, just a form"
