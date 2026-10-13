@@ -220,7 +220,7 @@
         links.map(
           ({ icon: name, text, href }) => html`
             <${Text} key=${href} fontSize=${fontSize} margin="6px 0" padding="0px">
-              <${Icon} name=${name} color="var(--chapter-accent)" />${" "}
+              <${Icon} name=${name} />${" "}
               <${Link} href=${href} fontSize=${fontSize}>${text}</${Link}>
             </${Text}>
           `,
