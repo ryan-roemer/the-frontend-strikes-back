@@ -272,8 +272,9 @@ as planned. A demo without its file shows "No recording yet" instead.
    ```
 
    This writes `media/videos/chatgpt-desktop.mp4` (H.264, at most 1920×1080, no audio) and
-   a `.jpg` poster, replacing any earlier ones, and prints the size. Keep the original
-   recording too, in case you want to re-cut it.
+   a `.jpg` poster, replacing any earlier ones, and prints the size. OBS records an audio
+   track by default: with ffmpeg installed, the script drops it (no re-encode), and
+   without, it warns. Keep the original recording too, in case you want to re-cut it.
 
 4. Check it on the slide with ⇧⌥V. `offline:check` then counts it as present.
 

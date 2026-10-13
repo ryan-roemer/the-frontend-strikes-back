@@ -5,7 +5,7 @@
 // Writes `media/videos/<demo-id>.mp4` and `.jpg` (gitignored), replacing any earlier
 // ones. The demo id must be listed in `deck/demos.js`. See docs/offline.md.
 //
-// MACOS TOOLS ONLY, no ffmpeg:
+// MACOS TOOLS, plus ffmpeg if installed (see AUDIO below):
 //
 //   avconvert -p Preset1920x1080   H.264, scaled down to fit 1920x1080 (never up), with
 //                                  the `moov` index before the data ("fast start"), so
@@ -16,9 +16,15 @@
 //   sips                           PNG to JPEG
 //
 // The presets have no quality or bitrate setting, and they keep an audio track if the
-// source has one. So the script reads the result back and checks it: H.264, fast
-// start, and no audio (a warning, since `<video>` plays muted anyway). It prints the
-// size and MB per minute, so an oversized encode is visible.
+// source has one (OBS records one by default). So the script reads the result back and
+// checks it: H.264, fast start, and no audio. It prints the size and MB per minute, so
+// an oversized encode is visible.
+//
+// AUDIO is the one job that takes ffmpeg, optionally. `<video>` plays muted, so an
+// audio track is dead weight, and avconvert has no flag to drop it. With ffmpeg on the
+// PATH (`brew install ffmpeg`, which docs/offline.md uses for speed-ups anyway), the
+// script copies the video track alone into a new file: no re-encode, so no quality
+// loss. Without ffmpeg, it keeps the audio and warns.
 //
 // avconvert and qlmanage go through macOS services that Claude Code's sandbox blocks
 // ("you don't have permission"). Run this from a normal terminal.
@@ -93,6 +99,27 @@ const inspect = (buf) => {
   return info;
 };
 
+/** Whether `ffmpeg` is on the PATH. */
+const hasFfmpeg = () =>
+  !spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).error;
+
+/** Copies `src`'s video track alone to `dest`, fast start. No re-encode. */
+const dropAudio = (src, dest) =>
+  run("ffmpeg", [
+    "-v",
+    "error",
+    "-y",
+    "-i",
+    src,
+    "-map",
+    "0:v",
+    "-c",
+    "copy",
+    "-movflags",
+    "+faststart",
+    dest,
+  ]);
+
 const main = async () => {
   const [source, id] = process.argv.slice(2);
   const ids = Object.keys(DEMO_VIDEOS);
@@ -115,7 +142,7 @@ const main = async () => {
 
   const scratch = await mkdtemp(join(tmpdir(), "video-add-"));
   try {
-    const mp4 = join(scratch, `${id}.mp4`);
+    let mp4 = join(scratch, `${id}.mp4`);
     console.log(`encoding ${basename(input)} ...`);
     run("avconvert", [
       "--preset",
@@ -128,9 +155,17 @@ const main = async () => {
       "--progress",
     ]);
 
-    const info = inspect(await readFile(mp4));
+    let info = inspect(await readFile(mp4));
+    let audio = info.tracks.filter((t) => t.handler === "soun");
+    if (audio.length && hasFfmpeg()) {
+      const silent = join(scratch, `${id}.silent.mp4`);
+      dropAudio(mp4, silent);
+      mp4 = silent;
+      info = inspect(await readFile(mp4));
+      audio = info.tracks.filter((t) => t.handler === "soun");
+      console.log("dropped the audio track (ffmpeg, no re-encode)");
+    }
     const video = info.tracks.find((t) => t.handler === "vide");
-    const audio = info.tracks.filter((t) => t.handler === "soun");
     if (video?.codec !== "avc1") {
       throw new Error(
         `expected an H.264 (avc1) video track, got ${video?.codec ?? "none"}`,
@@ -170,7 +205,7 @@ const main = async () => {
     );
     if (audio.length) {
       console.log(
-        "  WARNING: has an audio track. It plays muted, but the file is bigger than it needs to be.",
+        "  WARNING: has an audio track. It plays muted, but the file is bigger than it needs to be.\n  `brew install ffmpeg` and run this again to drop it.",
       );
     }
     console.log(`${posterPath(id)}`);
