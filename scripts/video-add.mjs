@@ -175,7 +175,8 @@ const main = async () => {
       throw new Error("the index (moov) comes after the data: not fast start");
     }
 
-    const png = join(scratch, `${id}.mp4.png`);
+    // qlmanage names the thumbnail after the file it was given, `.silent` and all.
+    const png = join(scratch, `${basename(mp4)}.png`);
     run("qlmanage", ["-t", "-s", "1920", "-o", scratch, mp4], { quiet: true });
     run(
       "sips",
