@@ -10,6 +10,9 @@
 //
 // The demos load from their live sites, so they need a network. The deck doesn't.
 //
+// Our own demos (the nearform.github.io ones) open with `?banner=false`, which drops
+// the Nearform footer banner so the projector shows only the demo.
+//
 // Over plain CDP HTTP (`/json/*`), no websocket: opening, listing, closing and
 // activating tabs is all this needs.
 
@@ -20,6 +23,13 @@ const DECK = new URL(process.env.DECK_URL ?? "http://localhost:3000/");
 const deckUrl = new URL("?offline", DECK).href;
 
 const isDeck = (url) => url.origin === DECK.origin;
+
+const withoutBanner = (href) => {
+  const url = new URL(href);
+  if (url.hostname !== "nearform.github.io") return href;
+  url.searchParams.set("banner", "false");
+  return url.href;
+};
 
 const pages = async () => {
   const targets = await (await fetch(`${ENDPOINT}/json/list`)).json();
@@ -68,7 +78,8 @@ if (deck) {
   console.log(`opened   ${deckUrl}`);
 }
 
-for (const [id, href] of Object.entries(DEMO_LINKS)) {
+for (const [id, link] of Object.entries(DEMO_LINKS)) {
+  const href = withoutBanner(link);
   if (before.some((target) => target.url === href)) {
     console.log(`kept     ${href} (${id})`);
   } else {
