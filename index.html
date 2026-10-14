@@ -411,6 +411,60 @@
               * **Already in use:** Shopify storefronts, ChatGPT desktop, many brower extensions, ...
             `}
           </${MdSlide}>
+          <${TakeawaySlide}
+            chapter=${1}
+            title="Why WebMCP?"
+            compact=${true}
+            items=${[
+              {
+                n: 1,
+                text: html`A good future bet, which you can start <u>now</u>`,
+                detail:
+                  "Tools reuse the code your UI already calls, and agents already call them.",
+              },
+              {
+                n: 2,
+                text: html`An active, growing community
+                  <${Link}
+                    className="takeaway__link"
+                    href="https://webmachinelearning.github.io/webmcp/"
+                    target="_blank"
+                    title="The WebMCP spec"
+                  >
+                    <${Icon} name="arrow-square-out" fill=${false} />
+                  </${Link}>`,
+                detail: html`4.6K+ stars on the${" "}
+                  <${Link} href="https://github.com/webmachinelearning/webmcp" target="_blank" fontSize="inherit">spec repo</${Link}>,${" "}
+                  with Google, Microsoft and others building in the open.`,
+              },
+              {
+                n: 3,
+                text: "Auth, intranet solution",
+                detail:
+                  "Simpler agent tools where a server would be a pain, like legacy systems.",
+              },
+              {
+                n: 4,
+                text: "Standards lead the hard parts",
+                detail:
+                  "You write a function. Browsers handle permissions, origins and consent.",
+              },
+            ]}
+            notes=${`
+              * Code reuse: \`execute\` calls the same functions as the search box, so
+                there's no second implementation to build or keep in sync.
+              * Community: [webmachinelearning/webmcp](https://github.com/webmachinelearning/webmcp)
+                had 4.6K stars, 325 forks and 120+ open issues on Oct 12. Lots of
+                discussion in the issues, and the spec is published at
+                [webmachinelearning.github.io/webmcp](https://webmachinelearning.github.io/webmcp/).
+                Recheck the star count before the talk.
+              * The hard parts: security, permissions and consent are the browser's job,
+                worked out in the open by the W3C group, not something each site reinvents.
+              * Be honest if asked: the spec's security section (prompt injection
+                especially) is still being worked out. "That's their job," not "that's solved."
+              * TODO
+            `}
+          />
           <${JsSlide} chapter=${1} title="The WebMCP API"
             filename=${examples.modelContext.file} code=${examples.modelContext.code}
             language=${examples.modelContext.language}
@@ -542,64 +596,14 @@
             chapter=${1}
             demo="deck-tools"
             label="Bonus demo"
-            app="This deck has WebMCP tools"
+            app=${html`This deck has WebMCP tools <${SpectacleBadge} step=${false} />`}
             notes=${`
+              * Optional: click the Spectacle logo to bring up its banner. This deck is
+                Spectacle, Nearform's open-source React presentation library, so it's a
+                frontend app like any other, and that's why it can register WebMCP tools.
+                Escape or click outside to close.
               * Open the deck's WebMCP tools (⇧⌥T) and call \`go_to_slide\` with
                 \`{ "move": "next" }\` to move to the next slide.
-            `}
-          />
-          <${TakeawaySlide}
-            chapter=${1}
-            title="Why WebMCP?"
-            compact=${true}
-            items=${[
-              {
-                n: 1,
-                text: html`A good future bet, which you can start <u>now</u>`,
-                detail:
-                  "Tools reuse the code your UI already calls, and agents already call them.",
-              },
-              {
-                n: 2,
-                text: html`An active, growing community
-                  <${Link}
-                    className="takeaway__link"
-                    href="https://webmachinelearning.github.io/webmcp/"
-                    target="_blank"
-                    title="The WebMCP spec"
-                  >
-                    <${Icon} name="arrow-square-out" fill=${false} />
-                  </${Link}>`,
-                detail: html`4.6K+ stars on the${" "}
-                  <${Link} href="https://github.com/webmachinelearning/webmcp" target="_blank" fontSize="inherit">spec repo</${Link}>,${" "}
-                  with Google, Microsoft and others building in the open.`,
-              },
-              {
-                n: 3,
-                text: "Auth, intranet solution",
-                detail:
-                  "Simpler agent tools where a server would be a pain, like legacy systems.",
-              },
-              {
-                n: 4,
-                text: "Standards lead the hard parts",
-                detail:
-                  "You write a function. Browsers handle permissions, origins and consent.",
-              },
-            ]}
-            notes=${`
-              * Code reuse: \`execute\` calls the same functions as the search box, so
-                there's no second implementation to build or keep in sync.
-              * Community: [webmachinelearning/webmcp](https://github.com/webmachinelearning/webmcp)
-                had 4.6K stars, 325 forks and 120+ open issues on Oct 12. Lots of
-                discussion in the issues, and the spec is published at
-                [webmachinelearning.github.io/webmcp](https://webmachinelearning.github.io/webmcp/).
-                Recheck the star count before the talk.
-              * The hard parts: security, permissions and consent are the browser's job,
-                worked out in the open by the W3C group, not something each site reinvents.
-              * Be honest if asked: the spec's security section (prompt injection
-                especially) is still being worked out. "That's their job," not "that's solved."
-              * TODO
             `}
           />
           ${"" /* --- 02 · Runtime: AI in the browser --- */}
@@ -623,6 +627,8 @@
                 inference backend to run or scale.
             `}
           </${MarkdownSlideSet}>
+          ${
+            "" /* Cut after the 2026-10-14 run-through.
           <${RowsSlide}
             chapter=${2}
             title="We've been here before"
@@ -661,6 +667,8 @@
                 same techniques apply.
             `}
           />
+          */
+          }
           <${TilesSlide}
             chapter=${2}
             title="The available <u>pieces</u>"
@@ -717,7 +725,7 @@
             rows=${[
               {
                 icon: "browser",
-                name: "Chrome Prompt API",
+                name: "Prompt API",
                 cells: [
                   { mark: "no", text: "Behind a flag" },
                   { mark: "no", text: "Unavailable" },
@@ -860,15 +868,15 @@
               },
               {
                 n: 2,
-                text: "Specific models",
-                detail:
-                  "Use domain-specific models for different given tasks. Saves on context and can pick better training data base. Fine-tune or post-train for application specific model behaviors you want.",
-              },
-              {
-                n: 3,
                 text: "Trade time for context",
                 detail:
                   "Split the work into small, focused calls. Each agent makes progress, summarizes, focuses data before passing on.",
+              },
+              {
+                n: 3,
+                text: "Specific models",
+                detail:
+                  "Use domain-specific models for different given tasks. Saves on context and can pick better training data base. Fine-tune or post-train for application specific model behaviors you want.",
               },
             ]}
             notes=${`

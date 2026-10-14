@@ -24,7 +24,8 @@ export const DEMO_LINKS = {
   "claude-desktop":
     "https://nearform.github.io/vector-search-web/?present=true",
   "vector-search": "https://nearform.github.io/vector-search-web/?relay=false",
-  "web-ai": "https://nearform.github.io/web-ai-demo/",
+  "web-ai":
+    "https://nearform.github.io/web-ai-demo/?runtime=wllama&model=ggml-org%2Fgemma-4-E2B-it-GGUF%7Cgemma-4-E2B-it-Q4_0.gguf",
   "web-agents": "https://nearform.github.io/web-agents/?relay=false",
 };
 

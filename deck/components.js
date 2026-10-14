@@ -1581,8 +1581,12 @@ const SteppedBadge = () => {
 // center an overlay in, and a `position: fixed` scrim already cost this deck a
 // phantom page once. With animations off there are no steps to sit between, so
 // the badge is click-only. The sentence keeps its logo everywhere else.
-export const SpectacleBadge = isPaged
-  ? () => null
-  : animationsEnabled
-    ? SteppedBadge
-    : Badge;
+//
+// `step=${false}` makes it click-only anywhere: for a slide where the banner is
+// an aside the presenter may or may not bring up, not a beat of the slide.
+export const SpectacleBadge = ({ step = true }) => {
+  if (isPaged) return null;
+  return step && animationsEnabled
+    ? html`<${SteppedBadge} />`
+    : html`<${Badge} />`;
+};
