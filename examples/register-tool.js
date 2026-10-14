@@ -1,6 +1,7 @@
 document.modelContext.registerTool({
   name: "search_documents",
-  description: "Search documents and return matching excerpts.",
+  description:
+    "Search the company knowledge base. Use for any question about our docs or expertise.",
   inputSchema: {
     type: "object",
     properties: {

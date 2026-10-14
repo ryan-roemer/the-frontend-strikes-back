@@ -362,18 +362,19 @@
             notes=${`
               * First up: the browser as an interface for other systems. That leads us to
                 WebMCP.
-              * A new standard emerging in the W3C: MCP tools served by your web page. Not
-                a strict copy of MCP, but it fills a similar place in the ecosystem.
+              * Most services never built an MCP server, but they all have a website.
+              * A new standard emerging in the W3C (a Community Group): MCP tools served
+                by your web page. Not a strict copy of MCP, but it fills a similar place
+                in the ecosystem.
               * Two APIs: an imperative JavaScript one, where you just write code, and a
                 declarative one (the neat one), where you annotate your HTML forms and get
                 tools mostly for free.
               * In browsers now: origin trials in Chrome and Edge, and polyfills for most
                 other browsers.
-              * Already in use: Shopify storefronts (which covers a lot of ground),
-                ChatGPT desktop bridges it as a first-class thing, and lots of browser
-                extensions.
-              * **TODO:** more framing on why this matters and how it fits in. "Why
-                WebMCP?" is next, so this could be a one-line lead-in to it.
+              * Already in use: Shopify storefronts (which covers a lot of ground), now
+                including checkout for agents. ChatGPT desktop bridges it as a first-class
+                thing, plus lots of browser extensions. Google says Gemini in Chrome will
+                support it.
             `}
           >
             ${`
@@ -382,7 +383,7 @@
               * **MCP tools, served by your web page.** An emerging W3C Community Group standard.
               * **Two APIs:** *Imperative* JavaScript, *declarative* HTML forms.
               * **In browsers now:** origin trial in **Chrome** and **Edge**.
-              * **Already in use:** Shopify storefronts, ChatGPT desktop, many brower extensions, ...
+              * **Already in use:** Shopify storefronts (even checkout), ChatGPT desktop, browser extensions.
             `}
           </${MdSlide}>
           <${TakeawaySlide}
@@ -392,19 +393,25 @@
             items=${[
               {
                 n: 1,
-                text: "Great for auth & intranets",
+                text: "Agents already use your site",
                 detail:
-                  "Tools run in the user's logged-in session. No new server, even for legacy systems.",
+                  "In a browser, just poorly: screen-scraping and clicking through UIs built for humans.",
               },
               {
                 n: 2,
-                text: "Standards lead the hard parts",
+                text: "Great for auth & intranets",
                 detail:
-                  "You write a function. Browsers handle permissions, origins, and consent.",
+                  "Tools run in the user's logged-in session. The browser keeps the credentials from the agent.",
               },
               {
                 n: 3,
-                text: html`An active, growing community
+                text: "Standards & browsers lead the hard parts",
+                detail:
+                  "Agents gets sandboxing, trust, permissions and consent. You just write a function.",
+              },
+              {
+                n: 4,
+                text: html`A good future bet, which you can start <u>now</u>
                   <${Link}
                     className="takeaway__link"
                     href="https://webmachinelearning.github.io/webmcp/"
@@ -413,31 +420,39 @@
                   >
                     <${Icon} name="arrow-square-out" fill=${false} />
                   </${Link}>`,
-                detail: html`4.6K+ stars on the${" "}
+                detail: html`Tools reuse the code your UI already calls. 4.6K+ stars on the${" "}
                   <${Link} href="https://github.com/webmachinelearning/webmcp" target="_blank" fontSize="inherit">spec repo</${Link}>,${" "}
-                  with Google, Microsoft and others building in the open.`,
-              },
-              {
-                n: 4,
-                text: html`A good future bet, which you can start <u>now</u>`,
-                detail:
-                  "Tools reuse the code your UI already calls, and agents already call them.",
+                  with Google and Microsoft building in the open.`,
               },
             ]}
             notes=${`
-              * Great for auth and intranets: tools run in the user's logged-in session,
-                so there's no new server. Legacy systems like NetSuite, where adding
-                frontend JavaScript is easy but wrapping the backend is a lot more
-                complicated.
-              * Standards lead the hard parts. You write your JavaScript function; the
-                browser handles permissions, origin and consent, things browsers are
-                already good at.
+              * Shout out to Alex Nahas (creator of MCP-B, early WebMCP contributor) and
+                his post "The next steps on the Web and WebMCP." The thread through this
+                slide is his.
+              * Agents already use your site, in a browser, just poorly: screen-scraping,
+                screenshotting, and clicking through UIs built for humans. That breaks on
+                a redesign, a popup or a slow load. With WebMCP they call real functions
+                instead.
+              * Great for auth and intranets: tools run in the user's logged-in session.
+                The browser attaches the session cookies, so the agent never holds the
+                credentials, and there's no new server. Legacy systems like NetSuite,
+                where adding frontend JavaScript is easy but wrapping the backend is a lot
+                more complicated.
+              * Standards and browsers lead the hard parts. Alex lists what an agent
+                needs: sandboxing, credential isolation, trust, discovery, permissions,
+                UI. Look at that list, and as he puts it: **"Congratulations! You built a
+                browser."** Browsers are already good at all of it. You just write your
+                JavaScript function.
+                * If asked: not all solved. Per-agent identity (the login says who the
+                  user is, not which agent is acting) and real human approval (an agent
+                  clicking "Approve" isn't one) are still open in the spec.
+              * A good future bet, because you can start right now. Tools reuse the
+                JavaScript your UI already calls.
               * An active, growing community: 4.6K+ stars on the spec repo, with Google,
                 Microsoft and others building in the open. The community group's meetings
                 are open and really interesting to attend if you want to see the direction.
-              * A good future bet, because you can start right now. Tools reuse the
-                JavaScript your UI already calls, and agents can already call them. Next:
-                here's how you start.
+              * Anthropic, OpenAI and Google all now ship a browser inside their agents.
+                Next: here's how you start.
             `}
           />
           <${JsSlide} chapter=${1} title="The WebMCP API"
@@ -466,13 +481,16 @@
             }}
             notes=${`
               * Registering a tool, there's not much to it: a name (line 2), a description
-                (line 3) and an input schema (lines 4–10). A very simple query search.
+                (lines 3–4) and an input schema (lines 5–11). A very simple query search.
               * Like normal MCP tools, that's the information passed to the agent, which
                 chooses whether to act on it.
-              * Lines 11–12: \`execute\`, with the parameters the agent passed in.
+              * Lines 12–13: \`execute\`, with the parameters the agent passed in.
               * Take a moment here: this is plain JavaScript in your frontend app.
                 Context, authentication, preferences all come for free, and you reuse the
                 application code you already have.
+              * The description is a prompt: say what the tool does and when to use it,
+                phrased positively. Return readable errors rather than throwing, so the
+                model can correct itself.
             `}
           />
           <${JsSlide} chapter=${1} title="Or, just a form"

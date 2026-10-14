@@ -37,7 +37,10 @@ const pages = async () => {
 };
 
 const open = async (href) => {
-  const res = await fetch(`${ENDPOINT}/json/new?${href}`, { method: "PUT" });
+  // Encoded, or Chrome cuts the URL off at its first `&`.
+  const res = await fetch(`${ENDPOINT}/json/new?${encodeURIComponent(href)}`, {
+    method: "PUT",
+  });
   if (!res.ok)
     throw new Error(`Chrome refused a new tab for ${href} (${res.status})`);
   return res.json();
