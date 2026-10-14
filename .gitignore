@@ -34,6 +34,7 @@ coverage
 
 # Deck
 docs/outline.md
+docs/transcripts.md
 
 # Offline mode: vendored CDN copies and models (see docs/offline.md)
 offline/
