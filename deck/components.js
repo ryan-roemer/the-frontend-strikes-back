@@ -646,7 +646,7 @@ export const MdSlide = ({ chapter, notes, children }) => {
  * it went because the numeral is already ghosted in behind the heading and the
  * pillar is the thing the room actually needs.)
  */
-export const TopicSlide = ({ chapter, fontSize = "88px", ...rest }) => {
+export const TopicSlide = ({ chapter, fontSize = "88px", notes, ...rest }) => {
   const { n, pillar, title, background } = chapter;
 
   return html`
@@ -672,6 +672,7 @@ export const TopicSlide = ({ chapter, fontSize = "88px", ...rest }) => {
         </${SlideHeading}>
         <${AccentRule} />
       <//>
+      <${MdNotes} notes=${notes} />
     </${DeckSlide}>
   `;
 };
