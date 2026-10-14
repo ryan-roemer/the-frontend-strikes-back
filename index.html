@@ -392,12 +392,18 @@
             items=${[
               {
                 n: 1,
-                text: html`A good future bet, which you can start <u>now</u>`,
+                text: "Great for auth & intranets",
                 detail:
-                  "Tools reuse the code your UI already calls, and agents already call them.",
+                  "Tools run in the user's logged-in session. No new server, even for legacy systems.",
               },
               {
                 n: 2,
+                text: "Standards lead the hard parts",
+                detail:
+                  "You write a function. Browsers handle permissions, origins, and consent.",
+              },
+              {
+                n: 3,
                 text: html`An active, growing community
                   <${Link}
                     className="takeaway__link"
@@ -412,32 +418,26 @@
                   with Google, Microsoft and others building in the open.`,
               },
               {
-                n: 3,
-                text: "Auth, intranet solution",
-                detail:
-                  "Simpler agent tools where a server would be a pain, like legacy systems.",
-              },
-              {
                 n: 4,
-                text: "Standards lead the hard parts",
+                text: html`A good future bet, which you can start <u>now</u>`,
                 detail:
-                  "You write a function. Browsers handle permissions, origins and consent.",
+                  "Tools reuse the code your UI already calls, and agents already call them.",
               },
             ]}
             notes=${`
-              * A good future bet, because you can start right now. Tools reuse the
-                JavaScript your UI already calls, and agents can already call them. The
-                demos coming up show that.
-              * An active, growing community: 4.6K+ stars on the spec repo, with Google,
-                Microsoft and others building in the open. The community group's meetings
-                are open and really interesting to attend if you want to see the direction.
-              * So good for auth and intranet solutions: simpler agent tools where a full
-                MCP server would be a pain. Legacy systems like NetSuite, where adding
+              * Great for auth and intranets: tools run in the user's logged-in session,
+                so there's no new server. Legacy systems like NetSuite, where adding
                 frontend JavaScript is easy but wrapping the backend is a lot more
                 complicated.
               * Standards lead the hard parts. You write your JavaScript function; the
                 browser handles permissions, origin and consent, things browsers are
                 already good at.
+              * An active, growing community: 4.6K+ stars on the spec repo, with Google,
+                Microsoft and others building in the open. The community group's meetings
+                are open and really interesting to attend if you want to see the direction.
+              * A good future bet, because you can start right now. Tools reuse the
+                JavaScript your UI already calls, and agents can already call them. Next:
+                here's how you start.
             `}
           />
           <${JsSlide} chapter=${1} title="The WebMCP API"
