@@ -6,7 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <meta
       name="description"
-      content="WebMCP and the agent-ready browser: registering frontend tools that AI agents can actually call."
+      content="WebMCP and web AI: the browser as an agent interface and runtime."
     />
     <!-- Offline mode, localhost only and opt-in: `?offline` serves CDN files
          from `offline/` (saved by `npm run offline:fetch`), `?offline=false`
@@ -245,7 +245,7 @@
           <${DeckSlide} chrome=${false}>
             <${FlexBox} className="title-copy" height="100%" flexDirection="column" justifyContent="center" alignItems="start">
               <${Eyebrow}>
-                ${logosHtm.conf} AgntCon + MCPCon NA 2026
+                ${logosHtm.conf} AGNTCon + MCPCon NA 2026
               </${Eyebrow}>
               <${Heading}
                 className="title-display"
@@ -284,7 +284,7 @@
                 ${`
                   * Thanks, Andrew. A real privilege to be introduced by one of the WebMCP
                     creators.
-                  * Thanks to the Agentic AI Foundation and the AgentCon organizers: it takes
+                  * Thanks to the Agentic AI Foundation and the AGNTCon organizers: it takes
                     a lot of work to put on a big conference like this.
                   * This talk is going to have a lot of demos, many you can try out yourself.
                     Hit the QR code and you can follow along live if you want!
@@ -415,10 +415,10 @@
             ${`
               # What is WebMCP?
 
-              * **MCP tools, served by your web page.** An emerging W3C Community Group standard.
-              * **Two APIs:** *Imperative* JavaScript, *declarative* HTML forms.
-              * **In browsers now:** origin trial in **Chrome** and **Edge**.
-              * **Already in use:** Shopify storefronts (even checkout), ChatGPT desktop, browser extensions.
+              * **MCP tools, served by your web page**: an emerging W3C Community Group standard.
+              * **Two APIs**: *imperative* JavaScript, *declarative* HTML forms.
+              * **In browsers now**: origin trial in **Chrome** and **Edge**.
+              * **Already in use**: Shopify storefronts (even checkout), ChatGPT desktop, and browser extensions.
             `}
           </${MdSlide}>
           <${TakeawaySlide}
@@ -434,19 +434,19 @@
               },
               {
                 n: 2,
-                text: "Great for auth & intranets",
+                text: "Great for auth and intranets",
                 detail:
-                  "Tools run in the user's logged-in session. The browser keeps the credentials from the agent.",
+                  "Tools run in the user's logged-in session. The agent never sees the credentials.",
               },
               {
                 n: 3,
-                text: "Standards & browsers lead the hard parts",
+                text: "Standards and browsers lead the hard parts",
                 detail:
-                  "Agents gets sandboxing, trust, permissions and consent. You just write a function.",
+                  "Agents get sandboxing, auth, and trust from the browser. You just write a function.",
               },
               {
                 n: 4,
-                text: html`A good future bet, which you can start <u>now</u>
+                text: html`A good bet you can start on <u>now</u>
                   <${Link}
                     className="takeaway__link"
                     href="https://webmachinelearning.github.io/webmcp/"
@@ -468,8 +468,8 @@
                 why.
               * Agents already use your site, in a browser, just poorly: screen-scraping,
                 Playwright, Puppeteer, clicking through UIs built for humans. That breaks
-                on a redesign, a popup or a slow load. WebMCP gives the agent the real
-                information it needs: terse, efficient and correct.
+                on a redesign, a popup, or a slow load. WebMCP gives the agent the real
+                information it needs: terse, efficient, and correct.
               * Great for auth and intranets: tools run in the user's logged-in session.
                 The browser attaches the session cookies, so the agent never holds the
                 credentials, and there's no new server. Legacy systems like NetSuite,
@@ -486,10 +486,14 @@
               * A good future bet, because you can start right now, literally today, on
                 your own frontend. Tools reuse the JavaScript your UI already calls.
               * An active, growing community: 4.6K+ stars on the spec repo, with Google,
-                Microsoft and others building in the open. The community group's meetings
+                Microsoft, and others building in the open. The community group's meetings
                 are open and really interesting to attend if you want to see the direction.
-              * Anthropic, OpenAI and Google all now ship a browser inside their agents.
-                Next: here's how you start.
+              * The big labs keep ending up back at the browser (per Alex's post):
+                Anthropic put a browser inside Claude Cowork and made Claude in Chrome
+                generally available; OpenAI built one into ChatGPT and Codex, then added
+                WebMCP to it. Google is coming from the browser side: Gemini in Chrome,
+                which Google says will support WebMCP.
+              * Next: here's how you start.
             `}
           />
           <${JsSlide} chapter=${1} title="The WebMCP API"
@@ -559,10 +563,9 @@
             app="ChatGPT shops reebok.com"
             url="reebok.com"
             points=${[
-              'ChatGPT desktop\'s built-in browser calls WebMCP "site tools"',
-              "Shopify ships WebMCP tools on every Liquid storefront",
+              'ChatGPT desktop\'s built-in browser calls WebMCP "site tools."',
+              "Shopify ships WebMCP tools on every Liquid storefront.",
             ]}
-            backup=${`TODO: BACKUP`}
             notes=${`
               * Set it up: a real store, a real agent, nothing to install. Shopify ships
                 WebMCP tools on its storefronts, so Reebok.com has them today.
@@ -582,11 +585,10 @@
             app="Claude Desktop calls our page"
             url="nearform.github.io/vector-search-web"
             points=${[
-              "Claude connects to a WebMCP relay server (<a href='https://docs.mcp-b.ai/packages/webmcp-local-relay/reference'><code>@mcp-b/webmcp-local-relay</code></a>)",
-              "Open any page with WebMCP tools and a relay embed",
-              "... and Claude gets tool superpowers",
+              "Claude connects to a WebMCP relay server (<a href='https://docs.mcp-b.ai/packages/webmcp-local-relay/reference'><code>@mcp-b/webmcp-local-relay</code></a>).",
+              "Open any page with WebMCP tools and a relay embed.",
+              "... and Claude gets tool superpowers.",
             ]}
-            backup=${`TODO: BACKUP`}
             notes=${`
               * What if your client, say Claude Desktop, has no native WebMCP support?
                 Use an MCP server that relays to any WebMCP page.
@@ -634,10 +636,10 @@
               ---
               # Why web AI?
 
-              * **Privacy**: data never leaves the device
-              * **Offline**: works with no network at all
-              * **Latency**: no round trip to a server
-              * **Cost**: the user's GPU, not your inference bill
+              * **Privacy**: data never leaves the device.
+              * **Offline**: works with no network, after the download.
+              * **Latency**: no round trip to a server.
+              * **Cost**: the user's GPU, not your inference bill.
 
               Notes: \
                 That's the browser as an interface. Now the browser as a runtime: \
@@ -711,32 +713,62 @@
             chapter=${2}
             demo="vector-search"
             label="Quick demo"
-            app="Vector search"
+            app="Similarity search in a knowledge store"
             url="nearform.github.io/vector-search-web"
             points=${[
-              "Precompute <strong>embeddings</strong> (2-5 MB), download with <strong>content</strong> (3 MB).",
-              "Data download in 200-800 ms, then <strong>blazingly fast</strong> search.",
-              "Search by keyword, vector, or hybrid.",
+              "Precomputed <strong>embeddings</strong> (2-5 MB) and <strong>content</strong> (3 MB), one download.",
+              "Data download in 200-800 ms, then ~26 ms to embed and ~6 ms to search.",
+              "Vector search here. Lexical or hybrid is a config change.",
             ]}
-            backup=${`TODO`}
             notes=${`
               * Nuts and bolts. Reveal: the "intranet" article search was never an
                 intranet. It's a purely client-side vector search, dressed up so I didn't
                 give it away.
-              * All of Nearform's blog posts (800–900): about 3 MB of content, downloaded
-                first. Precomputed embeddings: another 2–5 MB, depending on size.
-              * Orama, a frontend library: keyword (lexical, BM25), vector or hybrid
-                search, so you could potentially do all of your search on the frontend.
+              * All of Nearform's blog posts (around 950): about 3 MB of content,
+                downloaded first. Precomputed embeddings: another 2–5 MB, depending on
+                size.
+              * Orama, a frontend library. This demo runs vector search; keyword
+                (lexical, BM25) or hybrid is a configuration change, so you could
+                potentially do all of your search on the frontend.
               * The initial download takes 200–800 ms, which isn't nothing. After that,
-                search is blazingly fast.
+                search is blazingly fast. (These timings are examples from my own runs,
+                and the download depends on the network.)
               * Search "webpack bundles" again and open the timings: query embedding
                 ~26 ms, search ~6–7 ms. You can't do that over any network.
               * That's the embeddings and vector database pieces.
             `}
           />
+          <${JsSlide} chapter=${2} title="The simplest way to try web AI"
+            filename=${examples.promptApi.file} code=${examples.promptApi.code}
+            language=${examples.promptApi.language}
+            run=${true}
+            editable=${true}
+            source=${{
+              href: "https://developer.chrome.com/docs/ai/prompt-api",
+              title: "Chrome's Prompt API docs",
+              icon: "book-open",
+            }}
+            notes=${`
+              * The simplest way to try web AI: the browser owns the model (Chrome
+                fetches Gemini Nano once, for every site), so there is no runtime to
+                bundle and no weights to host. This is Chrome's Prompt API.
+              * Lines 1–2: what it takes. Chrome 148+ on desktop, nothing to turn on; Edge
+                is a preview behind a flag, running Phi-4-mini. The first call downloads
+                the model, and Chrome wants 22 GB free plus a GPU with over 4 GB of VRAM
+                (or 16 GB RAM and 4 cores).
+              * Not available on a modern Chrome? May need to check
+                \`chrome://settings/ai\` (the On-device AI toggle).
+              * Line 3: create a session. Line 5: ask the eternal question.
+              * Hit Run: this is the code on the slide, running live on Gemini Nano.
+              * The code is editable: change the question and run it again.
+              * If it fails on the day, a real answer from Chrome: "Bikeshedding is
+                debating trivial details that don't significantly impact the overall
+                outcome or decision."
+            `}
+          />
           <${MatrixSlide}
             chapter=${2}
-            title="AI inference"
+            title="Five ways to run web AI"
             columns=${["Runtime", "Tools", "iPhone 15 Pro", "Context"]}
             source=${{
               href: "https://nearform.com/digital-community/web-ai-runtimes-five-ways-to-run-a-language-model-in-the-browser",
@@ -759,7 +791,7 @@
                 cells: [
                   { mark: "manual", text: "Only select models" },
                   { mark: "yes", text: "Runs" },
-                  { text: "1–4K", note: "raisable", value: "16K" },
+                  { text: "1-4K", note: "raisable", value: "16K" },
                 ],
               },
               {
@@ -768,7 +800,7 @@
                 cells: [
                   { mark: "manual", text: "You run it" },
                   { mark: "yes", text: "Runs" },
-                  { text: "128–256K", note: "slow", value: "32K" },
+                  { text: "128-256K", note: "slow", value: "32K" },
                 ],
               },
               {
@@ -786,20 +818,20 @@
                 cells: [
                   { mark: "yes", text: "Runs them for you" },
                   { mark: "no", text: "Tab dies on load" },
-                  { text: "128–256K", note: "garbled", value: "32K" },
+                  { text: "128-256K", note: "garbled", value: "32K" },
                 ],
               },
             ]}
             notes=${`
-              * Next: full AI inference in the browser. Rocky, clunky, constrained,
-                powerful, amazing. So many adjectives.
+              * That's one runtime. Full AI inference in the browser, more broadly: rocky,
+                clunky, constrained, powerful, and amazing. So many adjectives.
               * Five runtimes from my recent blog post (at the link). Speed-run this
                 table, don't read every row.
               * Columns: runtime, tool calling, whether it runs on a phone as old as this
                 one (hold it up), and workable context.
-              * Prompt API: built in. Chrome and Edge only so far, coming to other
-                browsers. Perhaps the highest quality, but not much context, no tool
-                calling, and not on my phone yet.
+              * Prompt API: built in, the one we just ran. Chrome and Edge only so far,
+                coming to other browsers. Perhaps the highest quality, but not much
+                context, tool calling behind a flag, and not on my phone yet.
               * WebLLM: only a few select models, but runs really well on a phone.
               * wllama: llama.cpp in the browser. Any GGUF model straight off Hugging
                 Face. Pretty workable context.
@@ -808,48 +840,21 @@
               * LiteRT-LM (say "Lite R T": it came out as "LIDAR" in the run-through):
                 the newest, another Google entrant. Fast, with a real workable context,
                 around 32K.
-            `}
-          />
-          <${JsSlide} chapter=${2} title="The Prompt API"
-            filename=${examples.promptApi.file} code=${examples.promptApi.code}
-            language=${examples.promptApi.language}
-            run=${true}
-            editable=${true}
-            source=${{
-              href: "https://developer.chrome.com/docs/ai/prompt-api",
-              title: "Chrome's Prompt API docs",
-              icon: "book-open",
-            }}
-            notes=${`
-              * The simplest of the five: the browser owns the model (Chrome fetches Gemini
-                Nano once, for every site), so there is no runtime to bundle and no
-                weights to host.
-              * Lines 1–2: what it takes. Chrome 148+ on desktop, nothing to turn on; Edge
-                is a preview behind a flag, running Phi-4-mini. The first call downloads
-                the model, and Chrome wants 22 GB free plus a GPU with over 4 GB of VRAM
-                (or 16 GB RAM and 4 cores).
-              * Not available on a modern Chrome? May need to check
-                \`chrome://settings/ai\` (the On-device AI toggle).
-              * Line 3: create a session. Line 5: ask the eternal question.
-              * Hit Run: this is the code on the slide, running live on Gemini Nano.
-              * The code is editable: change the question and run it again.
-              * If it fails on the day, a real answer from Chrome: "Bikeshedding is
-                debating trivial details that don't significantly impact the overall
-                outcome or decision."
+                * If asked: "garbled past 32K" is the larger Gemma 4 builds (12B and
+                  up). Gemma 4 E2B held its full 128K in our tests.
             `}
           />
           <${DemoSlide}
             chapter=${2}
             demo="web-ai"
             label="Demo"
-            app="Web AI demos"
+            app="Chat with all five in your browser"
             url="nearform.github.io/web-ai-demo"
             points=${[
               "Five browser AI runtimes, side by side in one chat app.",
               "Load any compatible model from Hugging Face.",
               "Try tool calling with your own JavaScript function.",
             ]}
-            backup=${`TODO`}
             notes=${`
               * The fastest version: pick any runtime, see all the knobs and levers, load
                 models straight off Hugging Face, check the capability diagnostics.
@@ -870,26 +875,26 @@
           />
           <${TakeawaySlide}
             chapter=${2}
-            title="Implementation"
+            title="Tips for web AI"
             compact=${true}
             items=${[
               {
                 n: 1,
                 text: "Model size",
                 detail:
-                  "Pick the smallest model that works for both speed and download reasons. Cross-origin storage is coming, but not here yet. Model downloads are extra expensive in the meantime.",
+                  "Smallest model that works: faster to download and run. Shared cross-site cache in the works.",
               },
               {
                 n: 2,
                 text: "Context size",
                 detail:
-                  "A sliding scale: more context costs more memory and runs slower, often with lower quality. Pick the smallest that works. Watch out / disable thinking mode unless you know you need it.",
+                  "More context costs memory, speed, and often quality. Turn off thinking mode unless you need it.",
               },
               {
                 n: 3,
-                text: "High powered evals",
+                text: "High-powered evals",
                 detail:
-                  "Use all the frontier models here. Tune your AI inference chain (prompt and all) to do well on your specific domain. Run them in a real browser, driven over playwright/CDP.",
+                  "Frontier model as the judge. Tune prompts for your domain. Run in a real browser over Playwright or CDP.",
               },
             ]}
             notes=${`
@@ -920,14 +925,13 @@
             chapter=${3}
             demo="web-agents"
             label="Demo"
-            app="Research agents"
+            app="A team of agents tackles a research task"
             url="nearform.github.io/web-agents"
             points=${[
               "A coordinator, a researcher, and a writer.",
-              "Searching our vector app over the bridge.",
+              "Searching the vector search app over WebMCP.",
               "Taking and reading notes as they go.",
             ]}
-            backup=${`TODO: RECORD A VIDEO.`}
             notes=${`
               * A contrived but real setup: three agents.
                 * Coordinator: takes the question, decides if we need new research, hands
@@ -947,9 +951,10 @@
                 answer. It takes a while: constrained resources.
               * All the relevant tools are exposed here too, and you can open each agent
                 to see its context.
-              * Uses embeddings and a vector database, inference, and several tools. A
-                branch I'm not shipping today (experiment/chrome-decider, Chrome Canary)
-                adds a decider: 5 of the 7 pieces.
+              * Uses embeddings, a vector database, inference, and several tools: 4 of
+                the 7 pieces.
+              * I also have a branch of web-agents that experiments with a decider
+                (\`experiment/chrome-decider\`, Chrome Canary), which would make it 5.
               * The real takeaway: a pure client-side app on GitHub Pages, no backend.
                 Most of what would traditionally be a backend app.
             `}
@@ -963,19 +968,19 @@
                 n: 1,
                 text: "Tools",
                 detail:
-                  "Use WebMCP tools for your web AI tool calling. A shape you can depend on and then flexibly leverage.",
+                  "Give your in-tab model the same WebMCP tools outside agents use.",
               },
               {
                 n: 2,
                 text: "Trade time for context",
                 detail:
-                  "Split the work into small, focused calls. Each agent makes progress, summarizes, focuses data before passing on.",
+                  "Small, focused calls. Each agent summarizes before handing off.",
               },
               {
                 n: 3,
                 text: "Specific models",
                 detail:
-                  "Use domain-specific models for different given tasks. Saves on context and can pick better training data base. Fine-tune or post-train for application specific model behaviors you want.",
+                  "A small model per task, fine-tuned, or post-trained for the behavior you need.",
               },
             ]}
             notes=${`

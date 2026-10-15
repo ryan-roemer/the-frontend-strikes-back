@@ -278,6 +278,7 @@ body::after {
 .accent-rule {
   width: 120px;
   height: 5px;
+  flex-shrink: 0;
   margin-top: 28px;
   border-radius: 999px;
   background: var(--chapter-accent);
@@ -962,6 +963,12 @@ body::after {
  * `PieceMap`: the pieces slide as a 4 + 3 grid of icons. 300px fits four
  * 60px tiles and their gaps, but not five, so it wraps like `TilesSlide`.
  */
+/* A demo title wraps short of the piece strip, which sits top right. Beats the
+   heading rules' own `max-width: 100%`. */
+#root .slide-title.demo__title--pieces {
+  max-width: 74%;
+}
+
 .piece-map {
   gap: 10px;
 }

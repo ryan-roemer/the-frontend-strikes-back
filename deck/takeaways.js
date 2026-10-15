@@ -40,7 +40,7 @@
  * outside that gradient in blue, and takes `ready` on its own).
  */
 export const VERDICTS = {
-  ready: { icon: "check-circle", title: "Ready to use" },
+  ready: { icon: "check-circle", title: "Ready to try" },
   constrained: { icon: "warning", title: "Works, with limits" },
   early: { icon: "flask", title: "Early / experimental" },
 };
@@ -65,22 +65,25 @@ export const takeaways = [
     n: 1,
     chapter: 1,
     verdict: "ready",
-    text: "WebMCP is ready",
-    detail: "If you ship a web app, you can be agent-ready in an afternoon.",
+    text: "WebMCP is ready to try",
+    detail:
+      "Origin trials in Chrome and Edge, already live on Shopify storefronts. Tools reuse the code your UI already calls.",
   },
   {
     n: 2,
     chapter: 2,
     verdict: "constrained",
-    text: "In-browser AI is real, but constrained",
-    detail: "Classifiers, rerankers, extractors: yes. Product core: not yet.",
+    text: "Web AI is real, but constrained",
+    detail:
+      "Embeddings, vector search, and classifiers are here now. Language models work, within tight size and context limits.",
   },
   {
     n: 3,
     chapter: 3,
     verdict: "early",
     text: "Web agents are early",
-    detail: "We were here with backend agents not long ago.",
+    detail:
+      "A team of agents runs in the tab with no backend, slowly, on small models and small context.",
   },
 ];
 
@@ -113,9 +116,9 @@ export const AUDIENCES = [
     key: "ai",
     icon: "brain",
     who: "If you build AI systems",
-    claim: "An agent (or parts) now fits in a tab.",
+    claim: "An agent, or parts of one, now fits in a tab.",
     action:
-      "Try out one AI piece in the frontend: a classifier, a decider, vector search, or even simple inference.",
+      "Move one AI piece into the tab: a classifier, decider, vector search, or a small model.",
     rollUp: [2, 3],
   },
 ];

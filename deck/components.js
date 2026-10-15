@@ -1511,7 +1511,12 @@ export const DemoSlide = ({
   <${DeckSlide} id=${demo} className=${chapter ? chapterClass(chapter) : ""}>
     <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
       <${Eyebrow}><${Icon} name="monitor-play" /> ${label}</${Eyebrow}>
-      <${SlideHeading} fontSize="h1" textAlign="left" margin="10px 0 0">
+      <${SlideHeading}
+        className=${DEMO_PIECES[demo] ? "demo__title--pieces" : ""}
+        fontSize="h1"
+        textAlign="left"
+        margin="10px 0 0"
+      >
         ${app}
       </${SlideHeading}>
       <${AccentRule} />

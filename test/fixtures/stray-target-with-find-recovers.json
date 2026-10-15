@@ -45,7 +45,7 @@
           "{at}": [
             "re:^<slide n=\"{at}\" .*>$",
             "...",
-            "bullet 2: Two APIs: Imperative BooyaScript, declarative HTML forms.",
+            "bullet 2: Two APIs: imperative BooyaScript, declarative HTML forms.",
             "..."
           ]
         }
