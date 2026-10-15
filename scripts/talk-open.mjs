@@ -11,7 +11,8 @@
 // The demos load from their live sites, so they need a network. The deck doesn't.
 //
 // Our own demos (the nearform.github.io ones) open with `?banner=false`, which drops
-// the Nearform footer banner so the projector shows only the demo.
+// the Nearform footer banner so the projector shows only the demo. web-agents also
+// gets `?present=true`, which pins the AI-native engineering query in its suggestions.
 //
 // Over plain CDP HTTP (`/json/*`), no websocket: opening, listing, closing and
 // activating tabs is all this needs.
@@ -24,10 +25,13 @@ const deckUrl = new URL("?offline", DECK).href;
 
 const isDeck = (url) => url.origin === DECK.origin;
 
-const withoutBanner = (href) => {
+const PRESENT_DEMOS = new Set(["web-agents"]);
+
+const forTalk = (id, href) => {
   const url = new URL(href);
   if (url.hostname !== "nearform.github.io") return href;
   url.searchParams.set("banner", "false");
+  if (PRESENT_DEMOS.has(id)) url.searchParams.set("present", "true");
   return url.href;
 };
 
@@ -84,7 +88,7 @@ if (deck) {
 // Two demos can share a page, so a link opened earlier in this loop is kept too.
 const opened = new Set(before.map((target) => target.url));
 for (const [id, link] of Object.entries(DEMO_LINKS)) {
-  const href = withoutBanner(link);
+  const href = forTalk(id, link);
   if (opened.has(href)) {
     console.log(`kept     ${href} (${id})`);
   } else {

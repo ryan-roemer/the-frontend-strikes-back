@@ -902,19 +902,22 @@
             ]}
             backup=${`TODO: RECORD A VIDEO.`}
             notes=${`
-              * A contrived but real setup: three agents, a coordinator, a researcher and
-                a writer.
+              * A contrived but real setup: three agents.
+                * Coordinator: takes the question, decides if we need new research, hands
+                  out the work, posts the answer.
+                * Researcher: searches Nearform content with the WebMCP tool, returns a
+                  research brief.
+                * Writer: saves the brief to the notepad, writes the answer.
               * The researcher hits the vector search from before over WebMCP and brings
-                back results. Notes from those become the context for the answer.
+                back results. The notes become the context for the answer.
               * Ask: "What has Nearform written on on-device AI and browser-based vector
                 search?"
               * In the activity panel: the coordinator hands off to the researcher, which
                 calls the WebMCP search tool over an iframe bridge (totally insecure,
-                hand-wave past it), gets results, and writes the research notepad.
+                hand-wave past it), and gets results. The writer puts them in the
+                research notepad.
               * That context goes back to the coordinator, and we get a reasonable
                 answer. It takes a while: constrained resources.
-                **TODO:** pick one telling. Run 001 had the coordinator writing the
-                notepad, run 002 had the writer or the researcher writing it.
               * All the relevant tools are exposed here too, and you can open each agent
                 to see its context.
               * Uses embeddings and a vector database, inference, and several tools. A
