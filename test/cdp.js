@@ -128,7 +128,10 @@ export const attach = (url) =>
         // The entry is dropped from `pending` however the call ends, including a timeout:
         // a late reply then finds nothing waiting and is discarded, rather than resolving a
         // promise nobody holds. Without that, every timed-out call leaks an entry.
-        const send = (method, params) => {
+        //
+        // `ms` is for the rare call that does real work in the browser:
+        // `scripts/export-pdf.mjs` renders the whole deck in one `Page.printToPDF`.
+        const send = (method, params, ms = CALL_MS) => {
           id += 1;
           const callId = id;
           return bounded(
@@ -136,7 +139,7 @@ export const attach = (url) =>
               pending.set(callId, { resolve: ok, reject: no });
               socket.send(JSON.stringify({ id: callId, method, params }));
             }),
-            CALL_MS,
+            ms,
             method,
           ).finally(() => pending.delete(callId));
         };
