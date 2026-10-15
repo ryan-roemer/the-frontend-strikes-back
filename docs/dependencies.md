@@ -114,7 +114,7 @@ nobody else. See [§5](#5-the-react-19-compat-shim).
 | `react-spring`                   | 10.0.4        | Forced over Spectacle's `^9.5.5`                                                                                           |
 | `kbar`                           | 0.1.0-beta.48 | Forced over Spectacle's pinned `beta.40`                                                                                   |
 | `react-syntax-highlighter`       | 16.1.1        | Forced over Spectacle's `^15.5.0`; main entry swapped for the Prism-only one — see [§2](#exact-url-keys-entry-point-swaps) |
-| `react-live`                     | 4.1.8         | Latest. **Lazy** — see [§3 below](#react-live-loads-on-demand)                                                             |
+| `react-live`                     | 5.0.0         | Latest. **Lazy** — see [§3 below](#react-live-loads-on-demand)                                                             |
 | `prism-react-renderer`           | 2.4.1         | `2.4.0` (pulled by react-live) remaps here. Lazy with it                                                                   |
 | `htm`                            | 3.1.1         | Latest                                                                                                                     |
 | `styled-system`                  | 5.1.5         | Latest — see [§6](#6-things-deliberately-not-upgraded)                                                                     |
@@ -124,17 +124,23 @@ nobody else. See [§5](#5-the-react-19-compat-shim).
 
 ### `react-live` loads on demand
 
-`react-live` and `prism-react-renderer` are still pinned in the import map, but nothing fetches
-them on a normal load. They exist for `CodeEditor`, and **no slide currently renders one**, so
-they sit behind a `lazy()` boundary: [`deck/code-editor.js`](../deck/code-editor.js) holds the
-component and both imports, and [`deck/components.js`](../deck/components.js) exports a gate
-that names it through a dynamic `import()`. Cold-load saving: **17 requests and ~133 KB**,
-`sucrase` being the bulk of it.
+`react-live` and `prism-react-renderer` sit behind `lazy()` boundaries, named only through
+dynamic `import()`s in [`deck/components.js`](../deck/components.js). Two modules use them:
+[`deck/code-editor.js`](../deck/code-editor.js) (`CodeEditor`, which no slide renders) and
+[`deck/live-code.js`](../deck/live-code.js) (the editable pane on the Prompt API slide, a
+`JsSlide` with `editable`). The chunk is **17 requests and ~133 KB**, `sucrase` being the bulk
+of it.
 
-The limit worth knowing before relying on it: Spectacle mounts every slide into a portal up
-front, so the first slide that _does_ use `CodeEditor` pulls the chunk during the initial
-render anyway. That is what an eager import already did, so the boundary never costs anything —
-it just stops charging for a component nothing renders.
+Spectacle mounts every slide into a portal up front, so since the Prompt API slide went in,
+the chunk loads during the initial render on every visit. The boundary still keeps it off the
+first paint, and the plain `CodePane` stands in on that slide until it arrives.
+
+**One exact-URL key keeps it loading.** `sucrase` → `@jridgewell/gen-mapping@0.3.13` → `trace-mapping@0.3.29` imports
+`@jridgewell/sourcemap-codec@1.5.3/+esm`, and jsDelivr builds that version's `+esm` from the
+package's UMD file, so it has only a default export, and the import of `encode` fails with
+`does not provide an export named 'encode'`. The key sends that one URL to the same version's
+own ES module build, `dist/sourcemap-codec.mjs`, which has no imports of its own. (1.5.4's
+`+esm` is fine, and is what `gen-mapping` itself asks for.)
 
 ### `@litert-lm/core` and its wasm
 

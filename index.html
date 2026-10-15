@@ -114,7 +114,8 @@
           "https://cdn.jsdelivr.net/npm/kbar@0.1.0-beta.40/": "https://cdn.jsdelivr.net/npm/kbar@1.0.0/",
           "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@15.6.6/+esm": "./deck/rsh-prism.js",
           "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@15.6.6/": "https://cdn.jsdelivr.net/npm/react-syntax-highlighter@16.1.1/",
-          "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.0/": "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.1/"
+          "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.0/": "https://cdn.jsdelivr.net/npm/prism-react-renderer@2.4.1/",
+          "https://cdn.jsdelivr.net/npm/@jridgewell/sourcemap-codec@1.5.3/+esm": "https://cdn.jsdelivr.net/npm/@jridgewell/sourcemap-codec@1.5.3/dist/sourcemap-codec.mjs"
         },
         "scopes": {
           "https://cdn.jsdelivr.net/npm/spectacle@10.2.3/": {
@@ -813,6 +814,7 @@
             filename=${examples.promptApi.file} code=${examples.promptApi.code}
             language=${examples.promptApi.language}
             run=${true}
+            editable=${true}
             source=${{
               href: "https://developer.chrome.com/docs/ai/prompt-api",
               title: "Chrome's Prompt API docs",
@@ -822,8 +824,15 @@
               * The simplest of the five: the browser owns the model (Chrome fetches Gemini
                 Nano once, for every site), so there is no runtime to bundle and no
                 weights to host.
-              * Line 1: create a session. Line 3: ask the eternal question.
+              * Lines 1–2: what it takes. Chrome 148+ on desktop, nothing to turn on; Edge
+                is a preview behind a flag, running Phi-4-mini. The first call downloads
+                the model, and Chrome wants 22 GB free plus a GPU with over 4 GB of VRAM
+                (or 16 GB RAM and 4 cores).
+              * Not available on a modern Chrome? May need to check
+                \`chrome://settings/ai\` (the On-device AI toggle).
+              * Line 3: create a session. Line 5: ask the eternal question.
               * Hit Run: this is the code on the slide, running live on Gemini Nano.
+              * The code is editable: change the question and run it again.
               * If it fails on the day, a real answer from Chrome: "Bikeshedding is
                 debating trivial details that don't significantly impact the overall
                 outcome or decision."

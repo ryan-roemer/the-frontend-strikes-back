@@ -1788,7 +1788,40 @@ body::after {
   background: color-mix(in srgb, var(--chapter-accent) 22%, transparent);
 }
 
+.code-run__button--clear {
+  color: var(--muted);
+}
+
 .code-run__button:disabled {
   opacity: 0.4;
   cursor: progress;
+}
+
+/*
+ * `deck/live-code.js`: the editable pane. Its `pre` already gets the
+ * `.code-frame pre` rules above; these add `CodePane`'s line numbers back, as
+ * CSS counters, since react-live's `Editor` draws none. Pseudo-element text is
+ * not in the DOM's text, so the editor never sees the numbers as code.
+ */
+.live-code {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.live-code pre {
+  counter-reset: line;
+  caret-color: var(--chapter-accent);
+}
+
+.live-code .token-line::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  min-width: 22.5px;
+  padding-right: 18px;
+  text-align: right;
+  color: #6a9955;
+  user-select: none;
 }

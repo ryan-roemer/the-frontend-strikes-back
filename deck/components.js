@@ -578,7 +578,8 @@ const AsyncFunction = (async () => {}).constructor;
  * download.
  *
  * `preventDefault` on mousedown keeps focus off the button, so arrow keys and
- * Space go on driving the deck rather than pressing Run again.
+ * Space go on driving the deck rather than pressing Run again. The clear button
+ * (the chat panel's broom) shows only when there is output to clear.
  *
  * Each line is trimmed at the end: Gemini Nano's answers come back with a
  * trailing space and newline, which `pre-wrap` draws as an empty last line.
@@ -620,6 +621,20 @@ const RunOutput = ({ code }) => {
             : html`<div className="code-run__placeholder">${placeholder}</div>`
         }
       </output>
+      ${
+        lines.length && !running
+          ? html`<button
+              type="button"
+              className="code-run__button code-run__button--clear"
+              title="Clear output"
+              aria-label="Clear output"
+              onMouseDown=${(event) => event.preventDefault()}
+              onClick=${() => setLines([])}
+            >
+              <i className="ph ph-broom" aria-hidden="true"></i>
+            </button>`
+          : null
+      }
       <button
         type="button"
         className="code-run__button"
@@ -647,6 +662,10 @@ const RunOutput = ({ code }) => {
  * default, or `source.icon` (a Phosphor name) for a link that isn't to code.
  *
  * `run` adds a Run button and an output panel under the code (see `RunOutput`).
+ *
+ * `editable` swaps the pane for an editor (`deck/live-code.js`), and Run takes
+ * whatever is in it. Edits last until a reload. While the editor's chunk loads,
+ * the plain pane stands in, so there is no empty frame.
  */
 export const JsSlide = ({
   title,
@@ -656,8 +675,13 @@ export const JsSlide = ({
   chapter,
   source,
   run = false,
+  editable = false,
   language = "javascript",
-}) => html`
+}) => {
+  const [current, setCurrent] = useState(code);
+  const pane = html`<${CodePane} language=${language} showLineNumbers=${true}>${code}</${CodePane}>`;
+
+  return html`
   <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
     <${SlideHeading} variant="subtitle" fontSize="h3" textAlign="left" margin="0 0 24px">${title}</${SlideHeading}>
     <div className="code-frame">
@@ -681,12 +705,23 @@ export const JsSlide = ({
             </div>`
           : null
       }
-      <${CodePane} language=${language} showLineNumbers=${true}>${code}</${CodePane}>
+      ${
+        editable
+          ? html`<${Suspense} fallback=${pane}>
+              <${LazyLiveCode}
+                code=${code}
+                language=${language}
+                onChange=${setCurrent}
+              />
+            <//>`
+          : pane
+      }
     </div>
-    ${run ? html`<${RunOutput} code=${code} />` : null}
+    ${run ? html`<${RunOutput} code=${current} />` : null}
     <${MdNotes} notes=${notes} />
   </${DeckSlide}>
 `;
+};
 
 /**
  * One markdown slide with full-markdown speaker notes.
@@ -767,6 +802,7 @@ export const TopicSlide = ({ chapter, fontSize = "88px", notes, ...rest }) => {
 // `fallback` is `null` rather than a spinner, matching `chat/tools/gate.js`: a scrim that
 // appears empty and then fills in looks broken.
 const LazyCodeEditor = lazy(() => import("./code-editor.js"));
+const LazyLiveCode = lazy(() => import("./live-code.js"));
 
 export const CodeEditor = (props) => html`
   <${Suspense} fallback=${null}><${LazyCodeEditor} ...${props} /><//>
