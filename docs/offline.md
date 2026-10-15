@@ -36,19 +36,22 @@ Desktop won't load. Use the backup recordings. See [At the venue](#at-the-venue)
 | ----------------------------- | ----------------- | ---------------------------------------------------- |
 | ChatGPT shops reebok.com      | `chatgpt-desktop` | `www.reebok.com/`                                    |
 | Claude Desktop calls our page | `claude-desktop`  | `nearform.github.io/vector-search-web/?present=true` |
-| Vector search (2)             | `vector-search`   | `nearform.github.io/vector-search-web/?relay=false`  |
+| Vector search (2)             | `vector-search`   | `nearform.github.io/vector-search-web/?present=true` |
 | Web AI demos (2)              | `web-ai`          | `nearform.github.io/web-ai-demo/`                    |
 | Nearform research agents (3)  | `web-agents`      | `nearform.github.io/web-agents/?relay=false`         |
 
 - **On the slide:** the ↗ icon after the URL opens the demo in a new tab. It's there on the
   published deck too.
-- **All at once:** `npm run talk:open` opens the deck and all five, in this order, then brings
-  the deck tab to the front. It skips tabs already open at the same URL. It **closes** any deck
-  tab without `?offline` (the one `cdp:talk` opens), because that tab is blank with no network.
+- **All at once:** `npm run talk:open` opens the deck and a tab per demo URL, in this order,
+  then brings the deck tab to the front. The two vector-search-web demos share one tab. It
+  skips tabs already open at the same URL. Our own demos open with `banner=false`. It
+  **closes** any deck tab without `?offline` (the one `cdp:talk` opens), because that tab is
+  blank with no network.
 - `?present=true` gives vector-search-web a generic title for the projector.
 - `?relay=false` keeps a tab off the relay. Every tab that connects adds its tools to Claude
-  Desktop's list, so with both vector-search-web tabs connected Claude sees each tool twice, under
-  suffixed names (`search_ed93`, `search_a1b2`). Only the Claude Desktop tab should connect.
+  Desktop's list, so with two vector-search-web tabs connected Claude sees each tool twice, under
+  suffixed names (`search_ed93`, `search_a1b2`). Only the shared vector-search-web tab should
+  connect.
 
 The URLs live in `DEMO_LINKS` in `deck/demos.js`. Change them there; the slide icon and
 `talk:open` both read it.

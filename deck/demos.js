@@ -12,18 +12,18 @@
  * The page each demo runs on, in talk order. `DemoSlide` links to it with an
  * open-in-new-tab icon, and `npm run talk:open` opens every one as a tab.
  *
- * The two vector-search-web links are the same app: `?present=true` trims it down for the
- * projector (a generic title), which is what the Claude Desktop demo wants.
+ * Both vector-search-web demos share one tab: `?present=true` trims it down for
+ * the projector (a generic title), and it is the tab Claude Desktop connects to.
  *
  * `?relay=false` on the others keeps them off the WebMCP relay. Every open tab
- * that bridges registers its tools with it, so with all of them open Claude
+ * that bridges registers its tools with it, so with more than one open Claude
  * Desktop would see each search tool more than once, under suffixed names.
  */
 export const DEMO_LINKS = {
   "chatgpt-desktop": "https://www.reebok.com/",
   "claude-desktop":
     "https://nearform.github.io/vector-search-web/?present=true",
-  "vector-search": "https://nearform.github.io/vector-search-web/?relay=false",
+  "vector-search": "https://nearform.github.io/vector-search-web/?present=true",
   "web-ai":
     "https://nearform.github.io/web-ai-demo/?runtime=wllama&model=ggml-org%2Fgemma-4-E2B-it-GGUF%7Cgemma-4-E2B-it-Q4_0.gguf",
   "web-agents": "https://nearform.github.io/web-agents/?relay=false",

@@ -81,12 +81,15 @@ if (deck) {
   console.log(`opened   ${deckUrl}`);
 }
 
+// Two demos can share a page, so a link opened earlier in this loop is kept too.
+const opened = new Set(before.map((target) => target.url));
 for (const [id, link] of Object.entries(DEMO_LINKS)) {
   const href = withoutBanner(link);
-  if (before.some((target) => target.url === href)) {
+  if (opened.has(href)) {
     console.log(`kept     ${href} (${id})`);
   } else {
     await open(href);
+    opened.add(href);
     console.log(`opened   ${href} (${id})`);
   }
 }
