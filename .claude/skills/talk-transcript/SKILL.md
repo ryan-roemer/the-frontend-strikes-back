@@ -54,16 +54,27 @@ Use the same shape as the previous run:
 
 ## 4. Update the speaker notes on every slide
 
-Update every slide, including ones with no notes yet. Notes are cues for Ryan to glance
-at, not a script: short bullets, his phrasing, the demo steps in order, and the line
-that makes the point out loud.
+Update every slide, including ones with no notes yet. Notes are what Ryan reads at a
+glance **while presenting**, so every bullet is something he says or does live: short
+bullets, his phrasing, the demo steps in order, and the line that makes the point out
+loud. Not a script.
 
 - Merge with the existing notes, don't replace them. Keep facts and credits he didn't
   say this time (the Alex Nahas credit, "if asked" answers). Update numbers and the order
   of points to match what he said. Drop lines that no longer apply
-- Resolve a `**TODO:**` in the notes if this run settled it. If it didn't, keep it and
-  add what each run said
-- A note to Ryan becomes a cue on that slide's notes ("Close in one line: …")
+- **No history and no prep in the notes.** Nothing about past runs: no dates, no run
+  numbers, no "stuck here last time", no record of what went wrong or what he misspoke.
+  No pre-talk checklist items ("preload the model before going on stage"). Those go in
+  the action items in `docs/transcripts.md`, and prep goes to `docs/offline.md` or the
+  offline-prep skill. A fix lands in the notes as the better line to say (a typo'd demo
+  input becomes the input, spelled right; a stumble becomes the one-line close)
+- Write each bullet as words he can say to the room, or a short stage cue for a demo
+  step ("Hit Run", "Open the timings"). An aside to himself ("speed-run this table")
+  belongs only if it changes what he does live
+- Resolve a `**TODO:**` in the notes if this run settled it. If it didn't, keep it, and
+  put what each run said in the outline, not the notes
+- A note to Ryan becomes a cue on that slide's notes, written as the line to say or the
+  step to take ("Close in one line: …"), never as what happened
 
 Where notes live, by slide type:
 

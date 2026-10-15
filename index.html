@@ -319,7 +319,6 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * Skipped in both 2026-10-14 run-throughs. One breath, or click through.
                   * I lead technology and open source at Nearform. Spectacle, the library
                     this deck runs on, is ours.
                   * I play in both the backend and the frontend worlds, which is where this
@@ -381,6 +380,10 @@
                   * **My Goal** here is to get folks to
                     1. **know** what browser AI features are out there and
                     2. help you **start playing around** with web AI.
+                  * Show of hands: who builds frontends (full stack, frontend)? Agents are
+                    becoming an increasing share of your traffic.
+                  * And who builds backend systems, MCP servers, cloud? Parts of the AI
+                    stack can go in this new runtime, the browser, which is everywhere.
                   * Without further ado, the first half: the browser as an interface.
                 `}
               </${Markdown}>
@@ -462,8 +465,8 @@
             ]}
             notes=${`
               * Shout out to Alex Nahas (creator of MCP-B, early WebMCP contributor) and
-                his post "The next steps on the Web and WebMCP." The thread through this
-                slide is his.
+                his post "The next steps on the Web and WebMCP." A lot of this slide comes
+                from it.
               * This makes more sense once we see the code and the demos, but first the
                 why.
               * Agents already use your site, in a browser, just poorly: screen-scraping,
@@ -567,15 +570,15 @@
               "Shopify ships WebMCP tools on every Liquid storefront.",
             ]}
             notes=${`
-              * Set it up: a real store, a real agent, nothing to install. Shopify ships
-                WebMCP tools on its storefronts, so Reebok.com has them today.
+              * A real store, a real agent, nothing to install. Shopify ships WebMCP
+                tools on every Liquid storefront, so Reebok.com has them today.
               * With a browser extension, go to Reebok's site: the tools are just there.
                 Add to cart, cancel cart, and so on.
               * ChatGPT desktop is slow live, so here's a video: finding a running shoe
-                in my size, using only the WebMCP tools. It picks the Floatzig 2. (I don't
-                run in Reeboks, but it looks like a decent shoe.)
-              * **Say the point out loud:** any WebMCP site can be used by clients like
-                ChatGPT desktop. If you have it, you can do this for real right now.
+                in my size, using only the WebMCP tools. It picks the Floatzig 2. I have
+                no idea what that shoe is. I run in Hokas.
+              * **Any WebMCP site can be used by clients like ChatGPT desktop. If you have
+                it, you can do this for real right now.**
             `}
           />
           <${DemoSlide}
@@ -591,7 +594,8 @@
             ]}
             notes=${`
               * What if your client, say Claude Desktop, has no native WebMCP support?
-                Use an MCP server that relays to any WebMCP page.
+                Use an MCP server that relays to any WebMCP page (Alex Nahas's, from
+                MCP-B).
               * A relay runs locally, so Claude Desktop connects through its normal MCP
                 server. Nothing special. Same intranet page as before.
               * Claude has already listed the WebMCP tools it found: the same search tool.
@@ -601,7 +605,7 @@
               * Approve the permission prompt (allow once). Claude calls the page over the
                 relay and answers with the full power of normal Claude, using only what
                 the tool returned as context.
-              * The point: Claude gets superpowers. A hidden intranet would take orders
+              * **Claude gets superpowers.** A hidden intranet would take orders
                 of magnitude more effort to expose as its own backend MCP server. A few
                 \`registerTool\` calls on the frontend, and the auth guarantees come
                 along.
@@ -717,7 +721,7 @@
             url="nearform.github.io/vector-search-web"
             points=${[
               "Precomputed <strong>embeddings</strong> (2-5 MB) and <strong>content</strong> (3 MB), one download.",
-              "Data download in 200-800 ms, then ~26 ms to embed and ~6 ms to search.",
+              "Data download in 200-800 ms, then ~25 ms to embed and ~5 ms to search.",
               "Vector search here. Lexical or hybrid is a config change.",
             ]}
             notes=${`
@@ -731,10 +735,10 @@
                 (lexical, BM25) or hybrid is a configuration change, so you could
                 potentially do all of your search on the frontend.
               * The initial download takes 200–800 ms, which isn't nothing. After that,
-                search is blazingly fast. (These timings are examples from my own runs,
-                and the download depends on the network.)
-              * Search "webpack bundles" again and open the timings: query embedding
-                ~26 ms, search ~6–7 ms. You can't do that over any network.
+                search is blazingly fast. Your mileage may vary.
+              * Search "webpack bundles" again and open the timings. Read them off the
+                screen: query embedding ~25 ms, search ~5 ms. You can't do that over any
+                network.
               * That's the embeddings and vector database pieces.
             `}
           />
@@ -756,12 +760,14 @@
                 is a preview behind a flag, running Phi-4-mini. The first call downloads
                 the model, and Chrome wants 22 GB free plus a GPU with over 4 GB of VRAM
                 (or 16 GB RAM and 4 cores).
-              * Not available on a modern Chrome? May need to check
-                \`chrome://settings/ai\` (the On-device AI toggle).
-              * Line 3: create a session. Line 5: ask the eternal question.
+              * Following along and it doesn't run? Check \`chrome://settings/ai\`, the
+                On-device AI toggle.
+              * Line 3: create a session. Line 5: ask the eternal question. Many small
+                models do terribly with this one.
               * Hit Run: this is the code on the slide, running live on Gemini Nano.
-              * The code is editable: change the question and run it again.
-              * If it fails on the day, a real answer from Chrome: "Bikeshedding is
+              * The code is editable: change the question to "What about yak shaving?"
+                and run it again.
+              * If it errors, read Chrome's real answer: "Bikeshedding is
                 debating trivial details that don't significantly impact the overall
                 outcome or decision."
             `}
@@ -832,14 +838,14 @@
               * Prompt API: built in, the one we just ran. Chrome and Edge only so far,
                 coming to other browsers. Perhaps the highest quality, but not much
                 context, tool calling behind a flag, and not on my phone yet.
-              * WebLLM: only a few select models, but runs really well on a phone.
+              * WebLLM: only a few select models, but really good on small models, and
+                runs really well on a phone.
               * wllama: llama.cpp in the browser. Any GGUF model straight off Hugging
-                Face. Pretty workable context.
+                Face. If you love GGUFs, and I do, this is your ticket.
               * Transformers.js: what the Python crowd loves. PyTorch-style models
                 converted to ONNX.
-              * LiteRT-LM (say "Lite R T": it came out as "LIDAR" in the run-through):
-                the newest, another Google entrant. Fast, with a real workable context,
-                around 32K.
+              * LiteRT-LM.js ("Lite R T"; man, that's a mouthful): the newest, another
+                Google entrant. Fast, with a real workable context, around 32K.
                 * If asked: "garbled past 32K" is the larger Gemma 4 builds (12B and
                   up). Gemma 4 E2B held its full 128K in our tests.
             `}
@@ -862,6 +868,8 @@
                 plausible but wrong? Correct: arguing passionately over parts that don't
                 matter. Welcome to engineering.
               * Rough, but you can actually do things: try tool calling, load other models.
+              * **Deck chat is optional.** Do it here if there's time. Tight on time:
+                do it on the Thanks slide at the end. Out of time: skip it.
               * Bonus: the deck already has WebMCP tools, so the obvious over-engineered
                 next step is to hook them to an on-device chat and talk to the deck.
               * "Change the slide heading to: Wow, AI in my deck." It changes the title.
@@ -919,6 +927,7 @@
             notes=${`
               * Those were the small pieces. An experiment: could we take it further and
                 put all the pieces in the browser, as full agents?
+              * Agents actually in the browser, not just agents calling the browser.
             `}
           />
           <${DemoSlide}
@@ -954,7 +963,8 @@
               * Uses embeddings, a vector database, inference, and several tools: 4 of
                 the 7 pieces.
               * I also have a branch of web-agents that experiments with a decider
-                (\`experiment/chrome-decider\`, Chrome Canary), which would make it 5.
+                (\`experiment/chrome-decider\`, Chrome Canary), which would make it 5. I
+                couldn't get its quality good enough in time for today.
               * The real takeaway: a pure client-side app on GitHub Pages, no backend.
                 Most of what would traditionally be a backend app.
             `}
@@ -1015,10 +1025,11 @@
                     how it goes.
                   * **If you build AI systems:** an agent, or parts of one, now fits in a
                     tab. If you're bold, move one piece of your AI stack to the frontend: a
-                    classifier or decider before the request goes to a heavy backend, or
+                    classifier or decider before the request goes to a heavy backend, an
+                    embedding call (EmbeddingGemma, GTE Small) to save a round trip, or
                     your vector search.
-                  * Close in one line (I got stuck here in run 002): pick one thing you'd
-                    normally run on the backend, run it in the tab, and have some fun.
+                  * Close in one line: pick one thing you'd normally run on the backend,
+                    run it in the tab, and have some fun.
                 `}
               </${Markdown}>
             </${Notes}>
@@ -1051,6 +1062,8 @@
                     of the frontend.
                   * Find me in the hall! Stickers and t-shirts.
                   * Any time for questions?
+                  * Optional, only if the deck chat was skipped on the web AI demo slide and
+                    there's time: open the chat and have it change this slide's heading.
                 `}
               </${Markdown}>
             </${Notes}>
