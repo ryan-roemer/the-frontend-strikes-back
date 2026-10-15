@@ -228,18 +228,19 @@ body::after {
 }
 
 /*
- * Underlined emphasis inside a display heading.
+ * Underlined emphasis, in headings and body copy alike.
  *
  * The browser default is a hairline sitting on the baseline, which at 72px reads
  * as a hyperlink and collides with descenders. Thickened, offset, and drawn in the
- * saturated accent so it reads as a deliberate mark. `text-decoration-color` is
+ * chapter accent so it reads as a deliberate mark. Only the line takes the accent;
+ * the word keeps the color of the text around it. `text-decoration-color` is
  * independent of `-webkit-text-fill-color`, so this survives the `gradient`
  * heading treatment too.
  */
-#root :is(.slide-title, .slide-subtitle, .title-display) u {
+#root .slide u {
   text-decoration-thickness: 0.07em;
   text-underline-offset: 0.14em;
-  text-decoration-color: var(--chapter-accent-base);
+  text-decoration-color: var(--chapter-accent);
 }
 
 #root p {
@@ -256,11 +257,20 @@ body::after {
   font-weight: 600;
 }
 
+/*
+ * Bold in slide copy takes the chapter accent. White bold on white body text
+ * only differs by weight, which is too little to pick out from the back of a
+ * room. Speaker notes stay plain.
+ */
+#root .slide :is(strong, b):not(.notes *) {
+  color: var(--chapter-accent);
+}
+
 /* Uppercase tracked-out label. The wide tracking is what makes it read as a
  * label rather than as small body text. */
 #root .eyebrow {
   font-weight: 600;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--chapter-accent);
 }
@@ -270,11 +280,7 @@ body::after {
   height: 5px;
   margin-top: 28px;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    var(--chapter-accent-base),
-    var(--chapter-accent)
-  );
+  background: var(--chapter-accent);
 }
 
 /* A markdown `***`, drawn as a thinner accent rule. Splits the Links slide into
@@ -286,11 +292,7 @@ body::after {
   margin: 8px 32px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    var(--chapter-accent-base),
-    var(--chapter-accent)
-  );
+  background: var(--chapter-accent);
 }
 
 /* Markdown bullets. Spectacle's default discs sit at body weight and read as
@@ -338,25 +340,15 @@ body::after {
 /* --- Title slide --------------------------------------------------------- */
 
 /*
- * Gradient-filled display type. The slight perspective is the deck's second
- * Star Wars nod -- enough to register, not enough to become the joke. Both are
- * cosmetic: if `background-clip: text` misbehaves anywhere, deleting this rule
- * leaves plain white type and nothing else breaks.
+ * Display type. The slight perspective is the deck's Star Wars nod -- enough to
+ * register, not enough to become the joke. Plain white rather than a
+ * gradient fill: the tilt already carries the effect.
  */
 #root .title-display {
   font-weight: 800;
   letter-spacing: -0.035em;
   line-height: 0.92;
-  background: linear-gradient(
-    165deg,
-    #ffffff 0%,
-    #ffffff 42%,
-    var(--nf-green-50, #78eec5) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  color: #fff;
   transform: perspective(1400px) rotateX(8deg);
   transform-origin: 50% 100%;
 }
@@ -404,7 +396,9 @@ body::after {
 
 /* --- Chapter dividers ---------------------------------------------------- */
 
+/* `Box` sets no font, so without `font-family` this fell back to a serif. */
 #root .divider__numeral {
+  font-family: var(--sans);
   position: absolute;
   right: 3%;
   top: 50%;
@@ -424,18 +418,15 @@ body::after {
 /* --- Cards --------------------------------------------------------------- */
 
 /*
- * Replaces the previous `1px solid #fff` box. A hairline pure-white border
- * reads as a debug outline; a translucent fill with a soft shadow reads as a
- * surface sitting above the background.
+ * A flat translucent fill and a hairline edge. A pure-white border reads as a
+ * debug outline; a gradient fill, glossy top edge and drop shadow read as a
+ * template. This sits in between.
  */
 .card {
-  background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+  background: var(--surface-1);
   border: 1px solid var(--hairline);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 24px;
-  box-shadow:
-    0 12px 32px rgba(0, 14, 56, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .card--label {
@@ -1236,14 +1227,14 @@ body::after {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/*
+ * Neutral, like the counter beside it. The chrome cannot see the active slide's
+ * chapter (see `Template`), so an accent here was always the deck green, which
+ * clashed with the blue and purple chapters.
+ */
 .deck-progress__fill {
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--chapter-accent-base),
-    var(--chapter-accent)
-  );
-  box-shadow: 0 0 18px var(--chapter-accent-base);
+  background: rgba(255, 255, 255, 0.35);
   transition: width 400ms ease;
 }
 
@@ -1588,10 +1579,7 @@ body::after {
   color: var(--nf-midnight-50, #526288);
 }
 
-/* Knocked-out gradient type renders as nothing on white. */
 .print-mode #root .title-display {
-  background: none;
-  -webkit-text-fill-color: currentColor;
   color: var(--nf-midnight-base, #000e38);
   transform: none;
 }
@@ -1684,32 +1672,17 @@ body::after {
   /*
    * Print rasterizes box-shadows without their blur, so every soft shadow
    * lands as a hard dark rectangle offset behind its element -- most visible
-   * as a slab behind the title-slide QR and the tiles on `TilesSlide`. The borders
-   * carry the edges on their own.
+   * as a slab behind the title-slide QR. The borders carry the edges on their
+   * own.
    */
-  #root .card,
   #root .qr-card,
   #root .code-frame,
-  #root .code-editor-container,
-  #root .deck-progress__fill {
+  #root .code-editor-container {
     box-shadow: none;
   }
 
-  /*
-   * Chrome's print rasterizer does not honour `background-clip: text`. The
-   * gradient paints as a solid filled rectangle over the headline instead of
-   * being knocked out by it, and the perspective transform skews that
-   * rectangle across the slide. Print gets flat, reliable type.
-   *
-   * `.print-mode` sets its own (dark) colour at higher specificity, so the
-   * handout keeps ink while a printed exportMode deck stays white-on-navy.
-   */
+  /* The perspective tilt prints skewed. Print gets flat type. */
   #root .title-display {
-    background: none;
-    -webkit-background-clip: border-box;
-    background-clip: border-box;
-    -webkit-text-fill-color: currentColor;
-    color: #fff;
     transform: none;
   }
 }
