@@ -997,65 +997,11 @@ body::after {
   text-decoration: none;
 }
 
-/* --- Spectacle badge -----------------------------------------------------
+/* --- Spectacle banner ----------------------------------------------------
  *
- * The logo sitting in the "I lead technology & OSS at Nearform" line, and the
- * banner it opens. See `SpectacleBadge` in `components.js`; the scrim behind the
- * card is `.chat-sheet`, shared with the chat sheets.
+ * The hexagon in the deck chrome opens the banner. See `spectacle-banner.js`;
+ * the scrim behind the card is `.chat-sheet`, shared with the chat sheets.
  */
-
-/*
- * The bubble behind the logo is what says "clickable" from the back of a room.
- * Nothing else in the deck's body copy has a surface behind it, so the one that
- * does reads as a control -- and it stays faint enough that the sentence is
- * still a sentence.
- *
- * `font: inherit` is what makes every `em` below mean anything: a button starts
- * at the UA's own 13px, not the 46px of the line it sits in. With it, the whole
- * badge scales with whatever line it lands in.
- *
- * SIZED AGAINST THE LINE BOX. Logo, padding and border come to about 59px on
- * this 46px/1.2 line, which is a few px taller than the box -- so the appear
- * line below sits ~4px lower than the two above it. That is the trade for a
- * bubble big enough to read as a target; grow it much further and the uneven
- * leading starts to show.
- */
-.spectacle-badge {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  margin: 0 0 0 0.45em;
-  padding: 0.16em;
-  border: 1px solid rgba(252, 105, 134, 0.28);
-  border-radius: 50%;
-  background: rgba(252, 105, 134, 0.12);
-  font: inherit;
-  line-height: 1;
-  vertical-align: -0.1em;
-  cursor: pointer;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.spectacle-badge:hover,
-.spectacle-badge:focus-visible {
-  border-color: rgba(252, 105, 134, 0.55);
-  background: rgba(252, 105, 134, 0.22);
-  box-shadow: 0 0 0.5em rgba(252, 105, 134, 0.45);
-}
-
-.spectacle-badge:focus-visible {
-  outline: 2px solid var(--chapter-accent, #78eec5);
-  outline-offset: 3px;
-}
-
-.spectacle-badge svg {
-  display: block;
-  width: auto;
-  height: 0.92em;
-}
 
 /*
  * The closing banner slide, as a card. 16:9 so it reads as the slide it is, and
@@ -1081,10 +1027,9 @@ body::after {
 }
 
 /*
- * `cqw` and not `%`: the logo's containing block is the link wrapped around it,
- * which is a flex item sized by its content -- so a percentage width would be a
- * percentage of the SVG's own attribute width. 30cqw is what the 400px logo is
- * on the 1366px slide.
+ * `cqw` and not `%`: the logo is a flex item sized by its content, so a
+ * percentage width would be a percentage of the SVG's own attribute width. 30cqw
+ * is what the 400px logo is on the 1366px slide.
  */
 .spectacle-card svg {
   width: min(300px, 30cqw);

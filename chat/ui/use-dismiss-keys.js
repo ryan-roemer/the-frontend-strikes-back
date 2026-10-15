@@ -12,7 +12,7 @@ import { useCallback } from "react";
  * One hook, four surfaces -- the panel, the context sheet and the tool inspector each
  * had a byte-identical copy of this, and the two later ones carried a comment pointing
  * at the first while repeating the code it described. The fourth is the deck's own
- * Spectacle banner (`SpectacleBadge` in `deck/components.js`).
+ * Spectacle banner (`deck/spectacle-banner.js`).
  *
  * @param {() => void} onEscape What this surface does when dismissed.
  */

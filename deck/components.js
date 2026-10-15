@@ -1,15 +1,4 @@
-import {
-  Fragment,
-  Suspense,
-  createElement,
-  lazy,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { createPortal } from "react-dom";
+import { Fragment, Suspense, createElement, lazy, useState } from "react";
 import htm from "htm";
 import {
   Appear,
@@ -32,23 +21,18 @@ import {
   Table,
   TableRow,
   TableCell,
-  SpectacleLogo,
-  DeckContext,
-  SlideContext,
-  useSteps,
 } from "spectacle";
-import { colors, isPaged, photoBackground, SPECTACLE_ROSE } from "./theme.js";
-import { images } from "./media.js";
+import { colors, photoBackground } from "./theme.js";
 import { chapterClass, chapterNumber } from "./chapters.js";
 import { VERDICTS } from "./takeaways.js";
 import { SlideKeys } from "./slide-keys.js";
 import { VideoToggle } from "./demo-video.js";
+import { SpectacleToggle } from "./spectacle-banner.js";
 import { DEMO_LINKS, DEMO_PIECES } from "./demos.js";
 import { PIECES } from "./pieces.js";
 import { DeckBridge } from "../chat/bridge.js";
 import { ChatToggle } from "../chat/toggle.js";
 import { ToolsToggle } from "../chat/tools/toggle.js";
-import { useDismissKeys } from "../chat/ui/use-dismiss-keys.js";
 
 const html = htm.bind(createElement);
 
@@ -369,7 +353,8 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
           width=${1}
         >
           ${
-            "" /* Fullscreen first, sparkle second, plug third, on EVERY slide including
+            "" /* Fullscreen first, sparkle second, plug third, Spectacle logo fourth
+                  (see `spectacle-banner.js`), on EVERY slide including
                   the title. The controls are not chrome in the decorative sense --
                   they are the things a presenter reaches for, and going fullscreen is
                   the first of them, which makes slide 1 the slide it is needed on most.
@@ -385,6 +370,7 @@ export const Template = ({ slideNumber, numberOfSlides } = {}) => {
             <${FullScreen} color=${colors.midnight[30]} size=${20} />
             <${ChatToggle} />
             <${ToolsToggle} />
+            <${SpectacleToggle} />
             <${VideoToggle} />
           <//>
           ${
@@ -1560,155 +1546,3 @@ export const DemoSlide = ({
     />
   </${DeckSlide}>
 `;
-
-/**
- * Spectacle's own logo, inline in a sentence, that opens the banner over the deck.
- *
- * A button and not a link: the banner is a thing to show the room mid-sentence
- * when Spectacle comes up, and following a link would leave the talk to do it.
- *
- * PORTALED TO `<body>`, like the chat panel and for the same reason: Spectacle
- * portals every slide into an aspect-fit box carrying `transform: scale()` and
- * `overflow: hidden`, so an overlay rendered inside a slide is scaled with the
- * canvas and clipped at the slide's edges (see the header of `chat/index.js`).
- * A portal keeps React context, so Spectacle's theme still reaches the `Text`
- * and `Link` inside.
- *
- * The scrim, the centering and the z-index above the chat panel are `.chat-sheet`
- * from `chat/chat.css`, shared with the context and tool sheets. Only the card
- * is new.
- *
- * ALSO A STEP. With animations on, the banner is its own step on the slide: the
- * placeholder sits inside the `Appear` row that holds the badge, so Spectacle
- * orders it after that row and before the next one. Arrow forward and the
- * banner goes up; arrow again and it comes down as the next row appears. While
- * a step is holding it open the arrows go through to the deck, which is the
- * point -- a click-opened banner still keeps them, as before.
- *
- * `stepped` is this exact step, not "this step or later": `useSteps` clamps the
- * relative step at its last value, so `isActive` alone would leave the banner
- * up for the rest of the slide.
- */
-const Badge = ({ stepped = false, placeholder = null }) => {
-  const [clicked, setClicked] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  const sheet = useRef(null);
-  const open = clicked || (stepped && !dismissed);
-  const close = useCallback(() => {
-    setClicked(false);
-    setDismissed(true);
-  }, []);
-
-  // Moving on or off the step starts clean: an Escape on the way through does
-  // not stop the banner coming back when you step back onto it.
-  useEffect(() => {
-    setClicked(false);
-    setDismissed(false);
-  }, [stepped]);
-
-  /** Escape closes, arrows stay off the deck -- see `use-dismiss-keys.js`. */
-  const blockKeys = useDismissKeys(close);
-  const onKeyDown = stepped
-    ? (event) => {
-        if (event.key !== "Escape") return;
-        event.stopPropagation();
-        close();
-      }
-    : blockKeys;
-
-  // Focused on open so Escape has somewhere to land. Lowercase `tabindex` below
-  // because prettier formats these html`` templates as HTML -- see the longer
-  // note in `chat/context/modal.js`.
-  useEffect(() => {
-    if (open) sheet.current?.focus();
-  }, [open]);
-
-  return html`
-    <${Fragment}>
-      ${placeholder}
-      <button
-        type="button"
-        className="spectacle-badge"
-        aria-label="Show the Spectacle banner"
-        onClick=${() => setClicked(true)}
-      >
-        <${SpectacleLogo} size=${64} />
-      </button>
-      ${
-        open &&
-        createPortal(
-          html`<div
-            ref=${sheet}
-            className="chat-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Spectacle"
-            tabindex=${-1}
-            onKeyDown=${onKeyDown}
-            onMouseDown=${(event) => {
-              if (event.target === event.currentTarget) close();
-            }}
-          >
-            <div
-              className="spectacle-card"
-              style=${{ backgroundImage: `url(${images.spectacle})` }}
-            >
-              <${Link}
-                href="https://nearform.com/open-source/spectacle"
-                target="_blank"
-              >
-                <${SpectacleLogo} size=${280} />
-              <//>
-              <${Text} className="spectacle-card__url" margin="0px">
-                <${Link}
-                  href="https://nearform.com/open-source"
-                  color=${SPECTACLE_ROSE}
-                  textDecoration="none"
-                  target="_blank"
-                >
-                  nearform.com/open-source
-                <//>
-              <//>
-            </div>
-          </div>`,
-          document.body,
-        )
-      }
-    <//>
-  `;
-};
-
-/**
- * The badge plus its step. Presenter and overview mode leave the step in place
- * so the step count matches the audience window, but never raise the banner by
- * stepping -- it would sit over the notes, or over every slide at once.
- */
-const inPresenterMode = urlParams.get("presenterMode") === "true";
-
-const SteppedBadge = () => {
-  const { stepId, placeholder } = useSteps(1);
-  const { isSlideActive, activeStepIndex, activationThresholds } =
-    useContext(SlideContext);
-  const { inOverviewMode } = useContext(DeckContext);
-  const stepped =
-    isSlideActive &&
-    !inPresenterMode &&
-    !inOverviewMode &&
-    activeStepIndex === activationThresholds?.[stepId];
-
-  return html`<${Badge} stepped=${stepped} placeholder=${placeholder} />`;
-};
-
-// Paged output is a stack of static slides: nothing to click, no viewport to
-// center an overlay in, and a `position: fixed` scrim already cost this deck a
-// phantom page once. With animations off there are no steps to sit between, so
-// the badge is click-only. The sentence keeps its logo everywhere else.
-//
-// `step=${false}` makes it click-only anywhere: for a slide where the banner is
-// an aside the presenter may or may not bring up, not a beat of the slide.
-export const SpectacleBadge = ({ step = true }) => {
-  if (isPaged) return null;
-  return step && animationsEnabled
-    ? html`<${SteppedBadge} />`
-    : html`<${Badge} />`;
-};

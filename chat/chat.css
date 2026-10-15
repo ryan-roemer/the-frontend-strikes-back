@@ -966,7 +966,7 @@
  * `.chat-tools*` and `.chat-context*` sections that follow.
  *
  * The deck borrows `.chat-sheet` for one thing of its own: the Spectacle banner
- * behind the logo on the "Hi" slide, whose card is in `deck/styles.css`.
+ * (`deck/spectacle-banner.js`), whose card is in `deck/styles.css`.
  *
  * z-index clears `.chat-panel`'s 10000: opening a sheet from a slide with the
  * assistant already up must not put the panel through the scrim.

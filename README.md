@@ -60,11 +60,12 @@ On top of Spectacle's own bindings (arrows, `p` presenter, `o` overview, `f` ful
 | `Shift`+`←` / `→`         | Whole slide at a time, skipping any reveals on it            |
 | `Shift`+`Alt`+`C`         | Toggle the deck assistant                                    |
 | `Shift`+`Alt`+`T`         | Toggle the WebMCP tool inspector                             |
+| `Shift`+`Alt`+`S`         | Toggle the Spectacle banner                                  |
 | `Esc`                     | Close whichever of those is on top                           |
 | `↑` / `↓` **in the chat** | Walk back and forth through the questions asked this session |
 | `Enter` **in the chat**   | Send; `Shift`/`Ctrl`/`Cmd`+`Enter` inserts a newline instead |
 
-On macOS those read as `⇧⌥C` and `⇧⌥T`, which is what the buttons' tooltips say. The chords are
+On macOS those read as `⇧⌥C`, `⇧⌥T` and `⇧⌥S`, which is what the buttons' tooltips say. The chords are
 matched on the physical key, so `Option` producing `Ç` on a Mac layout does not break them.
 
 ## Deck assistant

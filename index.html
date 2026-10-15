@@ -164,7 +164,6 @@
         Eyebrow,
         AccentRule,
         SlideHeading,
-        SpectacleBadge,
         AppearComponent,
         AppearInline,
         mdSlideProps,
@@ -307,7 +306,6 @@
               <${AppearComponent}>
                 <${Text} fontSize="text" margin="40px 0 0">
                   ${logosHtm.nearform} I lead technology & OSS at <${Link} href="https://nearform.com" fontSize="text">Nearform</${Link}>
-                  <${SpectacleBadge} />
                 </${Text}>
               </${AppearComponent}>
               <${AppearComponent}>
@@ -566,8 +564,8 @@
             app="ChatGPT shops reebok.com"
             url="reebok.com"
             points=${[
-              'ChatGPT desktop\'s built-in browser calls WebMCP "site tools."',
-              "Shopify ships WebMCP tools on every Liquid storefront.",
+              '<strong>ChatGPT desktop</strong>\'s built-in browser calls WebMCP "site tools."',
+              "<strong>Shopify</strong> ships WebMCP tools on every Liquid storefront.",
             ]}
             notes=${`
               * A real store, a real agent, nothing to install. Shopify ships WebMCP
@@ -588,9 +586,9 @@
             app="Claude Desktop calls our page"
             url="nearform.github.io/vector-search-web"
             points=${[
-              "Claude connects to a WebMCP relay server (<a href='https://docs.mcp-b.ai/packages/webmcp-local-relay/reference'><code>@mcp-b/webmcp-local-relay</code></a>).",
-              "Open any page with WebMCP tools and a relay embed.",
-              "... and Claude gets tool superpowers.",
+              "Claude connects to a WebMCP <strong>relay server</strong> (<a href='https://docs.mcp-b.ai/packages/webmcp-local-relay/reference'><code>@mcp-b/webmcp-local-relay</code></a>).",
+              "Open any page with WebMCP tools and a relay <strong>embed</strong>.",
+              "... and Claude gets <strong>tool</strong> calling to the pages!",
             ]}
             notes=${`
               * What if your client, say Claude Desktop, has no native WebMCP support?
@@ -609,22 +607,6 @@
                 of magnitude more effort to expose as its own backend MCP server. A few
                 \`registerTool\` calls on the frontend, and the auth guarantees come
                 along.
-            `}
-          />
-          <${DemoSlide}
-            chapter=${1}
-            demo="deck-tools"
-            label="Bonus demo"
-            app=${html`This deck has WebMCP tools <${SpectacleBadge} step=${false} />`}
-            notes=${`
-              * Going way over the top: this deck is Spectacle, part of Nearform's
-                open-source portfolio. You write it in JavaScript, so it's a frontend web
-                app, so it has WebMCP tools too.
-              * Optional: click the Spectacle logo. Escape closes it.
-              * Tools to get slide content, the outline, navigate, and so on.
-              * The Rube Goldberg way: instead of clicking, open the tools (⇧⌥T) and call
-                \`go_to_slide\` with \`{ "move": "next" }\`. And it worked.
-              * That's the interface half. WebMCP weaves through the rest of the talk.
             `}
           />
           ${"" /* --- 02 · Runtime: AI in the browser --- */}
@@ -722,7 +704,7 @@
             points=${[
               "Precomputed <strong>embeddings</strong> (2-5 MB) and <strong>content</strong> (3 MB), one download.",
               "Data download in 200-800 ms, then ~25 ms to embed and ~5 ms to search.",
-              "Vector search here. Lexical or hybrid is a config change.",
+              "<strong>Vector search here.</strong> Lexical or hybrid is a config change.",
             ]}
             notes=${`
               * Nuts and bolts. Reveal: the "intranet" article search was never an
