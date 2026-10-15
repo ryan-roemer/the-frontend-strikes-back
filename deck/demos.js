@@ -61,7 +61,6 @@ export const DEMO_PIECES = {
 export const DEMO_VIDEOS = {
   "chatgpt-desktop": "ChatGPT shops reebok.com with its site tools",
   "claude-desktop": "Claude Desktop calls our page over the relay",
-  "deck-tools": "This deck has WebMCP tools",
   "vector-search": "Vector search",
   "web-ai": "Web AI demos",
   "web-agents": "Nearform research agents",
