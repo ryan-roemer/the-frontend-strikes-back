@@ -5,6 +5,7 @@
 //   npm run offline:check                  # needs `npm run dev`, a CDP Chrome
 //   npm run offline:check -- --shots       # also saves offline/verify/slide-N.jpg
 //   npm run offline:check -- --no-gemma    # skip the model (no GPU, or in a hurry)
+//   npm run offline:check -- --no-nano     # skip Gemini Nano (the Prompt API slide)
 //   npm run offline:check -- --no-flag     # the same walk WITHOUT `?offline`
 //
 // The npm script points CDP_URL at :1981, the talk Chrome (`cdp:talk`). To check a
@@ -19,6 +20,11 @@
 // still on, so on a profile without the model cached, the 2 GB has to come from
 // `offline/models/` through the worker. It reports whether the model was cached before,
 // because a cache hit doesn't test the worker at all: use a fresh profile for that.
+//
+// Gemini Nano is the other model, for the Prompt API code slide. Chrome owns it, so
+// there is nothing for `offline/` to save: the check asks it the slide's question, and
+// on a profile that doesn't have it yet that starts Chrome's own download (several GB)
+// and waits for it. Run it on good wifi the first time.
 //
 // It also fails if a backup video listed in `deck/demos.js` isn't in `media/videos/`
 // (`npm run video:add`).
@@ -54,11 +60,14 @@ const FLAG = !process.argv.includes("--no-flag");
 const TAKE_SHOTS = process.argv.includes("--shots");
 // Without the flag the deck is expected not to mount, so there is no model to load.
 const GEMMA = FLAG && !process.argv.includes("--no-gemma");
+const NANO = FLAG && !process.argv.includes("--no-nano");
 
 // How long to let lazy requests (backgrounds, fonts) land after each slide change.
 const SLIDE_MS = 800;
 // How long the model may take to copy into the cache, load onto the GPU and answer.
 const GEMMA_MS = 5 * 60 * 1000;
+// Gemini Nano: Chrome's download on a fresh profile, then an answer.
+const NANO_MS = 15 * 60 * 1000;
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 const isLocal = (url) => /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(url);
@@ -167,6 +176,73 @@ const askGemma = async (page) => {
   while (Date.now() < deadline) {
     run = await page(`return { ...window.__offlineCheckGemma };`);
     process.stdout.write(`\rgemma: ${run.progress ?? run.before}`.padEnd(60));
+    if (run.error || run.answer !== undefined) break;
+    await sleep(1000);
+  }
+  process.stdout.write("\n");
+  if (!run.error && run.answer === undefined) run.error = "timed out";
+  delete run.progress;
+  return run;
+};
+
+/**
+ * Ask Gemini Nano the Prompt API slide's question, the way the slide does.
+ *
+ * A BARE `create()`, like `examples/prompt-api.js`, rather than the chat provider's:
+ * availability is per-configuration (`chat/agent/providers/chrome.js`), so this is the
+ * only way to know the slide's own call will find the model.
+ *
+ * `userGesture` because `create()` on a model Chrome still has to download needs user
+ * activation; a CDP evaluate can grant it. Started inside the page and then polled, like
+ * Gemma, and bounded: the provider notes `create()` hanging past 30s with no error.
+ */
+const askNano = async (session) => {
+  const { result, exceptionDetails } = await session.send("Runtime.evaluate", {
+    expression: `(async () => {
+      if (typeof LanguageModel === "undefined") return "no LanguageModel";
+      const run = (window.__offlineCheckNano = {
+        before: await LanguageModel.availability(),
+      });
+      const t0 = performance.now();
+      const ms = () => Math.round(performance.now() - t0);
+      (async () => {
+        try {
+          const session = await LanguageModel.create({
+            monitor: (m) =>
+              m.addEventListener("downloadprogress", (e) => {
+                // Chrome reports 100% for a model it already has, too.
+                run.progress =
+                  e.loaded < 1
+                    ? \`downloading \${Math.round(e.loaded * 100)}%\`
+                    : "loading";
+              }),
+          });
+          run.created = ms();
+          run.answer = (
+            await session.prompt("In one sentence, what is bikeshedding?")
+          ).trim();
+          run.answered = ms();
+          session.destroy();
+        } catch (err) {
+          run.error = String(err?.message || err);
+        }
+      })();
+      return run.before;
+    })()`,
+    awaitPromise: true,
+    returnByValue: true,
+    userGesture: true,
+  });
+  if (exceptionDetails) return { error: exceptionDetails.text };
+  if (result.value === "no LanguageModel") return { error: result.value };
+  if (result.value === "unavailable")
+    return { before: result.value, error: "unavailable on this device" };
+
+  const deadline = Date.now() + NANO_MS;
+  let run = {};
+  while (Date.now() < deadline) {
+    run = await session.eval(`({ ...window.__offlineCheckNano })`);
+    process.stdout.write(`\rnano: ${run.progress ?? run.before}`.padEnd(60));
     if (run.error || run.answer !== undefined) break;
     await sleep(1000);
   }
@@ -299,6 +375,7 @@ const main = async () => {
       } catch (err) {
         return { ok: false, error: String(err?.message || err) };
       }`);
+    if (NANO) report.nano = await askNano(session);
     if (GEMMA) report.gemma = await askGemma(page);
     await sleep(1000);
   }
@@ -328,6 +405,14 @@ const main = async () => {
     if (report.gemma?.before !== "downloadable") {
       console.log(
         "  NOTE: the model was already cached, so this didn't test serving it from offline/models/. Use a fresh profile for that.",
+      );
+    }
+  }
+  if (NANO) {
+    console.log(`  Gemini Nano:`, report.nano);
+    if (report.nano?.before && report.nano.before !== "available") {
+      console.log(
+        `  NOTE: Gemini Nano was "${report.nano.before}" before the check, so Chrome downloaded it just now.`,
       );
     }
   }
@@ -395,7 +480,8 @@ const main = async () => {
     rows.length === 0 &&
     errors.length === 0 &&
     videos.length === 0 &&
-    (!GEMMA || Boolean(report.gemma?.answer));
+    (!GEMMA || Boolean(report.gemma?.answer)) &&
+    (!NANO || Boolean(report.nano?.answer));
   const pass = FLAG ? clean : !report.ready && leaked.length > 0;
   console.log(pass ? "PASS" : "FAIL");
   if (!pass) process.exitCode = 1;

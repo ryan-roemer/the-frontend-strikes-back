@@ -560,6 +560,81 @@ export const DeckSlide = ({ className, chrome = true, children, ...rest }) => {
   return html`<${Slide} className=${classes} ...${rest}>${children}</${Slide}>`;
 };
 
+// `AsyncFunction` isn't a global, but every async function is an instance of it.
+const AsyncFunction = (async () => {}).constructor;
+
+/**
+ * Runs a code slide's snippet on click and shows what it logs.
+ *
+ * THE SNIPPET RUNS AS THE BODY OF AN ASYNC FUNCTION, so top-level `await` works
+ * as written, and it runs the exact text on the slide -- nothing rewritten for
+ * the run. `console` is passed in as a parameter, which shadows the global for
+ * the snippet alone: its `console.log` lands here, and the page's own console is
+ * never patched.
+ *
+ * ON CLICK, NEVER ON MOUNT. Spectacle mounts every slide up front, so anything
+ * that ran on render would prompt the model at page load. The click is also the
+ * user activation `LanguageModel.create()` asks for when the model still has to
+ * download.
+ *
+ * `preventDefault` on mousedown keeps focus off the button, so arrow keys and
+ * Space go on driving the deck rather than pressing Run again.
+ *
+ * Each line is trimmed at the end: Gemini Nano's answers come back with a
+ * trailing space and newline, which `pre-wrap` draws as an empty last line.
+ */
+const RunOutput = ({ code }) => {
+  const [lines, setLines] = useState([]);
+  const [running, setRunning] = useState(false);
+
+  const run = async () => {
+    setLines([]);
+    setRunning(true);
+    const append = (line) => setLines((prev) => [...prev, line]);
+    const log = (...args) => append({ text: args.join(" ").trimEnd() });
+    try {
+      await new AsyncFunction("console", code)({ log });
+    } catch (err) {
+      append({ text: String(err), error: true });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const placeholder = running ? "Running…" : "// console output";
+
+  return html`
+    <div className="code-run">
+      <output className="code-run__output">
+        ${
+          lines.length
+            ? lines.map(
+                ({ text, error }, i) =>
+                  html`<div
+                    key=${i}
+                    className=${error ? "code-run__error" : null}
+                  >
+                    ${text}
+                  </div>`,
+              )
+            : html`<div className="code-run__placeholder">${placeholder}</div>`
+        }
+      </output>
+      <button
+        type="button"
+        className="code-run__button"
+        disabled=${running}
+        title="Run"
+        aria-label="Run"
+        onMouseDown=${(event) => event.preventDefault()}
+        onClick=${run}
+      >
+        <i className="ph-fill ph-paper-plane-right" aria-hidden="true"></i>
+      </button>
+    </div>
+  `;
+};
+
 /**
  * Code slide with a filename bar.
  *
@@ -568,7 +643,10 @@ export const DeckSlide = ({ className, chrome = true, children, ...rest }) => {
  * than written for the slide.
  *
  * `source` is an optional `{ href, title }` for the real code the snippet is
- * based on. It shows as a GitHub icon at the right end of the filename bar.
+ * based on. It shows as an icon at the right end of the filename bar: GitHub by
+ * default, or `source.icon` (a Phosphor name) for a link that isn't to code.
+ *
+ * `run` adds a Run button and an output panel under the code (see `RunOutput`).
  */
 export const JsSlide = ({
   title,
@@ -577,6 +655,7 @@ export const JsSlide = ({
   notes,
   chapter,
   source,
+  run = false,
   language = "javascript",
 }) => html`
   <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
@@ -595,7 +674,7 @@ export const JsSlide = ({
                       target="_blank"
                       title=${source.title}
                     >
-                      <${Icon} name="github-logo" />
+                      <${Icon} name=${source.icon ?? "github-logo"} />
                     </${Link}>`
                   : null
               }
@@ -604,6 +683,7 @@ export const JsSlide = ({
       }
       <${CodePane} language=${language} showLineNumbers=${true}>${code}</${CodePane}>
     </div>
+    ${run ? html`<${RunOutput} code=${code} />` : null}
     <${MdNotes} notes=${notes} />
   </${DeckSlide}>
 `;

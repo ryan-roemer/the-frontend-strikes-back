@@ -133,7 +133,7 @@ npm run dev              # serve the deck on :3000
 npm run cdp:talk         # Chrome with the persistent talk profile, CDP on :1981 (safe to re-run)
 npm run offline:fetch    # record and save every CDN file, font and image
 npm run offline:model    # download Gemma (2 GB) to offline/models/
-npm run offline:check    # walk the deck and ask Gemma, with external hosts blocked
+npm run offline:check    # walk the deck, ask Gemma and Gemini Nano, external hosts blocked
 ```
 
 `offline:check` must print **PASS** with `missed URLs: 0` and `missing: 0` backup videos.
@@ -143,13 +143,14 @@ Re-run `offline:fetch` after any dependency change.
   everything again. It fails, and lists the URLs, if any file couldn't be saved.
 - `offline:model` resumes where it stopped, so if it fails, run it again. It skips the
   download if the file is already complete.
-- `offline:check` options: `-- --no-gemma` skips the model, `-- --shots` saves a screenshot
-  per slide to `offline/verify/`.
+- `offline:check` options: `-- --no-gemma` skips Gemma, `-- --no-nano` skips Gemini Nano,
+  `-- --shots` saves a screenshot per slide to `offline/verify/`.
+- `offline:check` asks Gemini Nano the Prompt API slide's question. If the talk profile doesn't
+  have the model yet, that starts Chrome's download (several GB) and waits up to 15 minutes, so
+  run it on good wifi the first time.
 
 In the talk profile, also:
 
-- Open the assistant and switch to **Chrome**. Wait for Gemini Nano to finish downloading
-  (check `chrome://on-device-internals`).
 - Ask one question on **each** provider.
 - Run `npm run talk:open` and load each demo once. The service worker installs from the
   `?offline` deck tab, and each demo's first load (models included) happens on good wifi.
@@ -166,6 +167,8 @@ Each missed URL says whether `offline/` has a copy.
 | `in offline/`                   | The worker isn't answering. Reload `/?offline` once and check again. If it persists, open `/?offline=false`, then `/?offline`, to reinstall it.    |
 | `service worker not in control` | Same as above: reload once, or reinstall.                                                                                                          |
 | Gemma error or `timed out`      | Needs a GPU. Check `offline/models/` has the file, then check again. `-- --no-gemma` gets the rest of the report.                                  |
+| Gemini Nano `timed out`         | Chrome is still downloading it: check `chrome://on-device-internals`, then check again. `-- --no-nano` gets the rest of the report.                |
+| Gemini Nano `unavailable`       | This device or Chrome can't run it. The Prompt API slide will show the error; use the answer in its speaker notes.                                 |
 | `NOTE: the model was cached`    | Not a failure. The profile already had Gemma, so the check didn't test `offline/models/`.                                                          |
 | `no CDP at …:1981`              | `npm run cdp:talk`. If it says the talk Chrome is on another port: `pkill -f tfsb-chrome-talk` (keeps the profile), then `npm run cdp:talk` again. |
 | `backup videos: … missing: N`   | Record that demo and add it: [Add a recording](#add-a-recording).                                                                                  |

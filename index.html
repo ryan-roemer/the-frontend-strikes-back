@@ -285,6 +285,8 @@
                     creators.
                   * Thanks to the Agentic AI Foundation and the AgentCon organizers: it takes
                     a lot of work to put on a big conference like this.
+                  * This talk is going to have a lot of demos, many you can try out yourself.
+                    Hit the QR code and you can follow along live if you want!
                   * All righty, let's have some fun: **The Frontend Strikes Back**, WebMCP and
                     the agent-ready browser.
                 `}
@@ -805,6 +807,26 @@
               * LiteRT-LM (say "Lite R T": it came out as "LIDAR" in the run-through):
                 the newest, another Google entrant. Fast, with a real workable context,
                 around 32K.
+            `}
+          />
+          <${JsSlide} chapter=${2} title="The Prompt API"
+            filename=${examples.promptApi.file} code=${examples.promptApi.code}
+            language=${examples.promptApi.language}
+            run=${true}
+            source=${{
+              href: "https://developer.chrome.com/docs/ai/prompt-api",
+              title: "Chrome's Prompt API docs",
+              icon: "book-open",
+            }}
+            notes=${`
+              * The simplest of the five: the browser owns the model (Chrome fetches Gemini
+                Nano once, for every site), so there is no runtime to bundle and no
+                weights to host.
+              * Line 1: create a session. Line 3: ask the eternal question.
+              * Hit Run: this is the code on the slide, running live on Gemini Nano.
+              * If it fails on the day, a real answer from Chrome: "Bikeshedding is
+                debating trivial details that don't significantly impact the overall
+                outcome or decision."
             `}
           />
           <${DemoSlide}

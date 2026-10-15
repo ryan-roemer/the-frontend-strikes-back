@@ -1733,3 +1733,62 @@ body::after {
     margin: 10px 0;
   }
 }
+
+/*
+ * `JsSlide`'s `run` panel: one bubble holding what the snippet logged, with the
+ * send button in its bottom-right corner (the chat composer's, at slide size).
+ * Outside `.code-frame` on purpose, so none of the code pane's `pre` overrides
+ * reach it.
+ */
+.code-run {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 10px 10px 10px 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: #0b1220;
+}
+
+.code-run__output {
+  flex: 1;
+  align-self: center;
+  font-family: var(--mono);
+  font-size: 24px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.code-run__placeholder {
+  color: var(--muted);
+}
+
+.code-run__error {
+  color: #ff8a8a;
+}
+
+.code-run__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--chapter-accent);
+  font-size: 28px;
+  cursor: pointer;
+}
+
+.code-run__button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--chapter-accent) 22%, transparent);
+}
+
+.code-run__button:disabled {
+  opacity: 0.4;
+  cursor: progress;
+}

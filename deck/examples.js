@@ -10,6 +10,7 @@
 const EXAMPLES_PATHS = {
   modelContext: { code: "./examples/model-context.js" },
   registerTool: { code: "./examples/register-tool.js" },
+  promptApi: { code: "./examples/prompt-api.js" },
   declarativeTool: {
     code: "./examples/declarative-tool.html",
     language: "html",
