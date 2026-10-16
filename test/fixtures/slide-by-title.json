@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "at": { "title": "re:[Cc]hat[Gg][Pp][Tt]" },
+    "anchors": {
+      "webAi": { "title": "re:[Ww]eb AI" }
+    },
+    "kind": "authored",
+    "about": "A slide named by what it is about, not its number. `go_to_slide` takes `title`, matches it against the slide titles with request furniture like \"the\", \"demo\" and \"slide\" dropped, and a title several slides share comes back as a list of titles to pick from.",
+    "recorded-outcome": "asked \"any demo slide that has chatgpt in its name\", Gemma answered \"I do not see any slide with \\\"chatgpt\\\" in its name\" with \"10 ChatGPT shops reebok.com\" in the outline in its own prompt. It took four turns (list the slides, ask for the number, then \"go to that slide\") to get go_to_slide({\"slide\": 10}). `go_to_slide` only took a number, so getting from a title to a slide was a lookup the model had to do itself, and it failed at it.",
+    "guards": "turn 1 fails without the `title` branch in go_to_slide (it falls through to \"Give me a slide number...\" and nothing moves), and again if FURNITURE loses \"the\" (it then ties this slide with every title carrying a \"the\", and the refusal lists five). Turn 2 fails, with an unused reply, if the ambiguous refusal drops `retry: true`."
+  },
+  "turns": [
+    {
+      "ask": "go to chatgpt demo slide",
+      "replies": [
+        "```tool go_to_slide\n{\"title\": \"the chatgpt demo slide\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "go_to_slide",
+            "args": { "title": "the chatgpt demo slide" }
+          }
+        ],
+        "receipt": ["slide {at} of {total}"]
+      }
+    },
+    {
+      "ask": "go to the web ai slide",
+      "replies": [
+        "```tool go_to_slide\n{\"title\": \"web ai\"}\n```",
+        "```tool go_to_slide\n{\"title\": \"why web ai\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          { "name": "go_to_slide", "args": { "title": "web ai" } },
+          { "name": "go_to_slide", "args": { "title": "why web ai" } }
+        ],
+        "receipt": ["slide {webAi} of {total}"]
+      }
+    }
+  ]
+}

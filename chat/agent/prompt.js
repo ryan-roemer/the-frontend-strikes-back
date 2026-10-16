@@ -13,12 +13,12 @@
  *
  * THE BUDGET. LiteRT re-prefills the whole preface every turn, so a token here is
  * paid again on every answer at ~1,600 tok/s. Measured with `deckReplay.prompt()` at
- * 5,961 chars, ~1,304 tok and ~0.8s:
+ * 6,350 chars, ~1,390 tok and ~0.9s:
  *
  *   identity + capabilities   ~60 tok
  *   <deck-facts>             ~350 tok   the argument, from the data modules
  *   <deck-outline>           ~270 tok   35 titles
- *   <tools>                  ~745 tok   eight tools; ~315 for the four under `?safe`
+ *   <tools>                  ~775 tok   eight tools; ~345 for the four under `?safe`
  *
  * On LiteRT, with native tools, `<tools>` is the rules plus the same worked examples, and
  * no catalog: the whole native system prompt measured 3,759 chars, ~823 tok, of which the
@@ -118,9 +118,9 @@ const CAPABILITIES = [
  * anything, and on LiteRT costs the same prefill while also pushing the catalog away from
  * the preface the rest of the deck facts live in.
  *
- * WHAT IT COSTS. Measured at 3,403 chars, ~745 tokens, on top of the ~560 this file already
- * spent: ~1,304 of the 8,192-token window, 16% of it, and ~0.8s of prefill per turn on
- * LiteRT. Under `?safe` it is four tools and ~315. Dumping the registry verbatim instead
+ * WHAT IT COSTS. Measured at 3,543 chars, ~775 tokens, on top of the ~615 this file already
+ * spent: ~1,390 of the 8,192-token window, 17% of it, and ~0.9s of prefill per turn on
+ * LiteRT. Under `?safe` it is four tools and ~345. Dumping the registry verbatim instead
  * would be ~2,010 -- see `act/catalog.js`, which derives the whole block from what was
  * actually registered and says what each line is for.
  *

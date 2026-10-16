@@ -539,6 +539,82 @@ const MOVES = {
   last: { fn: () => nav.last(), says: "to the last slide" },
 };
 
+/**
+ * Words a request wraps around the part that names a slide.
+ *
+ * "go to the chatgpt demo slide" is one word of address and five of furniture, and a model
+ * passing `title` copies the furniture in about as often as not. The best score wins, so a
+ * stray word only hurts when it ties: kept, "the" would score one on four other titles and
+ * "the chatgpt demo slide" would come back as a list of five. So it is dropped first.
+ * "demo" is here because a talk calls its live slides demos without ever titling one so.
+ */
+const FURNITURE = new Set(
+  "a an the to go jump take show me please slide slides page deck demo one about with that this of on in for and is it where".split(
+    " ",
+  ),
+);
+
+const words = (s) =>
+  String(s ?? "")
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+
+/** How many of the asked-for words a text carries, a word matching by prefix from three letters. */
+const score = (asked, text) => {
+  const have = words(text);
+  return asked.filter((q) =>
+    have.some((h) => (q.length >= 3 ? h.startsWith(q) : h === q)),
+  ).length;
+};
+
+/**
+ * The slide a few words of its title name, or a refusal that lists the choices.
+ *
+ * TITLES FIRST, THEN EVERYTHING ON THE SLIDE, and the second tier only runs when the first
+ * found nothing -- so "the reebok slide" can never lose to some body text that also says
+ * reebok. Read from the live wording (`currentNodes`), so a retitled slide is found by what
+ * it says now.
+ *
+ * Found by "go to chatgpt demo slide": the outline was in the prompt with "10 ChatGPT shops
+ * reebok.com" on it, and the model still answered that no slide mentioned ChatGPT. Mapping
+ * words to a number was a lookup it had to do in its head, and it failed; this does it here.
+ */
+const slideByTitle = (title) => {
+  const asked = [...new Set(words(title))].filter((w) => !FURNITURE.has(w));
+  const slides = outline();
+  const nodes = currentNodes();
+  const best = (textOf) => {
+    const scored = slides
+      .map((s) => ({ s, n: score(asked, textOf(s)) }))
+      .filter(({ n }) => n > 0);
+    const top = Math.max(0, ...scored.map(({ n }) => n));
+    return scored.filter(({ n }) => n === top).map(({ s }) => s);
+  };
+  const onSlide = (s) => nodes.filter((node) => node.slide === s.number);
+  const titled = (s) =>
+    onSlide(s).find((node) => node.role === "title")?.text ?? s.title;
+
+  let found = asked.length ? best(titled) : [];
+  if (!found.length && asked.length)
+    found = best((s) =>
+      onSlide(s)
+        .map((node) => node.text)
+        .join(" "),
+    );
+  if (found.length === 1) return { number: found[0].number };
+
+  const list = (ss) => ss.map((s) => `${s.number} ${titled(s)}`).join("; ");
+  return {
+    refusal: fail(
+      found.length
+        ? `"${title}" matches ${found.length} slides: ${list(found)}. Call again with \`slide\` set to the number of the one meant.`
+        : `No slide matches "${title}". The slides are: ${list(slides)}. Call again with \`slide\` set to the number of the one meant.`,
+      { retry: true },
+    ),
+  };
+};
+
 /** The receipt every navigation shares, read back from the deck rather than the argument. */
 const landed = (result, said, clamped) => {
   const slideAt = harvestSlide(result.to);
@@ -554,6 +630,15 @@ const landed = (result, said, clamped) => {
   // A no-op at either end is a real answer, not a failure: Spectacle clamps, so
   // "next" on the last slide legitimately does nothing and saying so is more use
   // to the caller than either "done" or "couldn't".
+  // A jump to the slide already on screen is the other no-op, and "the end of the deck"
+  // is wrong for it -- `title` made it common, because the slide a request names by its
+  // subject is often the one being presented.
+  if (!result.moved && !clamped && said === "Moved") {
+    return ok(
+      `Already on slide ${result.to} of ${at.count}${slideAt?.title ? ` — ${slideAt.title}` : ""}.`,
+      at,
+    );
+  }
   if (!result.moved && !clamped) {
     return ok(
       `Already at the end of the deck that way — still on slide ${result.to} of ${at.count}.`,
@@ -578,30 +663,41 @@ export const NAV_TOOLS = [
     description:
       // No slide count in this string. `get_slide` and `get_deck_outline` both
       // report the real one, live, which is where an agent should read it from.
-      "Move the deck. Give `slide` to jump to a slide number (1-based), `chapter` to jump to a chapter's first slide, or `move` to go somewhere relative to where the deck is now — next, previous, first, last, or one reveal forward or back within a slide that has them. Out-of-range slide numbers are clamped rather than refused, and at either end of the deck a relative move stays put.",
+      "Move the deck. Give `slide` to jump to a slide number (1-based), `title` to jump to the slide whose title has those words, `chapter` to jump to a chapter's first slide, or `move` to go somewhere relative to where the deck is now — next, previous, first, last, or one reveal forward or back within a slide that has them. Out-of-range slide numbers are clamped rather than refused, and at either end of the deck a relative move stays put.",
     inputSchema: {
       type: "object",
       properties: {
         slide: { type: "integer", description: "Slide number, 1-based." },
+        title: {
+          type: "string",
+          description:
+            "A word or two from the slide's title, like 'reebok'. Falls back to the slide's text when no title matches. Ignored when `slide` is given.",
+        },
         chapter: {
           type: "integer",
           description:
-            "Chapter number. Goes to that chapter's first slide. Ignored when `slide` is given.",
+            "Chapter number. Goes to that chapter's first slide. Ignored when `slide` or `title` is given.",
         },
         move: {
           type: "string",
           enum: Object.keys(MOVES),
           description:
-            "Where to move, relative to now. Ignored when `slide` or `chapter` is given.",
+            "Where to move, relative to now. Ignored when `slide`, `title` or `chapter` is given.",
         },
       },
     },
     outputSchema: POSITION_SCHEMA,
-    // PRECEDENCE IS DECLARED, NOT DISCOVERED: slide, then chapter, then move.
-    // A model that fills in two of the three gets a defined answer rather than
-    // whichever branch happened to be written first.
-    execute: async ({ slide, chapter, move }) => {
+    // PRECEDENCE IS DECLARED, NOT DISCOVERED: slide, then title, then chapter,
+    // then move. A model that fills in two of them gets a defined answer rather
+    // than whichever branch happened to be written first.
+    execute: async ({ slide, title, chapter, move }) => {
       let wanted = slide;
+
+      if (wanted == null && title != null && String(title).trim()) {
+        const found = slideByTitle(title);
+        if (found.refusal) return found.refusal;
+        wanted = found.number;
+      }
 
       if (wanted == null && chapter != null) {
         // Chapters come from the harvest rather than from a DOM sweep: every
@@ -618,7 +714,7 @@ export const NAV_TOOLS = [
       }
 
       if (!move) {
-        return fail("Give me a slide number, a chapter, or a move.");
+        return fail("Give me a slide number, a title, a chapter, or a move.");
       }
 
       // `hasOwn`, not a truthiness check on the lookup. `MOVES["constructor"]`

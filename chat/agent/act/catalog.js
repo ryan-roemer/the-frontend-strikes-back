@@ -18,8 +18,8 @@
  * tools:
  *
  *   `JSON.stringify(registry, null, 2)`   9,188 chars   ~2,010 tok
- *   this                                  3,403 chars     ~745 tok
- *   this, under `?safe` (four tools)      1,438 chars     ~315 tok
+ *   this                                  3,543 chars     ~775 tok
+ *   this, under `?safe` (four tools)      1,578 chars     ~345 tok
  *
  * The full figure grew from ~540 in four steps, and every one was bought by a bug rather
  * than by tidying: `edit_text` earned a third example and a first sentence naming all
@@ -27,7 +27,9 @@
  * (+303 chars, ~67 tok -- see `MIN_SUMMARY`), then `set_deck_variable` earned six words
  * naming `--chapter-accent` as the main one (+37 chars, ~8 tok), then `style_node` earned
  * a clause saying a plural target styles the group (+97 chars, ~21 tok), then `edit_text` earned a fourth example showing a whole list sent to
- * a group target in one call (+103 chars, ~22 tok). Measured with
+ * a group target in one call (+103 chars, ~22 tok), then `go_to_slide` earned a `title`
+ * argument and a third example, for a slide named by its subject (+140 chars, ~31 tok; the
+ * `?safe` figure is derived, both additions being registered there). Measured with
  * `window.deckReplay.prompt()` rather than estimated.
  *
  * BOTH OF THE LAST TWO HAD TO GO IN A FIRST SENTENCE, which is the recurring cost of
@@ -128,8 +130,8 @@ const toolText = (tool) => {
  *     one request; showing the semicolon is what keeps it one call.
  *   - A target may be a phrase. The signature says `target` is a string and cannot say
  *     that "the second bullet" is a legal value for it.
- *   - `go_to_slide` has three mutually exclusive arguments, and it is the only tool shown
- *     TWICE -- once relative, once absolute. With one example its argument was always
+ *   - `go_to_slide` has four mutually exclusive arguments, and it is the only tool shown
+ *     more than once -- relative, absolute, and by title. With one example its argument was always
  *     `move`, and asked for "next slide" on slide 15 a model answered `{"move": "16"}`: it
  *     had worked out the right destination and put it in the only argument it had ever
  *     seen filled. The signature carried the enum the whole time, so this is not a case
@@ -172,11 +174,15 @@ const toolText = (tool) => {
  */
 const EXAMPLES = [
   ["go to the last slide", "go_to_slide", '{"move": "last"}'],
-  // A SECOND `go_to_slide`, and the only tool here shown twice. With one example its
+  // A SECOND `go_to_slide`, and the only tool here shown more than once. With one example its
   // argument was always `move`, and a model asked for "next slide" on slide 15 answered
   // `{"move": "16"}` -- it had computed the right destination and put it in the only
   // argument it had ever seen filled. Two examples make the choice between them visible.
   ["go to slide 12", "go_to_slide", '{"slide": 12}'],
+  // A THIRD, for a slide named by what it is about. "go to chatgpt demo slide" got "I do
+  // not see any slide with chatgpt in its name" with the title in the outline above it:
+  // the model could not do the title-to-number lookup, and had never seen `title` filled.
+  ["go to the reebok demo slide", "go_to_slide", '{"title": "reebok"}'],
   [
     "replace every mention of WebMCP with AWESOME",
     "edit_text",
