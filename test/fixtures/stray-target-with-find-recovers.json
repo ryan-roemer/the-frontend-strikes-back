@@ -4,7 +4,7 @@
     "kind": "recorded",
     "about": "A search phrase dressed up as a `target`. The refusal says to drop it, and the retry message is worded so the model does not read the refusal as being told it cannot edit.",
     "recorded-outcome": "\"Replace JavaScript with BooyaScript\" on slide 11 works first time in a FRESH conversation — edit_text({\"find\": \"JavaScript\", \"text\": \"BooyaScript\"}), no target. Three turns after two successful style_node({\"target\": \"the bullets\"}) calls it became edit_text({\"target\": \"the JavaScript\", \"find\": ..., \"text\": ...}): the model pattern-matched its own recent history. The roster answered a different question, and the retry handed back the panel's \"**Couldn't do that.**\" as a user turn — which the model read as the user withdrawing the capability, replying \"I am not designed to make hypothetical changes to the deck.\" It then refused the same request again on the next turn, because that disclaimer was now in its own history.",
-    "retargeted": "the anchor is still the first slide saying \"JavaScript\", which is \"What is WebMCP?\" now rather than the declarative-tool slide the rewrite cut. Only the slide assertion moved, from that slide's subtitle to bullet 2 here. Then \"What is WebMCP?\" became takeaway and detail pairs, so the asserted line is takeaway detail 2, and \"Imperative\" is capitalised.",
+    "retargeted": "the anchor is still the first slide saying \"JavaScript\", which is \"What is WebMCP?\" now rather than the declarative-tool slide the rewrite cut. Only the slide assertion moved, from that slide's subtitle to bullet 2 here. Then \"What is WebMCP?\" became takeaway and detail pairs, so the asserted line is takeaway detail 2, and \"Imperative\" is capitalised. Then takeaway detail 2 became \"Imperative JavaScript now, declarative HTML forms in the future.\" (2026-10-16), so the asserted line follows it.",
     "guards": "two halves. Drop the `find`-is-present branch from edit_text's unresolved-target path and turn 0 consumes one reply. Revert `respond.js` to `receiptText` for the retry and the `!Couldn't do that` assertion on model call 1 fails."
   },
   "turns": [
@@ -45,7 +45,7 @@
           "{at}": [
             "re:^<slide n=\"{at}\" .*>$",
             "...",
-            "takeaway detail 2: Imperative BooyaScript, declarative HTML forms.",
+            "takeaway detail 2: Imperative BooyaScript now, declarative HTML forms in the future.",
             "..."
           ]
         }

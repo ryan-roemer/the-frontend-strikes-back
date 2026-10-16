@@ -4,7 +4,7 @@
     "kind": "recorded",
     "about": "A whole-node rewrite (`target` + `text`, no `find`) on a bullet with inline markup. `setText` used to write only the LONGEST text run and leave the others exactly as authored, so the old bolded/emphasised word survived next to the new wording with no separating space. Fixed by rewriting every run: the new text goes to the run least likely to carry unwanted styling, the rest are blanked.",
     "recorded-outcome": "Asked to replace the Orama bullet ('Orama for the client-side vector store', italicised on 'Orama') with all-new wording, the model reached for `find` with the bullet's whole current text — which spans the italic span and the plain run, so `replaceText` refused it as \"spans several separately-styled pieces of text\". That refusal named no way to replace a WHOLE node, only \"try a single word\", so the model spent the rest of the conversation alternating between narrower `find` phrases and an ambiguous `target: \"the bullets\"` guess, and one turn it repeated the plain-bullet case ('A web-sized <strong>embedding model</strong>, quantized down') and gave up without even calling the tool. Reproducing `edit_text({target, text})` directly (bypassing the model) showed the deeper bug: the whole-node path silently 'succeeded', but left \"A web-sized embedding model\" untouched and appended the new text straight after it with no space, because `mainRunIndex` picked the LONGEST run to overwrite and left the rest alone.",
-    "retargeted": "the vector-search chapter became one slide of the runtime chapter, and then that slide lost its Orama bullet in a later rewrite. Now on \"What is WebMCP?\": its second bullet is `**Two APIs:** *Imperative* JavaScript, *declarative* HTML forms.`, which mixes bold, italic and plain runs, so a whole-line `find` still spans several and a revert of `setText` still leaves styled words behind. The slide has four bullets, not five, so the ambiguous `target: \"the bullets\"` refusal counts four. The word swapped for dogs is \"Chrome\", bold in bullet 3. The unscoped retry searches the whole deck, but only this slide is asserted. Bullet 2 is still node `.3`. Then \"What is WebMCP?\" became takeaway and detail pairs: the mixed node is takeaway detail 2 (`<em><u>Imperative</u></em> JavaScript, <em><u>declarative</u></em> HTML forms.`, node `.5`), and the turn-1 quote is that detail, not a whole bullet. With no bullets on the slide, turn 0's `the bullets` now misses outright instead of matching four, and recovers the same way. The detail's DOM text carries double spaces the harvest collapses, which is why `replaceText`'s spanning check now normalises whitespace.",
+    "retargeted": "the vector-search chapter became one slide of the runtime chapter, and then that slide lost its Orama bullet in a later rewrite. Now on \"What is WebMCP?\": its second bullet is `**Two APIs:** *Imperative* JavaScript, *declarative* HTML forms.`, which mixes bold, italic and plain runs, so a whole-line `find` still spans several and a revert of `setText` still leaves styled words behind. The slide has four bullets, not five, so the ambiguous `target: \"the bullets\"` refusal counts four. The word swapped for dogs is \"Chrome\", bold in bullet 3. The unscoped retry searches the whole deck, but only this slide is asserted. Bullet 2 is still node `.3`. Then \"What is WebMCP?\" became takeaway and detail pairs: the mixed node is takeaway detail 2 (`<em><u>Imperative</u></em> JavaScript, <em><u>declarative</u></em> HTML forms.`, node `.5`), and the turn-1 quote is that detail, not a whole bullet. With no bullets on the slide, turn 0's `the bullets` now misses outright instead of matching four, and recovers the same way. The detail's DOM text carries double spaces the harvest collapses, which is why `replaceText`'s spanning check now normalises whitespace. On 2026-10-16 takeaway detail 2 became \"Imperative JavaScript now, declarative HTML forms in the future.\", so turn 1's whole-line `find` quotes that (it still spans the styled and plain runs), and detail 3 gained \"plus a growing list of agent clients. We'll try two shortly!\" after \"Edge\", and the \"Already in use\" takeaway went, leaving three. Neither moves node `.5`.",
     "guards": "two things, either alone reintroduces the bug. (1) `setText` in `chat/edit/apply.js`: writing only to `mainTextValue(el)`'s run and leaving the rest as authored, instead of blanking every other run in the same `pushAll` group — revert that and the `bullet 2: my friends call...` slide assertion below fails because the bold \"Two APIs:\" and italic words survive. (2) The spanning-refusal message in `replaceText`: drop the `target: \"${spanning}\" and no find` clause and the `asked` assertion on turn 1 fails."
   },
   "turns": [
@@ -44,7 +44,7 @@
         "slides": {
           "{at}": [
             "...",
-            "takeaway detail 3: Origin trial in 🐶 and Edge.",
+            "takeaway detail 3: Origin trial in 🐶 and Edge, plus a growing list of agent clients. We'll try two shortly!",
             "..."
           ]
         }
@@ -53,7 +53,7 @@
     {
       "ask": "Replace the second bullet point on this slide with \"my friends call me the stinkiest stink to ever live! Wow!\"",
       "replies": [
-        "```tool edit_text\n{\"find\": \"Imperative JavaScript, declarative HTML forms.\", \"text\": \"my friends call me the stinkiest stink to ever live! Wow!\"}\n```",
+        "```tool edit_text\n{\"find\": \"Imperative JavaScript now, declarative HTML forms in the future.\", \"text\": \"my friends call me the stinkiest stink to ever live! Wow!\"}\n```",
         "```tool edit_text\n{\"target\": \"{at}.5\", \"text\": \"my friends call me the stinkiest stink to ever live! Wow!\"}\n```"
       ],
       "expect": {
@@ -61,7 +61,7 @@
           {
             "name": "edit_text",
             "args": {
-              "find": "Imperative JavaScript, declarative HTML forms.",
+              "find": "Imperative JavaScript now, declarative HTML forms in the future.",
               "text": "my friends call me the stinkiest stink to ever live! Wow!"
             }
           },
