@@ -153,7 +153,6 @@
         DeckSlide,
         Template,
         JsSlide,
-        MdSlide,
         TopicSlide,
         MatrixSlide,
         RowsSlide,
@@ -398,8 +397,35 @@
                 about here is WebMCP.
             `}
           />
-          <${MdSlide}
+          <${TakeawaySlide}
             chapter=${1}
+            title="What is WebMCP?"
+            compact=${true}
+            items=${[
+              {
+                n: 1,
+                text: "MCP tools, served by your web page",
+                detail: "An emerging W3C Community Group standard.",
+              },
+              {
+                n: 2,
+                text: "Two APIs",
+                detail: html`<em><u>Imperative</u></em> JavaScript, ${" "}<em
+                    ><u>declarative</u></em
+                  >${" "} HTML forms.`,
+              },
+              {
+                n: 3,
+                text: "In browsers now",
+                detail: html`Origin trial in <u>Chrome</u> and <u>Edge</u>.`,
+              },
+              {
+                n: 4,
+                text: "Already in use",
+                detail: html`<u>Shopify</u> storefronts, <u>ChatGPT desktop</u>,
+                  and browser <u>extensions</u>.`,
+              },
+            ]}
             notes=${`
               * Most services never built an MCP server, but they all have a website.
               * A new standard emerging in the W3C (a Community Group): MCP tools served
@@ -415,16 +441,7 @@
                 thing (we'll try it in a second), plus lots of browser extensions. Google says Gemini in Chrome will
                 support it.
             `}
-          >
-            ${`
-              # What is WebMCP?
-
-              * **MCP tools, served by your web page**: an emerging W3C Community Group standard.
-              * **Two APIs**: *imperative* JavaScript, *declarative* HTML forms.
-              * **In browsers now**: origin trial in **Chrome** and **Edge**.
-              * **Already in use**: Shopify storefronts (even checkout), ChatGPT desktop, and browser extensions.
-            `}
-          </${MdSlide}>
+          />
           <${TakeawaySlide}
             chapter=${1}
             title="Why WebMCP?"
