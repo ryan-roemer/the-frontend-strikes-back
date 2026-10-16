@@ -82,32 +82,36 @@ const EXPECTED_BYTES = 2008432640;
  * the model card claims 32k in prose only, and the `.litertlm` build declares no
  * `max_num_tokens` at all. Left unset the runtime defaults to 4096.
  *
- * Measured on an Apple GPU, ~840 tokens of preface plus a question. Every value loads,
- * including 128k; engine creation is flat. What a larger window costs is decode:
+ * WHAT A BIGGER WINDOW COSTS IS GPU MEMORY, PAID AT THE FIRST TURN. Engine creation is flat
+ * at every size; the first prefill then allocates the KV cache for the WHOLE window, however
+ * short the prompt. Measured 2026-10-16 on an M5 Max, Chrome 155, `@litert-lm/core` 0.17.1,
+ * one 2,956-token prompt at every size. Memory is the GPU process's footprint over its
+ * pre-load baseline (the deltas are solid; the absolutes undercount the 2 GB of weights):
  *
- *     maxNumTokens    create    avg ttft    prefill    decode
- *          4,096      1154ms        88ms   1577 tps    72 tps
- *          8,192      1017ms        86ms   1608 tps    71 tps
- *         16,384      1016ms        83ms   1630 tps    70 tps
- *         32,768      1000ms        93ms   1438 tps    66 tps
- *         65,536      1002ms       108ms   1167 tps    60 tps
- *        131,072      1033ms       865ms     37 tps    59 tps
+ *     maxNumTokens    after create    after 1st turn    ttft     decode
+ *          4,096         ~0.55 GB         0.97 GB      463ms     76 tps
+ *          8,192         ~0.55 GB    1.09-1.27 GB      466ms     75 tps
+ *         16,384         ~0.55 GB         1.29 GB      468ms     74 tps
+ *         32,768         ~0.55 GB         1.72 GB      484ms     74 tps
+ *         65,536         ~0.55 GB         2.58 GB      546ms     72 tps
  *
- * 8,192 is chosen so the context meter stays meaningful, and because nothing can spend more.
- * `MAX_HISTORY_TURNS` caps the transcript at three exchanges and `deck-context.js` offers
- * each slide once, so the ceiling is a conversation that asks about every slide: measured
- * at 5,239 tokens, 64% of this window. A real talk sits at 2,000-2,700.
+ * So 8,192 -> 16,384 costs ~0.1-0.2 GB and nothing measurable in speed; past 16k it is ~26 KB
+ * a token. An OOM therefore surfaces on the first ANSWER, not at load. Every size recalled a
+ * code planted in the prompt, and E2B recalls at 125k (web-ai receipts, 2026-09-25).
  *
- * 16,384 IS AN OPTION, NOT A FIX. Re-measured against the live deck, it is free -- same ttft,
- * same decode, same answers turn for turn -- so raise this if a longer preface or a bigger
- * deck ever needs it. The only thing that changes today is the meter, which would read 12%
- * instead of 24% and never make the broom look necessary. See `chat-handoff.md` §8.
+ * No feature detection, on purpose: WebGPU exposes no VRAM figure (`maxBufferSize` is a
+ * per-buffer cap), and a machine short of 0.2 GB is already struggling with the weights.
+ *
+ * The deck cannot fill this: `MAX_HISTORY_TURNS` caps the transcript at three exchanges and
+ * `deck-context.js` offers each slide once, so the ceiling is a conversation that asks about
+ * every slide, measured at 5,239 tokens. A real talk sits at 2,000-2,700. See
+ * `chat-handoff.md` §8.
  *
  * DO NOT TUNE THIS TO FIX A SESSION THAT HAS GONE SOFT: a long conversation does not
  * degrade. The same question at turns 1, 7, 12, 17 and 22 returns byte-identical output.
  * History costs context space and nothing else.
  */
-const MAX_NUM_TOKENS = 8192;
+const MAX_NUM_TOKENS = 16384;
 
 /** Bound on tearing down an abandoned stream, so a wedged teardown cannot block the queue. */
 const TEARDOWN_MS = 3000;
@@ -152,7 +156,7 @@ const explain = (err) => {
   const message = String(err?.message ?? err);
   if (isOom(err)) {
     return new Error(
-      `The GPU ran out of memory loading the model. Close other tabs, or lower ` +
+      `The GPU ran out of memory. Close other tabs, or lower ` +
         `MAX_NUM_TOKENS (currently ${MAX_NUM_TOKENS}) in chat/agent/providers/litert.js. ` +
         `(${message})`,
     );

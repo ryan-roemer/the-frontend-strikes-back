@@ -471,7 +471,10 @@ broom and the meter drops to 0 on Gemma but to ~100 on Chrome. LiteRT prefills i
 Chrome counts the system prompt against the window immediately. Both readings are correct for
 their provider, which is why neither is normalised away.
 
-### The context window, and why 8,192
+### The context window, and why 16,384
+
+It was 8,192 until 2026-10-16. The sections below are the history of that choice. The last one
+explains the raise.
 
 Four "limits" are in play for LiteRT and they disagree:
 
@@ -496,10 +499,11 @@ So the number came from measurement, with a deck-realistic prompt on an Apple GP
 | 32,768         | 1000ms | 93ms     | 1438 tps | 66 tps |
 | 131,072        | 1033ms | 865ms    | 37 tps   | 59 tps |
 
-**Every value loads, 128k included, and engine creation is flat** — the KV cache is cheap for
-this model because it is multi-query and shares KV across 20 of its 35 layers. The cost is
-**decode throughput**, which is the number a presenter actually feels, not the GPU memory you
-would expect.
+**Every value loads, 128k included, and engine creation is flat.** This section originally said
+the KV cache was cheap and the cost was decode throughput, not GPU memory. **That is wrong past
+~16k**: creation is flat because the KV cache is not allocated until the first prefill. See
+"Raised to 16,384" below. (The 37 tps prefill at 131,072 was also a 0.15.0 artefact; 0.17.1
+prefills a short prompt at that window at ~7,000 tps.)
 
 ### Re-measured 2026-08-26: 16,384 is free, and unreachable
 
@@ -551,6 +555,38 @@ tokens. **Context here is a latency budget rather than a capacity one** — and 
 `MAX_HISTORY_MESSAGES` to make use of a bigger window would buy that latency along with worse
 answers, since [§6](#6-the-transcript-is-the-providers) has accumulating history taking five
 code questions from 5-of-5 usable to 2-of-5 at only 4,338 tokens.
+
+### Raised to 16,384, 2026-10-16: the cost is GPU memory, paid at the first turn
+
+The one open question about 16,384 was memory, which nothing above measured. Each run used a
+fresh tab: `@litert-lm/core` 0.17.1, Chrome 155, M5 Max, and the same 2,956-token prompt at
+every size. Memory is the Chrome GPU process's `phys_footprint` over its baseline just before
+the load.
+
+| `maxNumTokens` | after `Engine.create` | after the first turn | ttft      | decode    | runs |
+| -------------- | --------------------- | -------------------- | --------- | --------- | ---- |
+| 4,096          | ~0.55 GB              | 0.97 GB              | 463ms     | 76 tps    | 2    |
+| 8,192          | ~0.55 GB              | 1.09–1.27 GB         | 464–469ms | 74–75 tps | 2    |
+| **16,384**     | ~0.55 GB              | **1.29 GB**          | 467–469ms | 73–74 tps | 2    |
+| 32,768         | ~0.55 GB              | 1.72 GB              | 484ms     | 73.5 tps  | 1    |
+| 65,536         | ~0.55 GB              | 2.58 GB              | 546ms     | 71.6 tps  | 1    |
+
+- **Creation is flat; the first prefill allocates the KV cache for the whole window**, whatever
+  the prompt length. Past 16k that is ~26 KB a token.
+- **8,192 → 16,384 costs ~0.1–0.2 GB** and nothing measurable in speed. Every run recalled the
+  code planted in the prompt.
+- **An OOM therefore surfaces on the first answer, not at load.** `explain()` covers both
+  paths, and its message no longer says "loading".
+- **No feature detection.** WebGPU exposes no VRAM figure (`adapter.info` has none, and
+  `maxBufferSize` is a per-buffer cap). The only signal is `navigator.deviceMemory`, and a
+  machine that cannot spare 0.2 GB is already struggling with 2 GB of weights. iOS is not a
+  factor: LiteRT dies loading the model there at any window.
+- The absolute figures undercount the weights (2 GB of file shows as ~0.55 GB after create, with
+  `wait_for_weight_uploads: false`). The deltas between rows are what to trust.
+
+The meter is the visible change: the walk-every-slide worst case now reads 32%. Full record in
+the writing repo, `drafts/web-ai/receipts.md`, "LiteRT-LM allocates its KV cache at the first
+prefill".
 
 ---
 

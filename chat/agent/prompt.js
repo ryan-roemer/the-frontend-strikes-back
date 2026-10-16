@@ -119,7 +119,7 @@ const CAPABILITIES = [
  * the preface the rest of the deck facts live in.
  *
  * WHAT IT COSTS. Measured at 3,543 chars, ~775 tokens, on top of the ~615 this file already
- * spent: ~1,390 of the 8,192-token window, 17% of it, and ~0.9s of prefill per turn on
+ * spent: ~1,390 tokens, 17% of the 8,192-token window it had then, and ~0.9s of prefill per turn on
  * LiteRT. Under `?safe` it is four tools and ~345. Dumping the registry verbatim instead
  * would be ~2,010 -- see `act/catalog.js`, which derives the whole block from what was
  * actually registered and says what each line is for.
