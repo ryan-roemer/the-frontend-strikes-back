@@ -1,14 +1,11 @@
 <!-- Same tool as registerTool. People still get a normal form post. -->
-<form toolname="search_documents" toolautosubmit action="/search"
-  tooldescription="Search the company knowledge base.">
-  <input name="query" required toolparamdescription="Natural language query." />
+<form toolname="search_documents"
+      toolautosubmit
+      tooldescription="Search the company knowledge base."
+      action="/search">
+  <input name="query" required
+         toolparamdescription="Natural language query." />
   <button>Search</button>
 </form>
-<script>
-  // Option: for agents only, return the results to the agent instead of navigating.
-  document.forms[0].addEventListener("submit", (e) => {
-    if (!e.agentInvoked) return;
-    e.preventDefault();
-    e.respondWith(window.app.searchDocuments(e.target.query.value));
-  });
-</script>
+
+<!-- Can use `"submit"` listeners with `event.agentInvoked` property handling. -->

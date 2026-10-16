@@ -238,7 +238,7 @@ const wrap = (raw, system) => {
 
 export const provider = {
   id: "chrome",
-  label: "Chrome",
+  label: "Prompt API",
 
   capabilities: {
     // PROMPTED, NOT NATIVE. The spec's `tools` option exists, but Chrome only has it behind

@@ -937,13 +937,29 @@ body::after {
   color: var(--muted);
 }
 
-/* The open-link icon at the end of the heading row, like `.demo__open`. */
+/* The table and its link, centered in the height left under the heading. */
+#root .matrix__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* The write-up link under the table: text first, then the open-link icon. */
 #root .matrix__source {
-  margin-left: 24px;
-  font-size: 40px;
+  align-self: flex-start;
+  margin-top: 28px;
+  font-family: var(--sans);
+  font-size: 24px;
+  font-weight: 600;
   line-height: 1;
   color: var(--chapter-accent);
   text-decoration: none;
+}
+
+#root .matrix__source i {
+  margin-left: 0.15em;
+  vertical-align: -0.1em;
 }
 
 /* --- Demo hand-off ------------------------------------------------------- */

@@ -1220,9 +1220,14 @@ const MatrixCell = ({ cell }) => {
 };
 
 /**
- * `source` is an optional `{ href, title }` for the write-up behind the table,
- * shown as an open-link icon at the end of the heading row with the title as its
- * tooltip -- the same shape as `JsSlide`'s GitHub link.
+ * `source` is an optional `{ href, title, label }` for the write-up behind the
+ * table, shown as a text link under it with the title as its tooltip. `label` is
+ * the link text, "Read the details" by default. A bare icon in the heading row
+ * read as decoration; words under the table say what the link is for.
+ *
+ * The table and its link sit in `.matrix__body`, which takes the height left
+ * under the heading and centers them in it. The heading stays put, level with
+ * every other slide's.
  */
 export const MatrixSlide = ({
   chapter,
@@ -1237,19 +1242,8 @@ export const MatrixSlide = ({
     <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
       <${FlexBox} justifyContent="space-between" alignItems="center" margin="0 0 20px">
         <${SlideHeading} fontSize="h1" textAlign="left" margin="0px">${title}</${SlideHeading}>
-        ${
-          source
-            ? html`<${Link}
-                className="matrix__source"
-                href=${source.href}
-                target="_blank"
-                title=${source.title}
-              >
-                <${Icon} name="arrow-square-out" fill=${false} />
-              </${Link}>`
-            : null
-        }
       <//>
+      <${Box} className="matrix__body">
       <${Grid}
         className="matrix"
         gridTemplateColumns=${`auto repeat(${width}, auto)`}
@@ -1281,6 +1275,17 @@ export const MatrixSlide = ({
           `,
         )}
       </${Grid}>
+      ${
+        source
+          ? html`<${Link}
+              className="matrix__source"
+              href=${source.href}
+              target="_blank"
+              title=${source.title}
+            >${source.label ?? "Read the details"}${" "}<${Icon} name="arrow-square-out" fill=${false} /></${Link}>`
+          : null
+      }
+      <//>
       <${MdNotes} notes=${notes} />
     </${DeckSlide}>
   `;

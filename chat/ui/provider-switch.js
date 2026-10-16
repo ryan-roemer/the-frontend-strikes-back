@@ -27,7 +27,7 @@ const html = htm.bind(createElement);
  * pill is itself the honest report.
  *
  * TWO LABELS PER PILL, and CSS picks one. In a narrow panel the pills shorten to their
- * first letter -- "L" and "C" -- through the `@container` rules at the foot of `chat.css`,
+ * first letter -- "L" and "P" -- through the `@container` rules at the foot of `chat.css`,
  * rather than disappearing, so the switch stays reachable in a panel dragged small. The
  * full name stays the button's accessible name and tooltip either way.
  */

@@ -208,6 +208,9 @@
   cursor: pointer;
   padding: 3px 10px;
   border-radius: 999px;
+  /* One line, always. A wrapped label doubles the bar's height; the `@container` rules
+   * at the foot of this file switch to the one-letter label before it would wrap. */
+  white-space: nowrap;
   font-family: var(--mono, ui-monospace, monospace);
   font-size: calc(11px * var(--chat-fs, 1));
   letter-spacing: 0.06em;
@@ -244,6 +247,7 @@
  * on a browser without the Prompt API. */
 .chat-provider--single {
   padding: 5px 12px;
+  white-space: nowrap;
   font-family: var(--mono, ui-monospace, monospace);
   font-size: calc(11px * var(--chat-fs, 1));
   letter-spacing: 0.06em;
@@ -1553,7 +1557,7 @@
  * way of a slide while staying able to ask it something -- so the last things standing are
  * the ones that keep it usable as a chat (the broom and the close button) and the first to
  * go are the ones about diagnosis (trash, info). The provider pills are never dropped, only
- * shortened to "L" and "C": at 55px they fit in the 180px minimum, and the switch is the
+ * shortened to "L" and "P": at 55px they fit in the 180px minimum, and the switch is the
  * one control the demo cannot do without. Everything dropped here comes back by widening
  * the panel, and none of it is the only way to reach anything.
  *
@@ -1564,13 +1568,22 @@
  * on source order. The panel narrowed and nothing happened. Same trap the doubled
  * `.chat-icon-button` selectors further up this file already carry a note about.
  *
+ * EACH BREAKPOINT IS `px + em`, measured, not guessed. The icons are fixed 26px boxes and
+ * the pill text scales with `--chat-fs` (see `font-scale.js`), so the width a tier needs is
+ * a fixed part plus a part that grows with the text. An `em` in a container query is the
+ * PANEL's font-size, which is `15px * --chat-fs`, so the em term tracks the setting with no
+ * JS. Measured in Chrome at 1x and 2x: full pills 48px + 10.65em, short pills 40px + 1em,
+ * the bar's padding, gaps and sparkle 58px, the widest action group 204px. With px-only
+ * breakpoints, sizing the text up wrapped "LiteRT-LM.js" onto two lines before the
+ * 340px rule ever fired.
+ *
  * `display: none` rather than shrinking them. Icons that scale down stop being legible
  * from the back of a room well before they stop taking up space.
  */
-/* The provider pills SHORTEN before anything is dropped: "LiteRT" and "Chrome" become "L"
- * and "C", which keeps the switch -- the demo's one variable -- reachable in a panel dragged
+/* The provider pills SHORTEN before anything is dropped: "LiteRT-LM.js" and "Prompt API" become
+ * "L" and "P", which keeps the switch -- the demo's one variable -- reachable in a panel dragged
  * small. The full name is still the tooltip and the accessible name. */
-@container (max-width: 340px) {
+@container (max-width: calc(310px + 10.7em)) {
   .chat-provider__full {
     display: none;
   }
@@ -1588,7 +1601,7 @@
   }
 }
 
-@container (max-width: 300px) {
+@container (max-width: calc(302px + 1em)) {
   .chat-font-size,
   .chat-icon-button.chat-model__trash,
   .chat-icon-button.chat-model__info {
@@ -1596,14 +1609,14 @@
   }
 }
 
-@container (max-width: 258px) {
+@container (max-width: calc(208px + 1em)) {
   .chat-model__progress,
   .chat-icon-button.chat-panel__action--reset {
     display: none;
   }
 }
 
-@container (max-width: 216px) {
+@container (max-width: calc(182px + 1em)) {
   .chat-icon-button.chat-model__state {
     display: none;
   }
