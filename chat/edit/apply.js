@@ -431,13 +431,20 @@ export const replaceText = (
     // Reported as ITS OWN REFUSAL, naming the fix, because the fix is reliable: a single
     // identifier is a single token and does match. `retry: true` lets the model take that
     // advice without the user retyping the request -- see `act/receipt.js` `retryable`.
+    //
+    // WHITESPACE COLLAPSED ON BOTH SIDES, because that is how the model was shown the node.
+    // The harvest `normalize`s, the DOM does not: "What is WebMCP?" renders its second detail
+    // as `JavaScript,  <em>declarative</em>  HTML` -- a literal space and a `${" "}` each side
+    // -- so the line quoted back exactly as `get_slide` printed it matched nothing here and
+    // got `Nothing in range contains …`, the refusal that names no way forward.
+    const quoted = normalize(needle);
     const spanning = ids.find((id) => {
       const found = target(id);
       if (found.error) return false;
-      const whole = found.el.textContent ?? "";
+      const whole = normalize(found.el.textContent ?? "");
       return matchCase
-        ? whole.includes(needle)
-        : whole.toLowerCase().includes(needle.toLowerCase());
+        ? whole.includes(quoted)
+        : whole.toLowerCase().includes(quoted.toLowerCase());
     });
     if (spanning) {
       return {
