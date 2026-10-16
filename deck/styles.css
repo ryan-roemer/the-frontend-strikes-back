@@ -937,12 +937,13 @@ body::after {
   color: var(--muted);
 }
 
-/* The table and its link, centered in the height left under the heading. */
+/* The table and its link, anchored under the heading like any content slide.
+ * Centering them in the height left over floated the table loose of its title. */
 #root .matrix__body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 /* The write-up link under the table: text first, then the open-link icon. */

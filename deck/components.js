@@ -1225,9 +1225,13 @@ const MatrixCell = ({ cell }) => {
  * the link text, "Read the details" by default. A bare icon in the heading row
  * read as decoration; words under the table say what the link is for.
  *
- * The table and its link sit in `.matrix__body`, which takes the height left
- * under the heading and centers them in it. The heading stays put, level with
- * every other slide's.
+ * The table and its link sit in `.matrix__body`, top-justified under the
+ * heading, which stays put, level with every other slide's. Centered, the table
+ * floated loose of its title.
+ *
+ * The heading goes in bare, like every other slide's. It used to sit in a
+ * one-child FlexBox, and Spectacle's `@media print { height: inherit }` swelled
+ * that row so `alignItems="center"` dropped the title 75px down the PDF page.
  */
 export const MatrixSlide = ({
   chapter,
@@ -1240,9 +1244,7 @@ export const MatrixSlide = ({
   const width = rows[0]?.cells?.length ?? 1;
   return html`
     <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
-      <${FlexBox} justifyContent="space-between" alignItems="center" margin="0 0 20px">
-        <${SlideHeading} fontSize="h1" textAlign="left" margin="0px">${title}</${SlideHeading}>
-      <//>
+      <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${title}</${SlideHeading}>
       <${Box} className="matrix__body">
       <${Grid}
         className="matrix"
