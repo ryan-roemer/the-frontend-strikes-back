@@ -659,6 +659,7 @@
             title="Tips for WebMCP"
             compact=${true}
             items=${[
+              /* Cut 2026-10-16.
               // 1. Validate in code, return mistakes as sentences.
               // - Chrome, "WebMCP best practices"
               //   (https://developer.chrome.com/docs/ai/webmcp/best-practices):
@@ -678,18 +679,19 @@
                 ${" "}<code>execute</code>, and return mistakes as sentences the
                 model can fix.`,
               },
-              // 2. The UI after a tool runs.
+              */
+              // 1. The UI after a tool runs.
               // - Chrome, "WebMCP best practices"
               //   (https://developer.chrome.com/docs/ai/webmcp/best-practices):
               //   "Update the interface state after functions are completed. Agents
               //   may rely on the interface to plan next steps, while functions may
               //   take longer to complete than the interface load."
               {
-                n: 2,
+                n: 1,
                 text: "Consider the UI when a tool runs",
                 detail: "Tool actions can optionally update or ignore the UI.",
               },
-              // 3. Safety: annotation hints and exposed origins.
+              // 2. Safety: annotation hints and exposed origins.
               // - Chrome, "WebMCP tool security"
               //   (https://developer.chrome.com/docs/ai/webmcp/secure-tools): "If
               //   executing a tool results in significant actions, such as booking
@@ -706,12 +708,12 @@
               //   "approval needs to mean a human actually approved. An agent
               //   clicking the page's 'Approve' button itself doesn't give us that."
               {
-                n: 3,
+                n: 2,
                 text: "Read up on the safety features",
                 detail:
                   "Hint the risk: read-only, untrusted, consequential. Share tools only with origins you trust.",
               },
-              // 4. Keep up.
+              // 3. Keep up.
               // - "guidance": Chrome, "WebMCP best practices"
               //   (https://developer.chrome.com/docs/ai/webmcp/best-practices),
               //   which closes: "WebMCP is under active discussion and subject to
@@ -723,11 +725,11 @@
               // - Tejas Kumar (https://tej.as/blog/what-is-webmcp): "the API has
               //   already changed once, from navigator to document."
               {
-                n: 4,
+                n: 3,
                 text: "Keep up: this space moves wildly fast",
-                detail: html`The spec and Chrome's${" "}
-                  <${Link} href="https://developer.chrome.com/docs/ai/webmcp/best-practices" target="_blank" fontSize="inherit">guidance</${Link}>${" "}
-                  are changing rapidly. Join the${" "}
+                detail: html`See Chrome's${" "}
+                  <${Link} href="https://developer.chrome.com/docs/ai/webmcp/best-practices" target="_blank" fontSize="inherit">best practices</${Link}>.${" "}
+                  Join the${" "}
                   <${Link} href="http://goo.gle/chrome-ai-dev-preview-join" target="_blank" fontSize="inherit">early preview program</${Link}>${" "}
                   and watch the${" "}
                   <${Link} href="https://webmachinelearning.github.io/webmcp/" target="_blank" fontSize="inherit">spec</${Link}>!`,
@@ -735,9 +737,6 @@
             ]}
             notes=${`
               * Sources: Chrome's best-practices and security docs, Tejas Kumar's post.
-              * **Validate strictly in code, loosely in schema.** Models get sloppy and
-                schemas aren't guaranteed. Return a sentence the model can fix, not a
-                thrown error.
               * **Consider the UI.** Reebok updates its page as tools run; my search
                 doesn't. Your choice.
               * **Read up on the safety features.** Real functionality: on Reebok you
