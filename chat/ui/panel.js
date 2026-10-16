@@ -13,6 +13,7 @@ import { Transcript } from "./transcript.js";
 import { Composer } from "./composer.js";
 import { ContextUnderline, ModelControls } from "./model-status.js";
 import { ProviderSwitch } from "./provider-switch.js";
+import { FontSize } from "./font-size.js";
 import { Unavailable } from "./unavailable.js";
 
 const html = htm.bind(createElement);
@@ -223,6 +224,7 @@ export const Panel = ({ enabled }) => {
                   moves or `ModelControls` renders a different number of buttons. */
           }
           <${ModelControls} />
+          <${FontSize} />
           <button
             type="button"
             className="chat-icon-button chat-panel__action--new"

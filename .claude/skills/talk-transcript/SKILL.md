@@ -34,6 +34,9 @@ Watch for content that moved to a different slide than in the last run (for exam
 demo walkthrough said over a code slide). Follow what was said, and flag the move as an
 action item so Ryan can confirm it was on purpose.
 
+Leave out anything not said to the audience, such as asides to people in the room or
+interruptions. It goes in neither the outline nor the notes.
+
 ## 3. Write the outline section
 
 Use the same shape as the previous run:
@@ -54,7 +57,9 @@ Use the same shape as the previous run:
 
 ## 4. Update the speaker notes on every slide
 
-Update every slide, including ones with no notes yet. Notes are what Ryan reads at a
+Update every slide, including ones with no notes yet. If the recording is cut off, update
+only the slides it covers. Mark the rest "Not recorded" in the outline and ❓ in the
+carry-over table. Notes are what Ryan reads at a
 glance **while presenting**, so every bullet is something he says or does live: short
 bullets, his phrasing, the demo steps in order, and the line that makes the point out
 loud. Not a script.

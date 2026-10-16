@@ -110,7 +110,7 @@
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
   color: #fff;
   font-family: var(--sans, "Inter", system-ui, sans-serif);
-  font-size: 15px;
+  font-size: calc(15px * var(--chat-fs, 1));
 }
 
 .chat-panel__bar {
@@ -155,7 +155,7 @@
   align-items: center;
   gap: 8px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted, #97a1b8);
@@ -209,7 +209,7 @@
   padding: 3px 10px;
   border-radius: 999px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: calc(11px * var(--chat-fs, 1));
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted, #97a1b8);
@@ -245,7 +245,7 @@
 .chat-provider--single {
   padding: 5px 12px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: calc(11px * var(--chat-fs, 1));
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted, #97a1b8);
@@ -320,7 +320,7 @@
 
 .chat-model__progress {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: calc(12px * var(--chat-fs, 1));
   color: var(--chapter-accent, #78eec5);
 }
 
@@ -379,7 +379,7 @@
   border-radius: 10px;
   background: rgba(2, 10, 20, 0.98);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
 }
 
 .chat-modal__head {
@@ -388,7 +388,7 @@
   justify-content: space-between;
   margin-bottom: 8px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: calc(12px * var(--chat-fs, 1));
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted, #97a1b8);
@@ -413,7 +413,7 @@
 .chat-modal__rows dd {
   margin: 0;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: calc(12px * var(--chat-fs, 1));
   text-align: right;
   overflow-wrap: anywhere;
 }
@@ -423,7 +423,7 @@
   padding-top: 8px;
   border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
   color: var(--muted, #97a1b8);
-  font-size: 12px;
+  font-size: calc(12px * var(--chat-fs, 1));
   line-height: 1.5;
 }
 
@@ -456,7 +456,7 @@
   overflow-y: auto;
   padding: 14px 12px;
   color: var(--muted, #97a1b8);
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--chat-fs, 1));
   line-height: 1.55;
 }
 
@@ -466,7 +466,7 @@
   gap: 8px;
   margin: 0 0 10px;
   color: #fff;
-  font-size: 15px;
+  font-size: calc(15px * var(--chat-fs, 1));
 }
 
 .chat-unavailable__lead i {
@@ -485,7 +485,7 @@
 .chat-unavailable__error {
   margin: 10px 0 0;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: calc(12px * var(--chat-fs, 1));
   color: var(--nf-feedback-error, #fc6986);
   overflow-wrap: anywhere;
 }
@@ -496,7 +496,7 @@
   max-width: 88%;
   padding: 8px 11px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: calc(14px * var(--chat-fs, 1));
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -552,7 +552,7 @@
   display: block;
   margin-top: 4px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: calc(11px * var(--chat-fs, 1));
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted, #97a1b8);
@@ -598,7 +598,7 @@
   border-radius: 4px;
   background: none;
   color: var(--muted, #97a1b8);
-  font-size: 14px;
+  font-size: calc(14px * var(--chat-fs, 1));
   line-height: 1;
   cursor: pointer;
   opacity: 0.7;
@@ -664,7 +664,7 @@
 .chat-empty {
   margin: auto 0;
   color: var(--muted, #97a1b8);
-  font-size: 14px;
+  font-size: calc(14px * var(--chat-fs, 1));
 }
 
 .chat-empty p {
@@ -694,7 +694,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--chat-fs, 1));
   text-align: left;
   cursor: pointer;
   transition:
@@ -714,7 +714,7 @@
  * to say it. Accented from rest, because it is the only affordance here. */
 .chat-empty__suggestion i {
   color: var(--chapter-accent, #78eec5);
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
 }
 
 .chat-error {
@@ -725,7 +725,7 @@
   border-radius: 8px;
   border: 1px solid var(--nf-feedback-error, #fc6986);
   color: var(--nf-feedback-error, #fc6986);
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
 }
 
 /* --- Composer ------------------------------------------------------------ */
@@ -776,7 +776,7 @@
   background: none;
   color: #fff;
   font-family: var(--sans, "Inter", system-ui, sans-serif);
-  font-size: 14px;
+  font-size: calc(14px * var(--chat-fs, 1));
   line-height: 1.45;
   resize: none;
   overflow-y: hidden;
@@ -950,6 +950,35 @@
   background: var(--surface-1, rgba(255, 255, 255, 0.06));
 }
 
+/* --- Text size: the -/+ pair in the panel bar and both sheet bars --------- */
+
+/*
+ * Narrower and dimmer than the buttons around it. It gets used once per screen, not
+ * once per question, so it should read as a setting and not as one of the actions.
+ * The doubled selector beats `.chat-icon-button`'s width and size whatever the order.
+ */
+.chat-font-size {
+  display: inline-flex;
+  align-items: center;
+}
+
+.chat-icon-button.chat-font-size__button {
+  width: 18px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.chat-icon-button.chat-font-size__button:hover,
+.chat-icon-button.chat-font-size__button:focus-visible {
+  opacity: 1;
+}
+
+.chat-icon-button.chat-font-size__button:disabled {
+  opacity: 0.25;
+  cursor: default;
+  background: none;
+}
+
 /* --- Sheets: the shared scrim, card and bar ------------------------------- */
 
 /*
@@ -1013,7 +1042,7 @@
    * the deck's body serif, which is right for a slide and wrong for a control. */
   color: #fff;
   font-family: var(--sans, "Inter", system-ui, sans-serif);
-  font-size: 15px;
+  font-size: calc(15px * var(--chat-fs, 1));
 }
 
 /*
@@ -1045,7 +1074,7 @@
   align-items: center;
   gap: 8px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fff;
@@ -1053,7 +1082,7 @@
 
 .chat-sheet__title i {
   color: var(--chapter-accent, #78eec5);
-  font-size: 18px;
+  font-size: calc(18px * var(--chat-fs, 1));
 }
 
 /*
@@ -1068,7 +1097,7 @@
   background: rgba(255, 255, 255, 0.04);
   color: #fff;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
 }
 
 .chat-tools__select:focus {
@@ -1082,7 +1111,7 @@
   gap: 8px;
   margin-left: auto;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: calc(11px * var(--chat-fs, 1));
   color: var(--muted, #97a1b8);
 }
 
@@ -1128,14 +1157,14 @@
 .chat-tools__name {
   margin: 0 0 6px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 16px;
+  font-size: calc(16px * var(--chat-fs, 1));
   font-weight: 400;
   color: #fff;
 }
 
 .chat-tools__desc {
   margin: 0 0 12px;
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
   line-height: 1.5;
   color: var(--muted, #97a1b8);
 }
@@ -1143,14 +1172,14 @@
 .chat-tools__schema {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: calc(12px * var(--chat-fs, 1));
 }
 
 .chat-tools__schema th {
   padding: 0 8px 4px;
   border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: calc(11px * var(--chat-fs, 1));
   font-weight: 400;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1177,7 +1206,7 @@
 
 .chat-tools__none {
   margin: 0;
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
   color: var(--muted, #97a1b8);
 }
 
@@ -1206,7 +1235,7 @@
 
 .chat-tools__label {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: calc(11px * var(--chat-fs, 1));
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted, #97a1b8);
@@ -1220,7 +1249,7 @@
   background: rgba(255, 255, 255, 0.04);
   color: #fff;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
 }
 
 .chat-tools__input:focus {
@@ -1242,7 +1271,7 @@
   background: var(--chapter-accent, #78eec5);
   color: #04121b;
   font: inherit;
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-fs, 1));
   font-weight: 600;
   cursor: pointer;
 }
@@ -1253,7 +1282,7 @@
 }
 
 .chat-tools__hint {
-  font-size: 12px;
+  font-size: calc(12px * var(--chat-fs, 1));
   color: var(--muted, #97a1b8);
 }
 
@@ -1273,7 +1302,7 @@
   padding: 6px 10px 6px 16px;
   border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: calc(11px * var(--chat-fs, 1));
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted, #97a1b8);
@@ -1308,7 +1337,7 @@
   background: var(--surface-2, rgba(255, 255, 255, 0.02));
   color: var(--muted, #97a1b8);
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: calc(12px * var(--chat-fs, 1));
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1415,7 +1444,7 @@
   gap: 10px;
   margin: 2px 0;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--chat-fs, 1));
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted, #97a1b8);
@@ -1457,7 +1486,7 @@
   gap: 8px;
   margin-bottom: 4px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: calc(11px * var(--chat-fs, 1));
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted, #97a1b8);
@@ -1472,7 +1501,7 @@
 .chat-context__body {
   margin: 0;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--chat-fs, 1));
   line-height: 1.55;
   /* `pre-wrap`, not `pre`: the system preface is newline-separated sentences and
    * the questions are prose, so hard-wrapping would put a horizontal scrollbar
@@ -1486,7 +1515,7 @@
   flex-shrink: 0;
   padding: 10px 16px;
   border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
-  font-size: 12px;
+  font-size: calc(12px * var(--chat-fs, 1));
   line-height: 1.5;
   color: var(--muted, #97a1b8);
 }
@@ -1560,6 +1589,7 @@
 }
 
 @container (max-width: 300px) {
+  .chat-font-size,
   .chat-icon-button.chat-model__trash,
   .chat-icon-button.chat-model__info {
     display: none;

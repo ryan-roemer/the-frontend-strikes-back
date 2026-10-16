@@ -19,6 +19,7 @@ import { useCopy } from "../ui/use-copy.js";
 import { useDismissKeys } from "../ui/use-dismiss-keys.js";
 import { fieldsOf, summarize } from "../mcp/schema.js";
 import { Fields, initialArgs, missing, toArgs } from "./form.js";
+import { FontSize } from "../ui/font-size.js";
 
 const html = htm.bind(createElement);
 
@@ -338,6 +339,7 @@ const ToolInspector = () => {
               html`<span className="chat-sheet__badge">read-only</span>`
             }
           </span>
+          <${FontSize} />
           <button
             type="button"
             className="chat-icon-button"
