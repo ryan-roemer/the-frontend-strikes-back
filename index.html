@@ -641,8 +641,8 @@
                 n: 1,
                 text: "Validate strictly in code, loosely in schema",
                 detail: html`Schemas aren't guaranteed. Check in
-                  <code>execute</code>, and return mistakes as sentences the
-                  model can fix.`,
+                ${" "}<code>execute</code>, and return mistakes as sentences the
+                model can fix.`,
               },
               // 2. The UI after a tool runs.
               // - Chrome, "WebMCP best practices"
@@ -653,7 +653,7 @@
               {
                 n: 2,
                 text: "Consider the UI when a tool runs",
-                detail: "Agents read the page to plan their next step.",
+                detail: "Tool actions can optionally update or ignore the UI.",
               },
               // 3. Safety: annotation hints and exposed origins.
               // - Chrome, "WebMCP tool security"
