@@ -1542,6 +1542,14 @@ body::after {
   display: none;
 }
 
+/* QR codes are for a room full of phones. In a PDF the deck links are already
+ * on the Thanks slide, and on the title slide the code only crowds the
+ * speakers. */
+.paged-mode #root .title-qr,
+.paged-mode #root .thanks-qr {
+  display: none;
+}
+
 /* Grain is a screen effect. On paper it is just a dirty plate. */
 .paged-mode body::after {
   display: none;
@@ -1649,6 +1657,18 @@ body::after {
   #root .seam__impls,
   #root .seam__points,
   #root .card {
+    height: auto;
+  }
+
+  /* The title slide's column needs its full height back, or the speakers row,
+   * which is pushed down by an `auto` top margin, rides up under the
+   * subtitle. The row and its cards are content-sized. */
+  #root .title-copy {
+    height: 100%;
+  }
+
+  #root .speakers,
+  #root .speaker {
     height: auto;
   }
 
