@@ -341,35 +341,35 @@ body::after {
 /* --- Title slide --------------------------------------------------------- */
 
 /*
- * Display type. The slight perspective is the deck's Star Wars nod -- enough to
- * register, not enough to become the joke. Plain white rather than a
- * gradient fill: the tilt already carries the effect.
+ * Display type, flat. It used to carry a slight Star Wars perspective tilt; to
+ * bring that back, add:
+ *
+ *   transform: perspective(1400px) rotateX(8deg);
+ *   transform-origin: 50% 100%;
+ *
+ * The `transform: none` overrides in the print and reduced-motion blocks below
+ * are there for that tilt, and do nothing while it is off.
  */
 #root .title-display {
   font-weight: 800;
   letter-spacing: -0.035em;
   line-height: 0.92;
   color: #fff;
-  transform: perspective(1400px) rotateX(8deg);
-  transform-origin: 50% 100%;
 }
 
 /*
- * The title slide's copy column stops short of the QR block.
+ * The title slide's headings stop short of the QR block.
  *
- * The QR is absolutely positioned into the bottom-right corner, so it sits
- * outside the flow these headings lay out in -- nothing was stopping the
- * subtitle from running underneath it, and it did. Reserving the gutter here
- * holds for any subtitle string, which nudging one font size would not.
+ * The QR is absolutely positioned into the top-right corner, outside the flow
+ * these headings lay out in, so nothing stops a long title line from running
+ * underneath it. Reserving the gutter on the headings holds for any string. At
+ * 170px the card is 194px wide, so 280px (with the 44px offset) leaves room.
  *
- * 280px = the 46px offset plus the ~234px the caption spans. The caption is
- * what sets this, not the code: at 200px the card is 224px wide including its
- * padding, so "Scan for slides" is still the wider of the two. Grow the code
- * past ~210px and the card takes over as the constraint, and this has to grow
- * with it.
+ * Only the headings: the speakers row sits below the QR and needs the full
+ * width, or the names wrap.
  */
-#root .title-copy {
-  padding-right: 280px;
+#root .title-copy > :not(.speakers) {
+  max-width: calc(100% - 280px);
 }
 
 /* The display type owns the slide; the subtitle should read as a deck line,
@@ -389,9 +389,61 @@ body::after {
   box-shadow: 0 14px 36px rgba(0, 14, 56, 0.55);
 }
 
+/* The title slide's code: the card matches the SVG's slate, so the padding
+ * still counts as quiet zone, and the shadow goes, since lifting the card off
+ * the slide is the opposite of what it is for. */
+.qr-card--quiet {
+  background: #97a1b8;
+  box-shadow: none;
+}
+
 #root .qr-caption {
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The speakers row under the subtitle: introducer, then speaker. Photos are
+ * desaturated so a studio headshot and a selfie read as one pair. */
+#root .speakers {
+  gap: 72px;
+}
+
+/* Title to subtitle is one unit on this slide; the default rule spacing
+ * reads as a section break. */
+#root .title-rule {
+  margin-top: 14px;
+}
+
+/* Spectacle's heading line-height leaves a tall box around one line, which
+ * reads as extra space under the rule. */
+#root .title-copy .title-subtitle {
+  line-height: 1.15;
+}
+
+.speaker__photo {
+  border-radius: 16px;
+  object-fit: cover;
+  filter: grayscale(1);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 14px 36px rgba(0, 14, 56, 0.55);
+}
+
+#root .speaker__label--muted {
+  color: var(--muted);
+}
+
+#root .speaker * {
+  white-space: nowrap;
+}
+
+#root .speaker__name {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+#root .speaker__role {
   color: var(--muted);
 }
 
@@ -1514,6 +1566,7 @@ body::after {
 .print-mode #root .slide-title,
 .print-mode #root .slide-subtitle,
 .print-mode #root .title-subtitle,
+.print-mode #root .speaker__name,
 .print-mode #root .tile__title,
 .print-mode #root .takeaway__text,
 .print-mode #root .matrix__note,
@@ -1645,6 +1698,7 @@ body::after {
    * own.
    */
   #root .qr-card,
+  #root .speaker__photo,
   #root .code-frame,
   #root .code-editor-container {
     box-shadow: none;
@@ -1670,7 +1724,8 @@ body::after {
   display: none;
 }
 
-.print-mode .qr-card {
+.print-mode .qr-card,
+.print-mode .speaker__photo {
   box-shadow: none;
   border: 1px solid rgba(0, 14, 56, 0.18);
 }

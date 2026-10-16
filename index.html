@@ -179,6 +179,45 @@
 
       const qrCodeImg = `<img class="qr-card" src="${images.qrCode}" width="200px" style="margin-top: calc(22vh);" />`;
 
+      // Who is on the title slide. Andrew introduces; the label colors follow
+      // his mockup, muted for the introducer and the accent for the speaker.
+      const SPEAKERS = [
+        {
+          label: "Introduced by",
+          name: "Andrew Nolan",
+          role: "Co-creator of WebMCP",
+          photo: images.andrewNolan,
+        },
+        {
+          label: "Speaker",
+          featured: true,
+          name: "Ryan Roemer",
+          role: "SVP, Nearform",
+          photo: images.ryanRoemer,
+        },
+      ];
+      const speakerCard = ({ label, featured, name, role, photo }) => html`
+        <${FlexBox} key=${name} className="speaker" alignItems="center">
+          <${Image} className="speaker__photo" src=${photo} alt=${name} width="212px" height="240px" />
+          <${FlexBox} flexDirection="column" alignItems="start" margin="0 0 0 28px">
+            <${Text}
+              className=${featured ? "eyebrow" : "eyebrow speaker__label--muted"}
+              fontSize="19px"
+              margin="0px"
+              padding="0px"
+            >
+              ${label}
+            </${Text}>
+            <${Text} className="speaker__name" fontSize="46px" margin="10px 0 0" padding="0px">
+              ${name}
+            </${Text}>
+            <${Text} className="speaker__role" fontSize="30px" margin="4px 0 0" padding="0px">
+              ${role}
+            </${Text}>
+          </${FlexBox}>
+        </${FlexBox}>
+      `;
+
       // Links on the "Thanks!" slide.
       const SOCIAL_LINKS = [
         {
@@ -241,54 +280,82 @@
         >
           ${"" /* --- Intro --- */}
           <${DeckSlide} chrome=${false}>
-            <${FlexBox} className="title-copy" height="100%" flexDirection="column" justifyContent="center" alignItems="start">
+            <${FlexBox} className="title-copy" height="100%" flexDirection="column" justifyContent="start" alignItems="start">
               <${Eyebrow}>
                 ${logosHtm.conf} AGNTCon + MCPCon NA 2026
               </${Eyebrow}>
               <${Heading}
                 className="title-display"
-                fontSize="118px"
+                fontSize="82px"
                 textAlign="left"
-                margin="24px 0 0"
+                margin="2px 0 0"
               >
                 THE FRONTEND<br />STRIKES BACK
               </${Heading}>
-              <${AccentRule} />
+              <${AccentRule} className="title-rule" />
               <${Heading}
                 className="title-subtitle"
-                fontSize="h3"
+                fontSize="38px"
                 color="primary"
                 textAlign="left"
-                margin="32px 0 0"
+                margin="14px 0 0"
               >
                 WebMCP and the agent-ready browser
               </${Heading}>
+              <${FlexBox} className="speakers" margin="auto 0 44px" justifyContent="start">
+                ${SPEAKERS.map(speakerCard)}
+              </${FlexBox}>
             </${FlexBox}>
             <${FlexBox}
               className="title-qr"
               flexDirection="column"
               alignItems="center"
               position="absolute"
-              bottom="46px"
-              right="46px"
+              top="66px"
+              right="44px"
             >
-              <${Image} className="qr-card" src=${images.qrCode} width="200px" height="200px" />
-              <${Text} className="qr-caption" fontSize="18px" margin="12px 0 0">
+              <${Image} className="qr-card qr-card--quiet" src=${images.qrCodeQuiet} width="170px" height="170px" />
+              <${Text} className="qr-caption" fontSize="15px" margin="12px 0 0">
                 Scan for slides
               </${Text}>
             <//>
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * Thanks, Andrew. A real privilege to be introduced by one of the WebMCP
-                    creators.
-                  * Thanks to the Agentic AI Foundation and the AGNTCon organizers: it takes
-                    a lot of work to put on a big conference like this.
-                  * This talk is going to have a lot of demos, many you can try out yourself.
-                    Hit the QR code to follow along, skip ahead, even try things live in the
-                    deck itself.
-                  * All righty, let's have some fun: **The Frontend Strikes Back**, WebMCP and
-                    the agent-ready browser.
+                  * **Andrew introduces (he says this, not me):**
+                    * "The web developers who build the web, now get to shape how agents
+                      use it."
+                    * I'm Andrew Nolan, co-creator of WebMCP.
+                    * Since introducing this technology I've been amazed at the web
+                      community's reception and passion for it.
+                    * Major players like engineers from Microsoft, Google, and others
+                      continue to evolve and shape the proposed web standard to meet the
+                      needs of the web.
+                    * Meanwhile the spec repo has over 4K stars on GitHub and web
+                      developers have built and demoed hundreds of prototypes showing how
+                      WebMCP can improve their frontend web apps.
+                    * We've also seen adoption by major industry players, like Shopify,
+                      PayPal, Cloudflare, and others.
+                    * We're starting to see the other side of the equation, major AI
+                      agents, like ChatGPT announcing support for leveraging WebMCP to
+                      complete tasks.
+                    * Needless to say, this week you've heard, and will hear, a lot about
+                      WebMCP.
+                    * It's my privilege to introduce Ryan Roemer of Nearform, who will be
+                      giving you a launch point on your own agent journey.
+                    * Ryan serves as SVP at Nearform, an AI engineering consulting firm.
+                      Before that he was co-founder and CEO of Formidable. He's a fierce
+                      advocate and builder of open source and he is a recognized voice in
+                      emerging technologies like on-device and open weight models.
+                    * One of the things I'm most excited about is seeing what and how
+                      developers build with agentic technologies. Ryan brings that
+                      builder's perspective and where you can start.
+                    * Welcome Ryan.
+                  * **Me, short:**
+                    * Thanks, Andrew (and the AGNTCon organizers).
+                    * Lots of demos: hit the QR code to follow along and try them live.
+                    * Let's get started: **The Frontend Strikes Back**, WebMCP and the
+                      agent-ready browser.
                 `}
               </${Markdown}>
             </${Notes}>
@@ -378,12 +445,12 @@
                   * **My Goal** here is to get folks to
                     1. **know** what browser AI features are out there and
                     2. help you **start playing around** with web AI.
-                  * Show of hands: who builds frontends (full stack, frontend)?
+                  * If you build frontends (full stack, frontend):
                     * **Agents are increasingly your users.** Humans are coming down as a share, agents going up.
                     * You can do lots of the AI things your backend friends can do!
-                  * And who builds backend systems, MCP servers, cloud, backend APIs?
+                  * If you build backend systems, MCP servers, cloud, backend APIs:
                     * You've got a new tool to consume.
-                    * A can offload some of your AI compute to browsers.
+                    * You can offload some of your AI compute to browsers.
                   * With that in mind, let's go get them. First: the browser as an interface.
                 `}
               </${Markdown}>
@@ -417,13 +484,8 @@
               {
                 n: 3,
                 text: "In browsers now",
-                detail: html`Origin trial in <u>Chrome</u> and <u>Edge</u>.`,
-              },
-              {
-                n: 4,
-                text: "Already in use",
-                detail: html`<u>Shopify</u> storefronts, <u>ChatGPT desktop</u>,
-                  and browser <u>extensions</u>.`,
+                detail: html`Origin trial in <u>Chrome</u> and <u>Edge</u>, plus
+                  a growing list of agent clients. We'll try two shortly!`,
               },
             ]}
             notes=${`
@@ -435,10 +497,8 @@
                 declarative one, where you annotate your HTML forms and get tools mostly
                 for free.
               * In browsers now: origin trials in Chrome and Edge, and polyfills for most
-                other browsers.
-              * Already in use: Shopify storefronts (which covers a lot of ground), now
-                including checkout for agents. ChatGPT desktop bridges it as a first-class
-                thing (we'll try it in a second), plus lots of browser extensions.
+                other browsers. Andrew covered who's adopting it; the agent clients are
+                what we'll try: ChatGPT desktop natively, and Claude Desktop over a relay.
             `}
           />
           <${TakeawaySlide}
@@ -475,9 +535,7 @@
                   >
                     <${Icon} name="arrow-square-out" fill=${false} />
                   </${Link}>`,
-                detail: html`Tools reuse the code your UI already calls. 4.6K+ stars on the${" "}
-                  <${Link} href="https://github.com/webmachinelearning/webmcp" target="_blank" fontSize="inherit">spec repo</${Link}>,${" "}
-                  with Google and Microsoft building in the open.`,
+                detail: "Tools reuse the code your UI already calls.",
               },
             ]}
             notes=${`
@@ -507,15 +565,8 @@
                   clicking "Approve" isn't one) are still open in the spec.
               * A good future bet, because you can start right now, literally today, on
                 your own frontend. Tools reuse the JavaScript your UI already calls.
-              * An active, growing community: 4.6K+ stars on the spec repo, with Google,
-                Microsoft, and others building in the open. The community group's meetings
-                are open and really interesting to attend if you want to see the direction.
-                A neat thing to watch unfold.
-              * The big labs keep ending up back at the browser (per Alex's post):
-                Anthropic put a browser inside Claude Cowork and made Claude in Chrome
-                generally available; OpenAI built one into ChatGPT and Codex, then added
-                WebMCP to it. Google is coming from the browser side: Gemini in Chrome,
-                which Google says will support WebMCP.
+              * The community group's meetings are open and really interesting to attend
+                if you want to see the direction. A neat thing to watch unfold.
               * Next: here's how you start.
             `}
           />
@@ -563,6 +614,9 @@
               * We'll see this exact tool live in a minute, from Claude Desktop.
             `}
           />
+          ${
+            "" /* Cut 2026-10-16: Andrew's intro takes the time, and "What is WebMCP?"
+               already names the declarative API.
           <${JsSlide} chapter=${1} title="Or, just a form"
             filename=${examples.declarativeTool.file} code=${examples.declarativeTool.code}
             language=${examples.declarativeTool.language}
@@ -578,6 +632,8 @@
               * Designated a future exploration after imperative API ships.
             `}
           />
+          */
+          }
           <${DemoSlide}
             chapter=${1}
             demo="chatgpt-desktop"
@@ -591,8 +647,6 @@
             notes=${`
               * A real store, a real agent, nothing to install. Shopify ships WebMCP
                 tools on every Liquid storefront, so Reebok.com has them today.
-              * With a browser extension, go to Reebok's site: the tools are just there.
-                Add to cart, cancel cart, even proceed to checkout.
               * ChatGPT desktop is slow live, so here's a video: finding a running shoe
                 in my size, using only the WebMCP tools. It picks the Floatzig 2. I have
                 no idea what that shoe is. I run in Hokas (don't tell anybody).
@@ -978,8 +1032,8 @@
                 plausible but wrong? Correct: arguing passionately over parts that don't
                 matter. Welcome to engineering.
               * Rough, but you can actually do things: try tool calling, load other models.
-              * **Deck chat is optional.** Do it here if there's time. Tight on time:
-                do it on the Thanks slide at the end. Out of time: skip it.
+              * **Deck chat goes in one place only.** Ahead of schedule: here. Not
+                ahead: on the Thanks slide instead. Short on time: skip it entirely.
               * Bonus: the deck already has WebMCP tools, so the obvious over-engineered
                 next step is to hook them to an on-device chat and talk to the deck.
               * "Change the slide heading to: Wow, AI in my deck." It changes the title.
@@ -1176,13 +1230,12 @@
                   * This whole deck is a frontend app, written in Spectacle, part of
                     Nearform's open source. A frontend app can have WebMCP tools.
                     * Optional: click the Spectacle logo. Escape closes it.
-                  * Open the tools (⇧⌥T) and call \`go_to_slide\` to the first slide. "Oh my
-                    goodness, we're back at the start." Then back to the last slide.
                   * "I've been evangelizing inference in your frontend app, hooked to tools.
                     What if I hooked this deck to those very tools?"
                   * Open the chat: "Replace the Thanks heading with Hello AGNTCon." The
                     heading changes. And with that, we're done.
-                  * Skip the chat here if it already ran on the web AI demo slide.
+                  * Chat here only if it didn't run on the web AI demo slide, and only if
+                    there's time.
                 `}
               </${Markdown}>
             </${Notes}>
