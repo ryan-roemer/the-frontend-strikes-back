@@ -412,7 +412,7 @@ body::after {
 /* Title to subtitle is one unit on this slide; the default rule spacing
  * reads as a section break. */
 #root .title-rule {
-  margin-top: 14px;
+  margin-top: 4px;
 }
 
 /* Spectacle's heading line-height leaves a tall box around one line, which
