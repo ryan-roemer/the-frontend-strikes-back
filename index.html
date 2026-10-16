@@ -620,6 +620,104 @@
                 along.
             `}
           />
+          <${TakeawaySlide}
+            chapter=${1}
+            title="Tips for WebMCP"
+            compact=${true}
+            items=${[
+              // 1. Validate in code, return mistakes as sentences.
+              // - Chrome, "WebMCP best practices"
+              //   (https://developer.chrome.com/docs/ai/webmcp/best-practices):
+              //   "Validate strictly in code, loosely in schema. ... While schema
+              //   constraints can be helpful, they're not guaranteed. Add descriptive
+              //   errors to your function code to allow the model to self-correct and
+              //   retry with new, valid parameters."
+              // - Tejas Kumar (https://tej.as/blog/what-is-webmcp): "A model is a
+              //   sloppy caller though, so the validator forgives the mistakes with
+              //   one obvious meaning and refuses the rest" and "If a tool's execute
+              //   rejects, the model gets a bare UnknownError and no idea what went
+              //   wrong."
+              {
+                n: 1,
+                text: "Validate strictly in code, loosely in schema",
+                detail: html`Schemas aren't guaranteed. Check in
+                  <code>execute</code>, and return mistakes as sentences the
+                  model can fix.`,
+              },
+              // 2. The UI after a tool runs.
+              // - Chrome, "WebMCP best practices"
+              //   (https://developer.chrome.com/docs/ai/webmcp/best-practices):
+              //   "Update the interface state after functions are completed. Agents
+              //   may rely on the interface to plan next steps, while functions may
+              //   take longer to complete than the interface load."
+              {
+                n: 2,
+                text: "Consider the UI when a tool runs",
+                detail: "Agents read the page to plan their next step.",
+              },
+              // 3. Safety: annotation hints and exposed origins.
+              // - Chrome, "WebMCP tool security"
+              //   (https://developer.chrome.com/docs/ai/webmcp/secure-tools): "If
+              //   executing a tool results in significant actions, such as booking
+              //   travel or transferring money, set consequentialHint: true so the
+              //   agent or browser can request user confirmation before execution."
+              //   On untrustedContentHint: "If a tool returns user-generated content
+              //   (UGC) or externally sourced data, consider adding the
+              //   untrustedContentHint to the tool." On origins: "By default, other
+              //   websites or cross-origin iframes can't observe or interact with
+              //   your tools." and "Only expose your tools to origins that you
+              //   trust." (the `exposedTo` option).
+              // - Alex Nahas, "The next steps on the Web and WebMCP"
+              //   (https://nekuda.substack.com/p/the-next-steps-on-the-web-and-webmcp):
+              //   "approval needs to mean a human actually approved. An agent
+              //   clicking the page's 'Approve' button itself doesn't give us that."
+              {
+                n: 3,
+                text: "Read up on the safety features",
+                detail:
+                  "Hint the risk: read-only, untrusted, consequential. Share tools only with origins you trust.",
+              },
+              // 4. Keep up.
+              // - "guidance": Chrome, "WebMCP best practices"
+              //   (https://developer.chrome.com/docs/ai/webmcp/best-practices),
+              //   which closes: "WebMCP is under active discussion and subject to
+              //   change in the future."
+              // - "early preview program": the link the Chrome WebMCP docs pages
+              //   (best-practices, secure-tools, declarative-api) all use. The
+              //   best-practices page: "Join the early preview program for an early
+              //   look at new APIs and access to our mailing list."
+              // - Tejas Kumar (https://tej.as/blog/what-is-webmcp): "the API has
+              //   already changed once, from navigator to document."
+              {
+                n: 4,
+                text: "Keep up: this space moves wildly fast",
+                detail: html`The spec and Chrome's${" "}
+                  <${Link} href="https://developer.chrome.com/docs/ai/webmcp/best-practices" target="_blank" fontSize="inherit">guidance</${Link}>${" "}
+                  are changing rapidly. Join the${" "}
+                  <${Link} href="http://goo.gle/chrome-ai-dev-preview-join" target="_blank" fontSize="inherit">early preview program</${Link}>!`,
+              },
+            ]}
+            notes=${`
+              * There are all manner of tips and tricks for WebMCP. Here are a few
+                I've run into, with help from Chrome's best-practices and security
+                docs, and Tejas Kumar's post on adding WebMCP to his site.
+              * Validate strictly in code, loosely in schema. The schema isn't a
+                guarantee, so check the input in \`execute\`. When it's wrong,
+                return a sentence saying why: a thrown error reaches the model as a
+                bare \`UnknownError\`, and it can't fix that.
+              * Consider the UI when a tool runs. Agents look at the page to plan
+                what to do next. Reebok's tools update the page as they go; our
+                knowledge search tool doesn't touch the page at all.
+              * Read up on the safety features. Hints mark a tool as read-only, as
+                returning untrusted content, or as consequential, so the browser can
+                ask the user first. Tools stay private to your origin unless you
+                expose them to ones you trust.
+              * And keep up: the API has already moved from \`navigator\` to
+                \`document\`, and Chrome says WebMCP is still subject to change.
+                Their best-practices page is the place to start, and the early
+                preview program gets you their mailing list.
+            `}
+          />
           ${"" /* --- 02 · Runtime: AI in the browser --- */}
           <${TopicSlide}
             chapter=${chapter(2)}
