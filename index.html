@@ -509,22 +509,51 @@
               },
             ]}
             notes=${`
-              * Credit: Alex Nahas (MCP-B), "The next steps on the Web and WebMCP."
-              * **Agents already use your site, just poorly:** Playwright, CDP, screen
-                scraping, clicking through UIs built for humans. WebMCP: a first-class
-                tool, like a normal MCP tool.
-              * **Auth and intranets:** tortured legacy auth, but you have the frontend.
-                The tool runs in the user's session; the agent never sees the
-                credentials. On the backend, a nightmare.
+              * **Agents today** use Playwright, CDP, screenscraping, clicking through **UIs built for humans**.
+                * WebMCP replaces that with a real agent interface.
+                * In a familiar form for Agents -- **MCP**.
+
+              * Auth and intranets
+                * Intranet-only resources and legacy auth make backend MCP servers tedious to build.
+                * If there's already a frontend that handles it, wiring up a WebMCP tool takes a few lines.
+
               * **Standards and browsers lead the hard parts:**
-                * Agents need sandboxing, auth, trust.
-                * Browsers already built that, battle-tested against hostile sites on
-                  every user's computer. **"Congratulations! You built a browser."**
-                * You just write the function.
-                * If asked: not all solved. Per-agent identity and real human approval
-                  are still open in the spec.
-              * **A good bet to start on now:** tools reuse the code your UI already
-                calls.
+                * So much of backend agent work is solving problems around:
+                  **authentication**,
+                  **sandboxing**,
+                  **identity**,
+                  **trust**...
+                * Want to know an **execution environment** that's already battle tested and ready? **A BROWSER**
+                * You just write the function, the standards groups and browsers do the heavy lift.
+
+              * **A good bet to start on now:**
+                * It's a rising technology
+                * And easy to get started and reuse your **existing frontend code**.
+              ---
+              * Credit: Alex Nahas (MCP-B), "The next steps on the Web and WebMCP."
+
+            `}
+          />
+          <${DemoSlide}
+            chapter=${1}
+            demo="chatgpt-desktop"
+            label="Demo · any WebMCP site"
+            app="ChatGPT shops reebok.com"
+            url="reebok.com"
+            points=${[
+              "<strong>Shopify</strong> ships WebMCP tools on every Liquid storefront.",
+              '<strong>ChatGPT desktop</strong>\'s built-in browser calls WebMCP "site tools."',
+            ]}
+            notes=${`
+              * Before we get in to the geeky details, let's have some fun!
+                * Let's see WebMCP for real in the wild...
+              ---
+              * Shopify ships WebMCP tools on every Liquid storefront. Reebok.com is one.
+              * ChatGPT desktop's built-in site tools talk WebMCP natively.
+              * Video, sped up (it's slow live): a road running shoe in size 10.5, WebMCP
+                tools only. Drill into the tool calls.
+              * It found the Floatzig 2. Not my brand, but looks like a pretty good shoe.
+              * **Any WebMCP site, from ChatGPT desktop, for real, right now.**
             `}
           />
           <${JsSlide} chapter=${1} title="The WebMCP API"
@@ -535,13 +564,15 @@
               title: "Chrome's imperative API docs",
             }}
             notes=${`
+              * OK, so how do I add WebMCP to my apps?
+              ---
               * Pretty simple: a \`modelContext\` object on \`document\`, three main
                 things.
               * Line 4, \`registerTool\`: the site offers a tool.
               * Line 7, \`getTools\`: an agent sees what's available, via whatever
                 bridge it has.
               * Line 8, \`executeTool\`: the agent runs one.
-              * Line 11: listen for changes. Those core three are really it.
+              * Line 11: There are other parts of the API too like listening, etc.
             `}
           />
           <${JsSlide} chapter=${1} title="One tool, up close"
@@ -552,19 +583,23 @@
               title: "The real search tool in vector-search-web",
             }}
             notes=${`
-              * Query: \`Frontend bundle size, webpack, rollup, etc.\`
-              * An intranet search: company knowledge, tortured auth. This is all it
-                takes.
-              * Line 2: name. Lines 3–4: description, a prompt for the agent. Lines
-                5–11: input schema. Same as a normal MCP server.
-              * Line 13: plain frontend code. Reuse your UI code, logic, auth,
-                preferences. That's the bridge.
-              * **Quick demo, keep it short:** switch to the "Article Search" tab.
-                * Our ~950 blog posts. Not really internal, but pretend it is.
+              * ... so let's cover the basics with registering a tool ...
+              * Let's assume we have an **intranet knowledge search app**.
+                * ... that would be a **pain** to expose via a backend MCP server
+                * ... let's see what it takes to hook it up to WebMCP!
+              * _Walkthrough_:
+                * Lines 2-11 are the metadata info passed to agents for tool calling.
+                  * ... Pretty much like normal MCP declarations
+                  * Line 2: name.
+                  * Lines 3–4: description
+                  * Lines 5–11: input schema.
+                * Line 13: plain frontend code. Reuse your UI code, logic, auth,
+                  preferences. That's the bridge.
+              ---
+              * **Let's see a real version of this example:** "Article Search"
+                * Our **~950 blog posts**. Not really internal, but pretend it is.
                 * One search on the page: "reducing bundle size with webpack."
-                * Open the tools panel: the tool's schema (query, post types, dates,
-                  categories). Point at it, don't run a second query.
-              * Really that simple. We'll call this exact tool from Claude Desktop.
+                * Open the tools panel
             `}
           />
           ${
@@ -587,25 +622,6 @@
           />
           */
           }
-          <${DemoSlide}
-            chapter=${1}
-            demo="chatgpt-desktop"
-            label="Demo · any WebMCP site"
-            app="ChatGPT shops reebok.com"
-            url="reebok.com"
-            points=${[
-              '<strong>ChatGPT desktop</strong>\'s built-in browser calls WebMCP "site tools."',
-              "<strong>Shopify</strong> ships WebMCP tools on every Liquid storefront.",
-            ]}
-            notes=${`
-              * Shopify ships WebMCP tools on every Liquid storefront. Reebok.com is one.
-              * ChatGPT desktop's built-in site tools talk WebMCP natively.
-              * Video, sped up (it's slow live): a road running shoe in size 10.5, WebMCP
-                tools only. Drill into the tool calls.
-              * It found the Floatzig 2. Not my brand, but looks like a pretty good shoe.
-              * **Any WebMCP site, from ChatGPT desktop, for real, right now.**
-            `}
-          />
           <${DemoSlide}
             chapter=${1}
             demo="claude-desktop"
