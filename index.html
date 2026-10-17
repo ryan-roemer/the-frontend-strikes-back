@@ -634,10 +634,19 @@
               "... and Claude gets <strong>tool</strong> calling to the pages!",
             ]}
             notes=${`
-              * Not every client talks WebMCP yet. Meantime, a bridge: MCP-B's relay, by
-                Alex Nahas.
-              * A local Node relay. Any page with WebMCP tools and the embed shows up in
-                any MCP client as a normal MCP tool.
+              * OK, now that we've got our **custom WebMCP app**, let's talk to it **with agents**!
+
+              * Let's talk about how to hook it up to **ANY** Agent that can call local MCP servers!
+                * In our case here, let's hook it to Claude Desktop
+                * Which doesn't have native WebMCP support yet.
+
+              * What I'm going to do is utilize a WebMCP bridge from the MCP-B project with **three steps**
+                * First, I put a **embed code** in my web page to connect to a WebSocket relay.
+                * Second, I run the **WebMCP relay** on a local Node server.
+                * Third, I **configure Claude** to talk to the WebMCP relay like any other MCP server!
+
+              * TODO: HERE
+
               * Claude Desktop, hooked to the article search page: it lists the tools.
               * Ask: "Front-end bundle size recommendations for webpack, with a citation
                 list."
@@ -647,6 +656,8 @@
                 using only the web page's tools.
               * **If this were a real intranet: bridged, so easily, versus building my
                 own backend server.** Already pretty usable.
+
+              * TODO: ALEX SHOUTOUT
             `}
           />
           <${TakeawaySlide}
