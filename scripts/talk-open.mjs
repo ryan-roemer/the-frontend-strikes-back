@@ -1,6 +1,6 @@
 // Opens the talk in the talk Chrome as two windows: the deck with `?offline` alone in an
-// app window (no tabs, no URL bar), and every demo in `deck/demos.js` as tabs in a normal
-// window. Brings the deck to the front last. See docs/offline.md.
+// app window (no tabs, no URL bar), and every demo in `deck/demos.js` (plus `EXTRA_TABS`) as
+// tabs in a normal window. Brings the deck to the front last. See docs/offline.md.
 //
 //   npm run talk:open        # needs `npm run dev` and `npm run cdp:talk`
 //
@@ -15,7 +15,8 @@
 // the Nearform footer banner so the projector shows only the demo. web-agents also
 // gets `?present=true`, which pins the AI-native engineering query in its suggestions.
 //
-// The tabs open in `TAB_ORDER`, not talk order: vector-search-web first, then reebok.
+// The tabs open in `TAB_ORDER`, not talk order: reebok, the search tool's source on
+// GitHub (from `EXTRA_TABS`, not a demo), then vector-search-web.
 //
 // CDP CAN'T OPEN AN APP WINDOW, so `cdp:talk` starts the talk Chrome with `--app` on the
 // deck. If that window is gone, this tries `open -na "Google Chrome" --args --app=…` on
@@ -44,8 +45,16 @@ const PROFILE =
 
 const PRESENT_DEMOS = new Set(["web-agents"]);
 
-// Demo ids missing here open after these, in `DEMO_LINKS` order.
-const TAB_ORDER = ["vector-search", "chatgpt-desktop"];
+// Tabs that aren't demos, so they stay out of `DEMO_LINKS` and off the slides.
+const EXTRA_TABS = {
+  "search-tool-source":
+    "https://github.com/nearform/vector-search-web/blob/ab4d3bd0bfcb55475b1532cf7b2b1518492e056c/public/app/data/tools/search.js#L7-L71",
+};
+
+const LINKS = { ...DEMO_LINKS, ...EXTRA_TABS };
+
+// Ids missing here open after these, in `LINKS` order.
+const TAB_ORDER = ["chatgpt-desktop", "search-tool-source", "vector-search"];
 
 const forTalk = (id, href) => {
   const url = new URL(href);
@@ -83,13 +92,13 @@ try {
 
 // Demos first, so the normal window exists before any deck tab in it is closed.
 const ids = [
-  ...TAB_ORDER.filter((id) => id in DEMO_LINKS),
-  ...Object.keys(DEMO_LINKS).filter((id) => !TAB_ORDER.includes(id)),
+  ...TAB_ORDER.filter((id) => id in LINKS),
+  ...Object.keys(LINKS).filter((id) => !TAB_ORDER.includes(id)),
 ];
 // Two demos can share a page, so a link opened earlier in this loop is kept too.
 const opened = new Set((await pages()).map((target) => target.url));
 for (const id of ids) {
-  const href = forTalk(id, DEMO_LINKS[id]);
+  const href = forTalk(id, LINKS[id]);
   if (opened.has(href)) {
     console.log(`kept     ${href} (${id})`);
   } else {
