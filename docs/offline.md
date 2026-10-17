@@ -14,8 +14,8 @@ Three terminals. Each command is safe to re-run.
 ```sh
 npm run dev          # 1: serve the deck on :3000 (leave running)
 npm run demo:relay   # 2: the WebMCP relay on :9333, for Claude Desktop (leave running)
-npm run cdp:talk     # 3: the talk Chrome, CDP on :1981
-npm run talk:open    # 3: the deck with ?offline in its own window, the demos in another
+npm run cdp:talk     # 3: the talk Chrome, CDP on :1981, deck in an app window
+npm run talk:open    # 3: the demos in a second window, deck to the front
 ```
 
 Then:
@@ -42,13 +42,15 @@ Desktop won't load. Use the backup recordings. See [At the venue](#at-the-venue)
 
 - **On the slide:** the ↗ icon after the URL opens the demo in a new tab. It's there on the
   published deck too.
-- **All at once:** `npm run talk:open` opens two windows. The deck goes alone in an app
-  window (`--app`, so no tabs and no URL bar), and the demos go in a normal window as a tab
-  per demo URL, vector-search-web first, then this table's order. The deck comes to the
-  front last. The two vector-search-web demos share one tab. It skips tabs already open at
-  the same URL, and a `?offline` deck already in a window of its own. Our own demos open
-  with `banner=false`. It **closes** any other deck tab: the one `cdp:talk` opens has no
-  `?offline`, so it's blank with no network.
+- **All at once:** two windows. `npm run cdp:talk` starts the talk Chrome with the deck
+  (`?offline`) alone in an app window (`--app`, so no tabs and no URL bar). `npm run
+talk:open` adds the demos in a normal window, a tab per demo URL, vector-search-web
+  first, then this table's order, and brings the deck to the front. The two
+  vector-search-web demos share one tab. It skips tabs already open at the same URL. Our
+  own demos open with `banner=false`. Once the app window is confirmed, it **closes** any
+  other deck tab (the presenter view is left alone). If the app window is gone, it can't
+  reliably reopen it into a running Chrome, so it says to `pkill -f tfsb-chrome-talk` and
+  run `cdp:talk` again (the profile, and its cached model, stay).
 - `?present=true` gives vector-search-web a generic title for the projector.
 - `?relay=false` keeps a tab off the relay. Every tab that connects adds its tools to Claude
   Desktop's list, so with two vector-search-web tabs connected Claude sees each tool twice, under
@@ -173,6 +175,7 @@ Each missed URL says whether `offline/` has a copy.
 | Gemini Nano `unavailable`       | This device or Chrome can't run it. The Prompt API slide will show the error; use the answer in its speaker notes.                                 |
 | `NOTE: the model was cached`    | Not a failure. The profile already had Gemma, so the check didn't test `offline/models/`.                                                          |
 | `no CDP at …:1981`              | `npm run cdp:talk`. If it says the talk Chrome is on another port: `pkill -f tfsb-chrome-talk` (keeps the profile), then `npm run cdp:talk` again. |
+| `its deck window is gone`       | You closed the deck's app window, and Chrome kept running. Quit the talk Chrome (Cmd+Q), then `npm run cdp:talk` again.                            |
 | `backup videos: … missing: N`   | Record that demo and add it: [Add a recording](#add-a-recording).                                                                                  |
 
 Still failing after `offline:fetch`? A missed URL that `offline:fetch` doesn't save is a bug in

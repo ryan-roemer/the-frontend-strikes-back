@@ -17,31 +17,30 @@
 //
 // The tabs open in `TAB_ORDER`, not talk order: vector-search-web first, then reebok.
 //
-// CDP CAN'T OPEN AN APP WINDOW, so the deck goes through `open -na "Google Chrome" --args
-// --app=…` with the talk profile's `--user-data-dir`. Chrome hands that to the talk
-// Chrome already running on the profile instead of starting a second one. Everything
-// else is plain CDP HTTP (`/json/*`), plus one browser-level call to see which window a
-// deck tab is in.
+// CDP CAN'T OPEN AN APP WINDOW, so `cdp:talk` starts the talk Chrome with `--app` on the
+// deck. If that window is gone, this tries `open -na "Google Chrome" --args --app=…` on
+// the talk profile; when that doesn't reach the running talk Chrome (on 2026-10-16 it
+// didn't), it says to restart it. Everything else is plain CDP HTTP (`/json/*`), plus
+// one browser-level call to see which window a deck tab is in.
 
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { ENDPOINT, attach } from "../test/cdp.js";
+import { ENDPOINT } from "../test/cdp.js";
 import { DEMO_LINKS } from "../deck/demos.js";
-
-const DECK = new URL(process.env.DECK_URL ?? "http://localhost:3000/");
-const deckUrl = new URL("?offline", DECK).href;
+import {
+  DECK,
+  deckUrl,
+  deckWindows,
+  isOfflineDeck,
+  pages,
+} from "./talk-deck.mjs";
 
 // The `--user-data-dir` from `cdp:talk` in package.json. Keep the two in step.
 const PROFILE =
   process.env.TALK_PROFILE ?? join(homedir(), ".cache/tfsb-chrome-talk");
-
-// The presenter view (`?presenterMode=true`, on its own screen) is left alone.
-const isDeck = (url) =>
-  url.origin === DECK.origin && !url.searchParams.has("presenterMode");
-const isOfflineDeck = (url) => isDeck(url) && url.searchParams.has("offline");
 
 const PRESENT_DEMOS = new Set(["web-agents"]);
 
@@ -56,11 +55,6 @@ const forTalk = (id, href) => {
   return url.href;
 };
 
-const pages = async () => {
-  const targets = await (await fetch(`${ENDPOINT}/json/list`)).json();
-  return targets.filter((target) => target.type === "page");
-};
-
 const open = async (href) => {
   // Encoded, or Chrome cuts the URL off at its first `&`.
   const res = await fetch(`${ENDPOINT}/json/new?${encodeURIComponent(href)}`, {
@@ -73,9 +67,8 @@ const open = async (href) => {
 
 const close = (target) => fetch(`${ENDPOINT}/json/close/${target.id}`);
 
-let version;
 try {
-  version = await (await fetch(`${ENDPOINT}/json/version`)).json();
+  await fetch(`${ENDPOINT}/json/version`);
 } catch {
   console.error(`no CDP at ${ENDPOINT} — run \`npm run cdp:talk\` first`);
   process.exit(1);
@@ -106,37 +99,12 @@ for (const id of ids) {
   }
 }
 
-const browser = await attach(version.webSocketDebuggerUrl);
-const windowOf = async (target) =>
-  (await browser.send("Browser.getWindowForTarget", { targetId: target.id }))
-    .windowId;
-
-const all = await pages();
-const windows = new Map();
-for (const target of all) windows.set(target.id, await windowOf(target));
-const alone = (target) =>
-  all.filter((other) => windows.get(other.id) === windows.get(target.id))
-    .length === 1;
-
-let deck;
-for (const target of all) {
-  const url = new URL(target.url);
-  if (!isDeck(url)) continue;
-  if (!deck && isOfflineDeck(url) && alone(target)) {
-    deck = target;
-    console.log(`kept     ${target.url} (own window)`);
-  } else {
-    await close(target);
-    const why = !isOfflineDeck(url)
-      ? "no ?offline"
-      : deck
-        ? "a second deck"
-        : "in the demo window";
-    console.log(`closed   ${target.url} (${why})`);
-  }
-}
-
-if (!deck) {
+const { all, decks, deck: kept } = await deckWindows();
+let deck = kept;
+if (deck) {
+  console.log(`kept     ${deck.url} (own window)`);
+} else {
+  // Only a fallback: `cdp:talk` starts the talk Chrome with this window already open.
   await promisify(execFile)("open", [
     "-na",
     "Google Chrome",
@@ -144,17 +112,31 @@ if (!deck) {
     `--user-data-dir=${PROFILE}`,
     `--app=${deckUrl}`,
   ]);
+  const known = new Set(all.map((target) => target.id));
   for (let tries = 0; !deck && tries < 50; tries++) {
     await new Promise((done) => setTimeout(done, 200));
-    deck = (await pages()).find((target) => isOfflineDeck(new URL(target.url)));
+    deck = (await pages()).find(
+      (target) => !known.has(target.id) && isOfflineDeck(new URL(target.url)),
+    );
   }
   if (!deck) {
+    // The old deck tabs stay open, so there is still something to present from.
     console.error(
-      `no deck window after \`open --app=${deckUrl}\`. Is the talk Chrome on ${PROFILE}?`,
+      `no deck app window. Quit the talk Chrome (pkill -f tfsb-chrome-talk), then run \`npm run cdp:talk\`, which opens it, and this again.`,
     );
     process.exit(1);
   }
   console.log(`opened   ${deckUrl} (app window)`);
+}
+
+// Closed only once the app window is up, so a failed launch never leaves no deck.
+for (const target of decks) {
+  if (target.id === deck.id) continue;
+  await close(target);
+  const why = isOfflineDeck(new URL(target.url))
+    ? "not in its own window"
+    : "no ?offline";
+  console.log(`closed   ${target.url} (${why})`);
 }
 
 await fetch(`${ENDPOINT}/json/activate/${deck.id}`);

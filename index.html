@@ -410,22 +410,25 @@
           </${DeckSlide}>
           <${DeckSlide}>
             <${SlideHeading} textAlign="left" margin="0 0 30px">
-              Two halves of the room
+              Why do we care?
             </${SlideHeading}>
-            <${AudienceCards} audiences=${AUDIENCES} />
+            <${AudienceCards} audiences=${AUDIENCES} appear=${true} />
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * Goal: **know** what browser AI features are out there, and **start
-                    playing** with web AI.
-                  * Frontend and full stack developers:
-                    * **Agents are increasingly your users.** Humans are coming down as a
-                      share.
-                    * Your frontend can do AI things only the backend folks could.
-                  * Cloud architects and backend developers:
-                    * A new tool to consume, first class: the browser.
-                    * If you're ambitious: push some AI compute to your users' computers.
-                  * With all that in mind, let's go get them.
+                  * So who needs to know about the browser in AI?
+                      * I'd say two distinct groups of engineers.
+
+                  * <u>Frontend and full stack developers</u>:
+                    * **Agents are increasingly your users** as a share of traffic.
+                    * Your frontend can do **AI things** only the _backend_ could before
+
+                  * <u>Cloud architects and backend developers</u>:
+                    * A new **tool** for your agentic systems **to consume**.
+                    * If you're ambitious: push some **AI compute** from the backend to your users' computers.
+
+                  * And **my goal** is to give all of you **something new** to play with after this talk!
+                    * ... so let's get started!
                 `}
               </${Markdown}>
             </${Notes}>
@@ -434,7 +437,8 @@
           <${TopicSlide}
             chapter=${chapter(1)}
             notes=${`
-              * First up: the browser as an interface. Really, that's WebMCP.
+              * First up, the browser as an **interface** for **agent interaction**.
+                * Really, that's **WebMCP**.
             `}
           />
           <${TakeawaySlide}
@@ -462,14 +466,17 @@
               },
             ]}
             notes=${`
-              * MCP tools, served by your web page. An emerging W3C Community Group
-                standard.
+              * So what is **WebMCP**?
+              * It's an **emerging W3C standard**
+                * that brings the **MCP concept** to the frontend.
               * Two APIs:
                 * Imperative JavaScript: the focus right now.
                 * Declarative, in the future: annotate your HTML forms, get tools.
-              * Already here: origin trial in Chrome and Edge, and polyfills for other
-                browsers.
-              * Andrew covered who's adopting it. We'll try two agent clients shortly.
+              * Already here:
+                * Origin trial in Chrome and Edge
+                * Polyfills for other browsers.
+              * Andrew covered the many places it's being adopted.
+                * And we'll see this in action in just a few minutes with some demos.
             `}
           />
           <${TakeawaySlide}

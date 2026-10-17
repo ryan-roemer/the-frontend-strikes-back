@@ -1118,32 +1118,41 @@ export const TilesSlide = ({ chapter, title, tiles = [], notes }) => html`
  *
  * `action` is what separates them: the cold open states who is in the room, the
  * close tells each half what to do about it.
+ *
+ * `appear` steps each card in on its own click. The `Appear` wrapper becomes the
+ * grid item, so the card takes `height="100%"` to keep both tiles the same height.
  */
-export const AudienceCards = ({ audiences = [], action = false }) => html`
+export const AudienceCards = ({
+  audiences = [],
+  action = false,
+  appear = false,
+}) => html`
   <${Grid} gridTemplateColumns="1fr 1fr" gridGap="24px">
     ${audiences.map(
       (audience) => html`
-        <${FlexBox}
-          key=${audience.key}
-          className="card audience"
-          flexDirection="column"
-          alignItems="start"
-          justifyContent="start"
-        >
-          <${Icon} name=${audience.icon} className="audience__icon" />
-          <${Text} className="audience__who" fontSize="26px" margin="14px 0 0">
-            ${audience.who}
-          </${Text}>
-          <${Text} className="audience__claim" fontSize="32px" margin="10px 0 0">
-            ${audience.claim}
-          </${Text}>
-          ${
-            action
-              ? html`<${Text} className="audience__action" fontSize="26px" margin="16px 0 0">
-                  ${audience.action}
-                </${Text}>`
-              : null
-          }
+        <${appear ? AppearComponent : Fragment} key=${audience.key}>
+          <${FlexBox}
+            className="card audience"
+            flexDirection="column"
+            alignItems="start"
+            justifyContent="start"
+            height="100%"
+          >
+            <${Icon} name=${audience.icon} className="audience__icon" />
+            <${Text} className="audience__who" fontSize="26px" margin="14px 0 0">
+              ${audience.who}
+            </${Text}>
+            <${Text} className="audience__claim" fontSize="32px" margin="10px 0 0">
+              ${audience.claim}
+            </${Text}>
+            ${
+              action
+                ? html`<${Text} className="audience__action" fontSize="26px" margin="16px 0 0">
+                    ${audience.action}
+                  </${Text}>`
+                : null
+            }
+          <//>
         <//>
       `,
     )}
