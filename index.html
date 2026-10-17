@@ -634,10 +634,10 @@
               "... and Claude gets <strong>tool</strong> calling to the pages!",
             ]}
             notes=${`
-              * OK, now that we've got our **custom WebMCP app**, let's talk to it **with agents**!
+              * Now let's have a real agent call our search page via our tool!
+                * And, I want to hook it up to **ANY** Agent that can call local MCP servers!
 
-              * I want to hook it up to **ANY** Agent that can call local MCP servers!
-                * In our case here, let's hook it to Claude Desktop
+              * In our case here, let's hook it to **Claude Desktop**
                 * Which doesn't have native WebMCP support yet.
 
               * What I'm going to do is utilize a WebMCP bridge from the MCP-B project with **three steps**
@@ -648,11 +648,10 @@
               ---
 
               * **Claude Desktop**: the article search page's tools show up like any MCP server's
-              * Ask: "Front-end bundle size recommendations for webpack, with a citation list"
-              * **Allow** the permission prompt (as it should)
-              * A query or two: drill into one result
-              * Answer: narrative, links at the end, only from the page's tools (Opus, overkill)
-              * **If this were a real intranet: bridged that easily, versus building my own backend server**
+              * QUERY: \`Front-end bundle size recommendations for webpack, with a citation list\`
+              * Answer: narrative, links at the end, only from the page's tools
+              * **Really easy!**: that's mostly what it takes to hook <u>any frontend app</u> to any
+                <u>desktop agent</u> that supports normal MCP.
             `}
           />
           <${TakeawaySlide}
@@ -737,7 +736,6 @@
               },
             ]}
             notes=${`
-              * Sources: Chrome's best-practices and security docs, Tejas Kumar's post.
               * **Consider the UI.** Reebok updates its page as tools run; my search
                 doesn't. Your choice.
               * **Read up on the safety features.** Real functionality: on Reebok you
