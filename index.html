@@ -323,14 +323,15 @@
               <${Markdown} className="notes">
                 ${
                   `
-                  * **Me, short:**
-                    * Thanks Andrew. I want to say that the WebMCP community and leads
-                      are really awesome folks.
-                    * And before I get going, I'd like to invite folks to hit the QR code
-                      and open up this presentation deck.
-                    * It's got lots of demos that you can try yourself as we go!
-                    * ... alright, without further ado let's jump in to ...
-                    * **The Frontend Strikes Back**: WebMCP and the agent-ready browser.
+                  * Thanks Andrew!
+                  * Andrew and the folks in the WebMCP and WebML groups
+                    are doing great work moving the standard forward, and really
+                    listening to the community along the way.
+                  * OK, I'd like to invite folks to hit the QR code
+                    and open up this presentation deck.
+                  * It's got lots of demos that you can try yourself as we go!
+                  * ... alright, without further ado let's jump in to ...
+                  * **The Frontend Strikes Back**: WebMCP and the agent-ready browser.
                 ` /*
                   * **Andrew's notes:**
                     * "The web developers who build the web, now get to shape how agents
@@ -422,7 +423,9 @@
 
                   * <u>Cloud architects and backend developers</u>:
                     * A new **tool** for your agentic systems **to consume**.
+                      And a better way, if your agents already drive browsers.
                     * If you're ambitious: push some **AI compute** from the backend to your users' computers.
+                      New, free AI compute outside your own cloud.
 
                   * And **my goal** is to give all of you **something new** to play with after this talk!
                     * ... so let's get started!
@@ -465,7 +468,7 @@
             notes=${`
               * So what is **WebMCP**?
               * It's an **emerging W3C standard**
-                * that brings the **MCP concept** to the frontend.
+                * that brings the **MCP concept** to the frontend. Not 100%, but analogous.
               * Two APIs:
                 * Imperative JavaScript: the focus right now.
                 * Declarative, in the future: annotate your HTML forms, get tools.
@@ -520,7 +523,8 @@
                   **sandboxing**,
                   **identity**,
                   **trust**...
-                * Want to know an **execution environment** that's already battle tested and ready? **A BROWSER**
+                * Want to know an **execution environment** that's already battle tested and ready,
+                  from decades of experience? **A BROWSER**
                 * You just write the function, the standards groups and browsers do the heavy lift.
 
               * **A good bet to start on now:**
@@ -547,6 +551,7 @@
               ---
               * Shopify ships WebMCP tools on every Liquid storefront. Reebok.com is one.
               * ChatGPT desktop's built-in site tools talk WebMCP natively.
+              * Tools already listed: search catalog, etc.
               * Video, sped up (it's slow live): a road running shoe in size 10.5, WebMCP
                 tools only. Drill into the tool calls.
               * It found the Floatzig 2. Not my brand, but looks like a pretty good shoe.
@@ -591,14 +596,19 @@
                 * Line 2: name.
                 * Lines 3–4: description
                 * Lines 5–11: input schema.
-              * Line 13: actually call frontend code
+              * Line 13: actually call frontend code. Most often, reuse your real app code.
               ---
               * This is a simplification of a **real app** that I wrote.
-              * PAGE: It's a **similarity search** on my company's **blog posts**
+              * PAGE: It's a **similarity search** on my company's **~950 blog posts**
+                * Not really an intranet app: they're public, so I can demo it here.
               * I can do a <u>normal UI search</u>
                 * QUERY: \`reducing bundle size with webpack\`
-              * TOOL: ... and that **same code** is hooked in to a <u>WebMCP tool</u>
               * CODE: ... that corresponds to <u>this code</u>.
+                * Name, description, longer input schema, \`execute\` calls the same search.
+              * TOOL: ... and that **same code** is hooked in to a <u>WebMCP tool</u>
+                * SAME QUERY: \`reducing bundle size with webpack\`
+              * A running website that works **via the UI or WebMCP**.
+              * Swap back to the deck.
             `}
           />
           ${
@@ -624,33 +634,35 @@
           <${DemoSlide}
             chapter=${1}
             demo="claude-desktop"
-            label="Demo · any MCP client"
+            label="Demo · any MCP client + real user browser"
             app="Claude Desktop calls our page"
             url="nearform.github.io/vector-search-web"
             points=${[
               "Claude connects to a WebMCP <strong>relay server</strong> (<a href='https://docs.mcp-b.ai/packages/webmcp-local-relay/reference'><code>@mcp-b/webmcp-local-relay</code></a>).",
-              "Open any page with WebMCP tools and a relay <strong>embed</strong>.",
-              "... and Claude gets <strong>tool</strong> calling to the pages!",
+              "Open a page with WebMCP tools and a relay <strong>embed</strong>.",
+              "... and Claude gets <strong>tool</strong> calling directly to the <strong>user's browser</strong> pages!",
             ]}
             notes=${`
-              * Now let's have a real agent call our search page via our tool!
-                * And, I want to hook it up to **ANY** Agent that can call local MCP servers!
+              Now let's have a real agent call the search page via our tool!
+              * We've seen ChatGPT desktop call WebMCP natively via an _internal browser_.
+                * What about (1) **any** agent client, WebMCP-ready or not, and (2) my **actual** web browser
 
-              * We've seen ChatGPT desktop call WebMCP natively. What about **any** client?
               * In our case here, let's hook it to **Claude Desktop**
                 * Which doesn't have native WebMCP support yet, but does have normal MCP.
 
-              * What I'm going to do is utilize a WebMCP bridge from the MCP-B project with **three steps**
-                * First, I put a **embed code** in my web page to connect to a WebSocket relay.
-                * Second, I run the **WebMCP relay** on a local Node server.
-                * Third, I **configure Claude** to talk to the WebMCP relay like any other MCP server!
+              I utilize a <u>WebMCP bridge</u> from the **MCP-B** project (Alex Nahas) with **three steps**
+              * First, I put a **embed code** in my Article Search page to connect to a WebSocket relay.
+              * Second, I run the **WebMCP relay** on a local Node server.
+              * Third, I **configure Claude** to talk to the WebMCP relay like any other MCP server!
 
               ---
 
               * **Claude Desktop**: the article search page's tools show up like any MCP server's
+                * Claude is **directly interacting** with my open Article Search web page in Chrome!
               * QUERY: \`Front-end bundle size recommendations for webpack, with a citation list\`
+              * Allow each permission prompt: one per query, likely two.
               * Answer: narrative, links at the end, only from the page's tools
-              * **Really easy!**: that's mostly what it takes to hook <u>any frontend app</u> to any
+              * **Really easy!**: that's mostly what it takes to hook <u>any frontend app</u> in a <u>user's browser</u> to any
                 <u>desktop agent</u> that supports normal MCP.
             `}
           />
@@ -736,14 +748,16 @@
               },
             ]}
             notes=${`
-              * **Consider the UI.** Reebok updates its page as tools run; my search
-                doesn't. Your choice.
+              * **Consider the UI.** Reebok updates its page as tools run, to walk you
+                through shopping: swap back and forth between human UI and agent UI.
+                My search keeps them separate: one-shot queries. Your choice.
               * **Safety features.** Real functionality: on Reebok you
-                can get almost all the way to checkout. Hint the risk; share tools only
-                with origins you trust.
+                can get almost all the way to checkout. Hint the risk (read-only,
+                untrusted, consequential); share tools only with origins you trust.
               * **Keep up.** I've changed this talk since last week for spec changes.
-                Chrome's guidance, the early preview program, the spec: links on the
-                slide.
+                Chrome's best practices guide, the spec group, the early preview
+                program: links on the slide.
+              * OK, so that's WebMCP.
             `}
           />
           ${"" /* --- 02 · Runtime: AI in the browser --- */}
