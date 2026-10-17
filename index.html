@@ -326,7 +326,7 @@
                   * **Me, short:**
                     * Thanks Andrew. I want to say that the WebMCP community and leads
                       are really awesome folks.
-                    * Also, a big shout out to the AI Agentic Foundation and AGNTCon
+                    * Also, a big shout out to the Agentic AI Foundation and AGNTCon
                       organizers for putting together a wonderful event for us --
                       it's so much tireless work.
                     * And before I get going, I'd like to invite folks to hit the QR code
@@ -398,7 +398,7 @@
                   * When most of us think "agents", we think of the backend, the cloud...
                   * But I'm super interested in a different area, and a question:
                       * Where does the browser fit in the AI ecosystem?
-                  * ... and the answers might suprise you!
+                  * ... and the answers might surprise you!
                   * At a high level, there are two things that stand out:
                     * **Interface:** with WebMCP, something your agents talk to, get
                       information from, and do useful tasks with.
@@ -583,23 +583,25 @@
               title: "The real search tool in vector-search-web",
             }}
             notes=${`
-              * ... so let's cover the basics with registering a tool ...
-              * Let's assume we have an **intranet knowledge search app**.
+              ... so let's cover the basics with registering a tool ...
+              * Let's assume we have an **company knowledge search app**.
                 * ... that would be a **pain** to expose via a backend MCP server
                 * ... let's see what it takes to hook it up to WebMCP!
-              * _Walkthrough_:
-                * Lines 2-11 are the metadata info passed to agents for tool calling.
-                  * ... Pretty much like normal MCP declarations
-                  * Line 2: name.
-                  * Lines 3–4: description
-                  * Lines 5–11: input schema.
-                * Line 13: plain frontend code. Reuse your UI code, logic, auth,
-                  preferences. That's the bridge.
+
+              _Walkthrough_:
+              * Lines 2-11 are the metadata info passed to agents for tool calling.
+                * ... Pretty much like normal MCP declarations
+                * Line 2: name.
+                * Lines 3–4: description
+                * Lines 5–11: input schema.
+              * Line 13: actually call frontend code
               ---
-              * **Let's see a real version of this example:** "Article Search"
-                * Our **~950 blog posts**. Not really internal, but pretend it is.
-                * One search on the page: "reducing bundle size with webpack."
-                * Open the tools panel
+              * This is a simplification of a **real app** that I wrote.
+              * PAGE: It's a **similarity search** on my company's **blog posts**
+              * I can do a <u>normal UI search</u>
+                * QUERY: \`reducing bundle size with webpack\`
+              * TOOL: ... and that **same code** is hooked in to a <u>WebMCP tool</u>
+              * CODE: ... that corresponds to <u>this code</u>.
             `}
           />
           ${
@@ -637,8 +639,9 @@
               * Now let's have a real agent call our search page via our tool!
                 * And, I want to hook it up to **ANY** Agent that can call local MCP servers!
 
+              * We've seen ChatGPT desktop call WebMCP natively. What about **any** client?
               * In our case here, let's hook it to **Claude Desktop**
-                * Which doesn't have native WebMCP support yet.
+                * Which doesn't have native WebMCP support yet, but does have normal MCP.
 
               * What I'm going to do is utilize a WebMCP bridge from the MCP-B project with **three steps**
                 * First, I put a **embed code** in my web page to connect to a WebSocket relay.
