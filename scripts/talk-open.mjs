@@ -15,8 +15,9 @@
 // the Nearform footer banner so the projector shows only the demo. web-agents also
 // gets `?present=true`, which pins the AI-native engineering query in its suggestions.
 //
-// The tabs open in `TAB_ORDER`, not talk order: reebok, the search tool's source on
-// GitHub (from `EXTRA_TABS`, not a demo), then vector-search-web.
+// The tabs open in `TAB_ORDER`, not talk order: reebok, vector-search-web (the article
+// search app), then the search tool's source on GitHub (from `EXTRA_TABS`, not a demo),
+// the order "One tool, up close" shows them in.
 //
 // CDP CAN'T OPEN AN APP WINDOW, so `cdp:talk` starts the talk Chrome with `--app` on the
 // deck. If that window is gone, this tries `open -na "Google Chrome" --args --app=…` on
@@ -54,7 +55,7 @@ const EXTRA_TABS = {
 const LINKS = { ...DEMO_LINKS, ...EXTRA_TABS };
 
 // Ids missing here open after these, in `LINKS` order.
-const TAB_ORDER = ["chatgpt-desktop", "search-tool-source", "vector-search"];
+const TAB_ORDER = ["chatgpt-desktop", "vector-search", "search-tool-source"];
 
 const forTalk = (id, href) => {
   const url = new URL(href);
