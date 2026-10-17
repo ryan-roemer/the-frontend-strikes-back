@@ -15,7 +15,7 @@ Three terminals. Each command is safe to re-run.
 npm run dev          # 1: serve the deck on :3000 (leave running)
 npm run demo:relay   # 2: the WebMCP relay on :9333, for Claude Desktop (leave running)
 npm run cdp:talk     # 3: the talk Chrome, CDP on :1981
-npm run talk:open    # 3: the deck with ?offline, plus a tab per demo
+npm run talk:open    # 3: the deck with ?offline in its own window, the demos in another
 ```
 
 Then:
@@ -42,11 +42,13 @@ Desktop won't load. Use the backup recordings. See [At the venue](#at-the-venue)
 
 - **On the slide:** the ↗ icon after the URL opens the demo in a new tab. It's there on the
   published deck too.
-- **All at once:** `npm run talk:open` opens the deck and a tab per demo URL, in this order,
-  then brings the deck tab to the front. The two vector-search-web demos share one tab. It
-  skips tabs already open at the same URL. Our own demos open with `banner=false`. It
-  **closes** any deck tab without `?offline` (the one `cdp:talk` opens), because that tab is
-  blank with no network.
+- **All at once:** `npm run talk:open` opens two windows. The deck goes alone in an app
+  window (`--app`, so no tabs and no URL bar), and the demos go in a normal window as a tab
+  per demo URL, vector-search-web first, then this table's order. The deck comes to the
+  front last. The two vector-search-web demos share one tab. It skips tabs already open at
+  the same URL, and a `?offline` deck already in a window of its own. Our own demos open
+  with `banner=false`. It **closes** any other deck tab: the one `cdp:talk` opens has no
+  `?offline`, so it's blank with no network.
 - `?present=true` gives vector-search-web a generic title for the projector.
 - `?relay=false` keeps a tab off the relay. Every tab that connects adds its tools to Claude
   Desktop's list, so with two vector-search-web tabs connected Claude sees each tool twice, under
@@ -296,16 +298,16 @@ as planned. A demo without its file shows "No recording yet" instead.
 
 ## Command reference
 
-| Command                    | When                    | What it does                                                 |
-| -------------------------- | ----------------------- | ------------------------------------------------------------ |
-| `npm run dev`              | always                  | Serves the deck on :3000                                     |
-| `npm run cdp:talk`         | always                  | The talk Chrome, persistent profile, CDP on :1981            |
-| `npm run talk:open`        | talk day                | Deck with `?offline` plus a tab per demo, in the talk Chrome |
-| `npm run demo:relay`       | talk day, online        | WebMCP relay on :9333 for Claude Desktop                     |
-| `npm run demo:relay:ps`    | relay trouble           | What's on :9333                                              |
-| `npm run demo:relay:stop`  | relay trouble           | Stops the relay listening on :9333                           |
-| `npm run offline:fetch`    | prep, after dep changes | Saves every CDN file, font and image to `offline/`           |
-| `npm run offline:model`    | prep                    | Downloads Gemma to `offline/models/`                         |
-| `npm run offline:check`    | prep                    | Walks the deck with external hosts blocked; must print PASS  |
-| `npm run video:add`        | after recording a demo  | Encodes a backup recording into `media/videos/`              |
-| `npm run cdp` / `cdp:stop` | tests only              | Throwaway Chrome on :1980; `cdp:stop` deletes its profile    |
+| Command                    | When                    | What it does                                                    |
+| -------------------------- | ----------------------- | --------------------------------------------------------------- |
+| `npm run dev`              | always                  | Serves the deck on :3000                                        |
+| `npm run cdp:talk`         | always                  | The talk Chrome, persistent profile, CDP on :1981               |
+| `npm run talk:open`        | talk day                | Deck with `?offline` in an app window, demos in a second window |
+| `npm run demo:relay`       | talk day, online        | WebMCP relay on :9333 for Claude Desktop                        |
+| `npm run demo:relay:ps`    | relay trouble           | What's on :9333                                                 |
+| `npm run demo:relay:stop`  | relay trouble           | Stops the relay listening on :9333                              |
+| `npm run offline:fetch`    | prep, after dep changes | Saves every CDN file, font and image to `offline/`              |
+| `npm run offline:model`    | prep                    | Downloads Gemma to `offline/models/`                            |
+| `npm run offline:check`    | prep                    | Walks the deck with external hosts blocked; must print PASS     |
+| `npm run video:add`        | after recording a demo  | Encodes a backup recording into `media/videos/`                 |
+| `npm run cdp` / `cdp:stop` | tests only              | Throwaway Chrome on :1980; `cdp:stop` deletes its profile       |

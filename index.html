@@ -324,10 +324,15 @@
                 ${
                   `
                   * **Me, short:**
-                    * Thanks, Andrew, and the AGNTCon and Agentic AI Foundation
-                      organizers.
-                    * Lots of demos, some of them even work: hit the QR code to follow
-                      along in your own browser.
+                    * Thanks Andrew. I want to say that the WebMCP community and leads
+                      are really awesome folks.
+                    * Also, a big shout out to the AI Agentic Foundation and AGNTCon
+                      organizers for putting together a wonderful event for us --
+                      it's so much tireless work.
+                    * And before I get going, I'd like to invite folks to hit the QR code
+                      and open up this presentation deck.
+                    * It's got lots of demos that you can try yourself as we go!
+                    * ... alright, without further ado let's jump in to ...
                     * **The Frontend Strikes Back**: WebMCP and the agent-ready browser.
                 ` /*
                   * **Andrew's notes:**
@@ -364,39 +369,6 @@
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
-          <!-- Intro slide, cut for time.
-          <${DeckSlide}>
-            <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
-              <${Eyebrow}>
-                <${Icon} name="hand-waving" /> Hi!
-              </${Eyebrow}>
-              <${SlideHeading} fontSize="h2" textAlign="left" margin="18px 0 0">
-                I'm Ryan Roemer
-              </${SlideHeading}>
-              <${AccentRule} />
-              <${AppearComponent}>
-                <${Text} fontSize="text" margin="40px 0 0">
-                  ${logosHtm.nearform} I lead technology & OSS at <${Link} href="https://nearform.com" fontSize="text">Nearform</${Link}>
-                </${Text}>
-              </${AppearComponent}>
-              <${AppearComponent}>
-                <${Text} fontSize="text" margin="12px 0 0">
-                  <${Icon} name="brackets-angle" /> Play in both the backend and frontend worlds
-                </${Text}>
-              </${AppearComponent}>
-            </${FlexBox}>
-            <${Notes}>
-              <${Markdown} className="notes">
-                ${`
-                  * I lead technology and open source at Nearform. Spectacle, the library
-                    this deck runs on, is ours.
-                  * I play in both the backend and the frontend worlds, which is where this
-                    talk comes from.
-                `}
-              </${Markdown}>
-            </${Notes}>
-          </${DeckSlide}>
-          -->
           <${DeckSlide}>
             <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
               <${Eyebrow}>
@@ -423,12 +395,11 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * Where does the browser fit in the AI ecosystem?
-                  * Websites were all backend (CGI, C, Perl). Over 15 years the frontend
-                    took a large share. Same trend coming in AI.
-                  * MCP servers, most of this conference: backend. The browser is going to
-                    creep up on us.
-                  * Two answers:
+                  * When most of us think "agents", we think of the backend, the cloud...
+                  * But I'm super interested in a different area, and a question:
+                      * Where does the browser fit in the AI ecosystem?
+                  * ... and the answers might suprise you!
+                  * At a high level, there are two things that stand out:
                     * **Interface:** with WebMCP, something your agents talk to, get
                       information from, and do useful tasks with.
                     * **Runtime** in its own right: embeddings, vector search, inference.
@@ -574,6 +545,7 @@
               title: "The real search tool in vector-search-web",
             }}
             notes=${`
+              * Query: \`Frontend bundle size, webpack, rollup, etc.\`
               * An intranet search: company knowledge, tortured auth. This is all it
                 takes.
               * Line 2: name. Lines 3–4: description, a prompt for the agent. Lines
@@ -840,15 +812,7 @@
               "<strong>Vector search here.</strong> Lexical or hybrid is a config change.",
             ]}
             notes=${`
-              * Reveal: the article search isn't an intranet app. It's public, and it's
-                purely a frontend app: embeddings and vector search in the tab.
-              * All of Nearform's posts. Precomputed embeddings: 2 or 5 MB, by chunk
-                size. Content: another 3 MB.
-              * Download: 200–800 ms on my machine. Not nothing, but after that it's pure
-                frontend.
-              * Open the timings from that search and read them off the screen: total
-                ~40 ms, query embedding 20–30 ms, vector search ~6 ms. "You couldn't get
-                that over any network."
+              * \`Frontend bundle size, webpack, rollup, etc.\`
               * Orama. Vector search here; lexical or hybrid is a config change. Come
                 talk to me about it.
               * Two pieces down: embeddings and vector search.
