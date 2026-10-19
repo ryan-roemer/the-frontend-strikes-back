@@ -43,6 +43,16 @@ hand from `mcp/tools.js` gets the `summarize()` truncation wrong every time — 
 truncation is where these bugs live. Confirm what the model actually saw about the tool it got
 wrong before forming any theory.
 
+**Unless the transcript came from the native path.** On LiteRT the runtime parses and runs
+the calls itself (`capabilities.nativeTools`, `act/native.js`), and the replay provider drives
+the prompted path only — so `deckReplay.prompt()` shows the wrong preface and no fixture can
+replay the failure. The tell is runtime wording in the error: `Failed to parse tool calls`,
+`<|tool_call>`, `exceeded the recurring limit`. Read the preface from `nativeRulesText()` and
+`nativeTools()` instead. In §4, the regression test becomes a plain-Node test over a
+dependency-free module (`act/native.js` cannot load under Node), fed the pasted error
+verbatim — `test/salvage.test.js` is the pattern. Prove the wiring once on the live deck by
+patching the replay session's `stream` to throw that error and calling `respond()`.
+
 **Reload the page after every source edit.** ES modules are cached per page; an edit is
 invisible without it. This has cost real confusion more than once, and it is why
 `test/cdp.js` reloads a reused tab.

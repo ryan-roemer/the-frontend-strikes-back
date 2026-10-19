@@ -46,6 +46,7 @@ import { invalidate } from "./invalidate.js";
 import { nativeTools } from "./native.js";
 import { parseCall, sniff } from "./parse.js";
 import { callLine, receiptText, retryable, retryText } from "./receipt.js";
+import { salvageCalls } from "./salvage.js";
 
 /** What `AutoToolChat` throws when the model is still calling tools on its last round. */
 const OVER_LIMIT = /exceeded the recurring limit/i;
@@ -104,6 +105,14 @@ const respondNative = async ({ text, onChunk, signal, onPrompt }) => {
       },
     });
   } catch (err) {
+    // A call the runtime could not parse but the deck can: run it here, through the same
+    // `execute`, so it gets a receipt like any other. See `salvageCalls`. The model does
+    // not get a round to reply afterwards -- the receipt is the answer, as it usually is.
+    const salvaged = signal?.aborted ? null : salvageCalls(err, tools);
+    if (salvaged) {
+      for (const { tool, args } of salvaged) await tool.execute(args);
+      return bubble();
+    }
     // The tools of the last round DID run before the runtime gave up, and they changed the
     // deck. Throwing now would put an error row under a slide that visibly moved, so the
     // receipts are the honest answer. Any other failure is still a failure.
