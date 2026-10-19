@@ -824,7 +824,7 @@
             chapter=${2}
             demo="vector-search"
             label="Quick demo"
-            app="Similarity search in a knowledge store"
+            app=${html`<u>Similarity search</u> in a knowledge store`}
             url="nearform.github.io/vector-search-web"
             points=${[
               "Precomputed <strong>embeddings</strong> (2-5 MB) and <strong>content</strong> (3 MB), one download.",
@@ -842,7 +842,7 @@
               * All ~950 posts: a reasonable download, not obscene.
             `}
           />
-          <${JsSlide} chapter=${2} title="The simplest way to try web AI"
+          <${JsSlide} chapter=${2} title=${html`The simplest way to try web <u>AI inference</u>`}
             filename=${examples.promptApi.file} code=${examples.promptApi.code}
             language=${examples.promptApi.language}
             run=${true}
@@ -871,7 +871,7 @@
           />
           <${MatrixSlide}
             chapter=${2}
-            title="Five ways to run web AI"
+            title=${html`Five ways to run web <u>AI inference</u>`}
             columns=${["Runtime", "Tools", "iPhone 15 Pro", "Context"]}
             source=${{
               href: "https://nearform.com/digital-community/web-ai-runtimes-five-ways-to-run-a-language-model-in-the-browser",
@@ -946,10 +946,10 @@
             chapter=${2}
             demo="web-ai"
             label="Demo"
-            app="Chat with all five in your browser"
+            app="Chat with all five!"
             url="nearform.github.io/web-ai-demo"
             points=${[
-              "Five browser AI runtimes, side by side in one chat app.",
+              "Five <u>browser AI runtimes</u>, side by side in one chat app.",
               "Load any compatible model from Hugging Face.",
               "Try tool calling with your own JavaScript function.",
             ]}
@@ -964,7 +964,7 @@
           />
           <${TakeawaySlide}
             chapter=${2}
-            title="Tips for web AI"
+            title=${html`Tips for web <u>AI inference</u>`}
             compact=${true}
             items=${[
               {
