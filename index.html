@@ -536,7 +536,8 @@
             notes=${`
               * Before the geeky details, let's see WebMCP for real in the wild...
               ---
-              * Shopify ships WebMCP tools on every Liquid storefront. <u>Reebok.com</u> is one.
+              * Shopify ships WebMCP tools on every Liquid storefront.
+              * <u>Reebok.com</u> is one of these.
                 * TOOL EXPLORER (extension): a whole bunch of WebMCP tools.
               * <u>ChatGPT Desktop</u>'s internal browser talks WebMCP natively: "Site Tools."
               * VIDEO (slow live): tools listed, then "Find me a running shoe in my size."
@@ -995,10 +996,14 @@
                 faster to run. More context costs memory, speed, and often quality.
                 Limit yourself to the minimum you need.
               * **Experiment a lot.** Different runtimes, models, configurations.
-              * **High-powered evals.** The one place you don't constrain yourself.
-                Drive a real browser over Playwright or CDP. Make the judge a frontier
-                model: Fable, Mythos. Tune prompts and model choices for the
-                constrained browser.
+              * **High-powered evals.**
+                * You'll need to evaluate, tweak, and tune your web inference pipeline.
+                * Drive your web AI inference with automation: Playwright, CDP.
+                * But hook the evaluation up to big models. The browser is tight, your
+                  evals aren't: in dev and CI, the judge can be a full-powered frontier
+                  model, covering every scenario your app needs.
+                * Hook up Fable, Mythos. Go to town!
+              * ... that's our basic web AI tour!
             `}
           />
           ${"" /* --- 03 · Web agents --- */}
