@@ -28,7 +28,7 @@ import { VERDICTS } from "./takeaways.js";
 import { SlideKeys } from "./slide-keys.js";
 import { VideoToggle } from "./demo-video.js";
 import { SpectacleToggle } from "./spectacle-banner.js";
-import { DEMO_LINKS, DEMO_PIECES } from "./demos.js";
+import { DEMO_CALLS, DEMO_LINKS, DEMO_PIECES } from "./demos.js";
 import { PIECES } from "./pieces.js";
 import { DeckBridge } from "../chat/bridge.js";
 import { ChatToggle } from "../chat/toggle.js";
@@ -1109,6 +1109,147 @@ export const TilesSlide = ({ chapter, title, tiles = [], notes }) => html`
 `;
 
 /**
+ * "Who calls, and from where?": the two questions behind any WebMCP call, as a
+ * 2x2 of tiles in the `TilesSlide` style.
+ *
+ * Rows are how the agent reaches the page -- directly, because it speaks WebMCP
+ * natively, or bridged, because it only speaks MCP. Columns are whose browser
+ * the page is open in -- the agent's own, or the user's. A cell carries no
+ * words of its own, only its row's icon beside its column's, so the slide stays
+ * a picture.
+ *
+ * The same grid replaces the bullet points on the two WebMCP demo slides
+ * (`DEMO_CALLS`), and that is why it is one component: the room should
+ * recognise it on sight. There (`lit` set) the heads shorten, the icons move to
+ * the top left like a pieces tile, and `lit` is the demo's own cell, tinted like
+ * a here-now piece and titled with `litText`; `visited` cells are earlier
+ * demos; the rest fade like the piece strip's off tiles. With no `lit`, the
+ * icons sit centered and the demo cells get the pieces slide's play mark.
+ */
+const CALL_COLUMNS = [
+  {
+    id: "agent",
+    icon: "robot",
+    title: "Agent's own browser",
+    short: "Agent's browser",
+  },
+  {
+    id: "tab",
+    icon: "browser",
+    title: "Your browser tab",
+    short: "Your browser",
+  },
+];
+
+const CALL_ROWS = [
+  { id: "native", icon: "lightning", title: "Direct", detail: "Native WebMCP" },
+  { id: "mcp", icon: "plug", title: "Bridged", detail: "MCP only" },
+];
+
+const demoCells = new Set(Object.values(DEMO_CALLS));
+
+const CallGrid = ({ lit, litText, visited = [] }) => html`
+  <${Grid}
+    className=${`call-grid${lit ? " call-grid--demo" : ""}`}
+    gridTemplateColumns=${lit ? "auto 180px 180px" : "auto 330px 330px"}
+    justifyContent="center"
+    alignItems="stretch"
+  >
+    <${Box} />
+    ${CALL_COLUMNS.map(
+      (col) => html`
+        <${FlexBox} key=${col.id} className="call-grid__head" justifyContent="center">
+          <${Icon} name=${col.icon} className="call-grid__head-icon" />
+          <${Text} fontSize=${lit ? "20px" : "22px"} margin="0px" className="call-grid__label">
+            ${lit ? col.short : col.title}
+          </${Text}>
+        <//>
+      `,
+    )}
+    ${CALL_ROWS.map(
+      (row) => html`
+        <${Fragment} key=${row.id}>
+        <${FlexBox} className="call-grid__head call-grid__head--row" justifyContent="start">
+          <${Icon} name=${row.icon} className="call-grid__head-icon" />
+          <${Box}>
+            <${Text} className="call-grid__label call-grid__head-title" fontSize="22px" margin="0px" lineHeight="1.3">
+              ${row.title}
+            </${Text}>
+            ${
+              lit
+                ? null
+                : html`<${Box} className="call-grid__rule" />
+                    <${Text} className="call-grid__label" fontSize="20px" margin="0px" lineHeight="1.3">${row.detail}</${Text}>`
+            }
+          <//>
+        <//>
+        ${CALL_COLUMNS.map((col) => {
+          const id = `${row.id}-${col.id}`;
+          const state = !lit
+            ? null
+            : id === lit
+              ? "card--tile-ready"
+              : visited.includes(id)
+                ? "card--tile-ready call-grid__cell--visited"
+                : "call-grid__cell--off";
+
+          return html`
+            <${FlexBox}
+              key=${id}
+              className=${["card card--tile call-grid__cell", state].filter(Boolean).join(" ")}
+              flexDirection="column"
+              alignItems=${lit ? "stretch" : "center"}
+              justifyContent=${lit ? "start" : "center"}
+            >
+              <${FlexBox}
+                className="call-grid__icons"
+                alignItems="center"
+                justifyContent=${lit ? "start" : "center"}
+              >
+                <${Icon} name=${row.icon} className="tile__icon" />
+                <${Icon} name=${col.icon} className="tile__icon" />
+              <//>
+              ${
+                !lit && demoCells.has(id)
+                  ? html`<${Icon}
+                      name="play-circle"
+                      className="tile__demo call-grid__demo"
+                      title="In a demo today"
+                    />`
+                  : null
+              }
+              ${
+                id === lit && litText
+                  ? html`<${Text} className="tile__title" fontSize="24px" margin="12px 0 0">
+                      ${markup(litText)}
+                    </${Text}>`
+                  : null
+              }
+            <//>
+          `;
+        })}
+        <//>
+      `,
+    )}
+  </${Grid}>
+`;
+
+export const CallsSlide = ({ chapter, title, notes }) => html`
+  <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
+    <${SlideHeading} fontSize="h1" textAlign="left" margin="0 0 20px">${markup(title)}</${SlideHeading}>
+    <${FlexBox} flex="1" minHeight="0" flexDirection="column" justifyContent="center">
+      <${CallGrid} />
+      <${FlexBox} className="tile-legend" justifyContent="center" margin="28px 0 0">
+        <${Text} fontSize="20px" margin="0px">
+          <${Icon} name="play-circle" className="tile__demo" /> In a demo today
+        </${Text}>
+      <//>
+    <//>
+    <${MdNotes} notes=${notes} />
+  </${DeckSlide}>
+`;
+
+/**
  * The two halves of the room, side by side.
  *
  * Rendered twice by design -- once in the cold open as a promise, once at the
@@ -1507,58 +1648,83 @@ export const DemoSlide = ({
   app,
   url,
   points = [],
+  call,
   notes,
   backup,
-}) => html`
-  <${DeckSlide} id=${demo} className=${chapter ? chapterClass(chapter) : ""}>
-    <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
-      <${Eyebrow}><${Icon} name="monitor-play" /> ${label}</${Eyebrow}>
-      <${SlideHeading}
-        className=${DEMO_PIECES[demo] ? "demo__title--pieces" : ""}
-        fontSize="h1"
-        textAlign="left"
-        margin="10px 0 0"
-      >
-        ${app}
-      </${SlideHeading}>
-      <${AccentRule} />
+}) => {
+  const urlLine = url
+    ? html`<${FlexBox} alignItems="center" justifyContent="start" margin="24px 0 0">
+        <${Text} className="demo__url" fontSize="26px" margin="0">
+          ${url}
+        </${Text}>
+        ${
+          DEMO_LINKS[demo]
+            ? html`<${Link}
+                className="demo__open"
+                href=${DEMO_LINKS[demo]}
+                target="_blank"
+                title=${`Open ${DEMO_LINKS[demo]} in a new tab`}
+              >
+                <${Icon} name="arrow-square-out" fill=${false} />
+              </${Link}>`
+            : null
+        }
+      </${FlexBox}>`
+    : null;
+
+  const pointList = points.length
+    ? html`<${UnorderedList} className="demo__points" margin="18px 0 0">
+        ${points.map(
+          (point, i) =>
+            html`<${ListItem} key=${i} fontSize="28px">${markup(point)}</${ListItem}>`,
+        )}
+      </${UnorderedList}>`
+    : null;
+
+  return html`
+    <${DeckSlide} id=${demo} className=${chapter ? chapterClass(chapter) : ""}>
+      <${FlexBox} height="100%" flexDirection="column" justifyContent="center" alignItems="start">
+        <${Eyebrow}><${Icon} name="monitor-play" /> ${label}</${Eyebrow}>
+        <${SlideHeading}
+          className=${
+            DEMO_PIECES[demo]
+              ? "demo__title--pieces"
+              : DEMO_CALLS[demo]
+                ? "demo__title--calls"
+                : ""
+          }
+          fontSize="h1"
+          textAlign="left"
+          margin="10px 0 0"
+        >
+          ${app}
+        </${SlideHeading}>
+        <${AccentRule} />
+        ${
+          DEMO_CALLS[demo]
+            ? html`<${Box} className="demo__calls-text"
+                >${urlLine}${pointList}<//
+              >`
+            : html`${urlLine}${pointList}`
+        }
+      <//>
       ${
-        url
-          ? html`<${FlexBox} alignItems="center" margin="24px 0 0">
-              <${Text} className="demo__url" fontSize="26px" margin="0">
-                ${url}
-              </${Text}>
-              ${
-                DEMO_LINKS[demo]
-                  ? html`<${Link}
-                      className="demo__open"
-                      href=${DEMO_LINKS[demo]}
-                      target="_blank"
-                      title=${`Open ${DEMO_LINKS[demo]} in a new tab`}
-                    >
-                      <${Icon} name="arrow-square-out" fill=${false} />
-                    </${Link}>`
-                  : null
-              }
-            </${FlexBox}>`
+        DEMO_CALLS[demo]
+          ? html`<${Box} className="demo__calls">
+              <${CallGrid}
+                lit=${DEMO_CALLS[demo]}
+                litText=${call}
+                visited=${Object.values(DEMO_CALLS).slice(0, Object.keys(DEMO_CALLS).indexOf(demo))}
+              />
+            <//>`
           : null
       }
-      ${
-        points.length
-          ? html`<${UnorderedList} className="demo__points" margin="18px 0 0">
-              ${points.map(
-                (point, i) =>
-                  html`<${ListItem} key=${i} fontSize="28px">${markup(point)}</${ListItem}>`,
-              )}
-            </${UnorderedList}>`
-          : null
-      }
-    <//>
-    ${DEMO_PIECES[demo] ? html`<${PieceMap} inPlay=${DEMO_PIECES[demo]} />` : null}
-    <${MdNotes}
-      notes=${[notes && dedentNote(notes), backup && backupNote(backup)]
-        .filter(Boolean)
-        .join("\n\n")}
-    />
-  </${DeckSlide}>
-`;
+      ${DEMO_PIECES[demo] ? html`<${PieceMap} inPlay=${DEMO_PIECES[demo]} />` : null}
+      <${MdNotes}
+        notes=${[notes && dedentNote(notes), backup && backupNote(backup)]
+          .filter(Boolean)
+          .join("\n\n")}
+      />
+    </${DeckSlide}>
+  `;
+};

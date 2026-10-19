@@ -1058,6 +1058,136 @@ body::after {
   font-size: 28px;
 }
 
+/*
+ * `CallGrid`: "Who calls, and from where?" as a 2x2 of `TilesSlide` cards, with
+ * row and column heads in the legend's muted type. On a demo slide the same grid
+ * sits under the URL, a little smaller, and the cells it isn't about fade out
+ * the way the piece strip's do.
+ */
+/* Content-sized and centered, so the row heads stay beside the tiles. */
+.call-grid {
+  gap: 18px 22px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.call-grid--demo {
+  width: auto;
+  gap: 12px 16px;
+}
+
+#root .call-grid__head {
+  gap: 10px;
+  align-items: center;
+  color: var(--muted);
+}
+
+#root .call-grid__head--row {
+  padding-right: 8px;
+}
+
+#root .call-grid__head-icon {
+  font-size: 26px;
+  color: var(--chapter-accent);
+}
+
+/* Icon over label, so a head fits its square column. */
+#root .call-grid--demo .call-grid__head:not(.call-grid__head--row) {
+  flex-direction: column;
+  gap: 4px;
+}
+
+#root .call-grid--demo .call-grid__head-icon {
+  font-size: 22px;
+}
+
+.call-grid__cell {
+  position: relative;
+  min-height: 150px;
+}
+
+/* Square on a demo slide, where the grid shares the width with the points. */
+#root .call-grid--demo .call-grid__cell {
+  min-height: 0;
+  aspect-ratio: 1;
+}
+
+/*
+ * A WebMCP demo keeps the usual centered column, and its grid sits to the
+ * right of it like the piece strip: the title wraps short of the grid, and the
+ * URL and points stay under the title.
+ */
+#root .slide-title.demo__title--calls,
+#root .demo__calls-text {
+  max-width: 54%;
+}
+
+#root .demo__calls {
+  position: absolute;
+  top: 50%;
+  right: 40px;
+  transform: translateY(-50%);
+}
+
+/* The heads are one line each, short on a demo slide so they fit a square column. */
+#root .call-grid--demo .call-grid__head > *,
+#root .demo__calls-text .demo__url {
+  white-space: nowrap;
+}
+
+#root .call-grid--demo .call-grid__cell {
+  padding: 16px;
+}
+
+#root .call-grid--demo .tile__title {
+  font-size: 20px;
+}
+
+.call-grid__icons {
+  gap: 10px;
+}
+
+/* Centered on the overview, the icon pair is the whole tile, so it runs larger. */
+#root .call-grid:not(.call-grid--demo) .tile__icon {
+  font-size: 44px;
+}
+
+/* Spectacle's `Text` pads 16px all round, which pulls a two-line head apart. */
+#root .call-grid__label {
+  padding: 0;
+}
+
+/* A short accent bar between a row head's title and its detail line. */
+.call-grid__rule {
+  width: 36px;
+  height: 3px;
+  margin: 3px 0;
+  border-radius: 2px;
+  background: var(--chapter-accent);
+}
+
+#root .call-grid__head-title {
+  font-weight: 700;
+  color: #fff;
+}
+
+#root .call-grid__demo {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+}
+
+/* An earlier demo's cell: the lit tint, dimmed, with an emerging tile's dashed edge. */
+.call-grid__cell--visited {
+  opacity: 0.5;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--chapter-accent) 6%, transparent);
+}
+
+.call-grid__cell--off {
+  opacity: 0.2;
+}
+
 #root .demo__open {
   margin-left: 0.5em;
   font-size: 30px;
@@ -1649,6 +1779,8 @@ body::after {
   #root .divider__numeral,
   #root .tile-grid,
   #root .piece-map,
+  #root .call-grid,
+  #root .demo__calls,
   #root .takeaway-grid,
   #root .takeaway__body,
   #root .matrix,

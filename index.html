@@ -160,6 +160,7 @@
         TilesSlide,
         AudienceCards,
         DemoSlide,
+        CallsSlide,
         Eyebrow,
         AccentRule,
         SlideHeading,
@@ -474,6 +475,17 @@
               * Close in one line: "So why should you care about WebMCP?"
             `}
           />
+          <${CallsSlide}
+            chapter=${1}
+            title="Who calls, and from where?"
+            notes=${`
+              * TODO(Ryan): notes. Two questions for any WebMCP call:
+                * **Who calls**: an agent that speaks WebMCP natively, or one that
+                  only speaks MCP and needs a bridge to the page.
+                * **From where**: the agent's own browser, or your normal tab.
+              * Today's two demos sit on the diagonal.
+            `}
+          />
           <${TakeawaySlide}
             chapter=${1}
             title="Why WebMCP?"
@@ -527,8 +539,9 @@
             chapter=${1}
             demo="chatgpt-desktop"
             label="Demo · any WebMCP site"
-            app="ChatGPT shops reebok.com"
+            app="ChatGPT Desktop shops Reebok"
             url="reebok.com"
+            call="ChatGPT + agent tab"
             points=${[
               "<strong>Shopify</strong> ships WebMCP tools on every Liquid storefront.",
               '<strong>ChatGPT desktop</strong>\'s built-in browser calls WebMCP "site tools."',
@@ -623,10 +636,10 @@
             label="Demo · any MCP client + real user browser"
             app="Claude Desktop calls our page"
             url="nearform.github.io/vector-search-web"
+            call="Claude + my Chrome"
             points=${[
               "Claude connects to a WebMCP <strong>relay server</strong> (<a href='https://docs.mcp-b.ai/packages/webmcp-local-relay/reference'><code>@mcp-b/webmcp-local-relay</code></a>).",
               "Open a page with WebMCP tools and a relay <strong>embed</strong>.",
-              "... and Claude gets <strong>tool</strong> calling directly to the <strong>user's browser</strong> pages!",
             ]}
             notes=${`
               * Segue in one line: "ChatGPT desktop used its own internal browser. What

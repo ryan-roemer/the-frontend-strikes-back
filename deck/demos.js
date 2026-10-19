@@ -43,6 +43,19 @@ export const DEMO_PIECES = {
 };
 
 /**
+ * The cell of "Who calls, and from where?" each WebMCP demo lands in, in talk
+ * order. A cell id is `<agent>-<site>`: `native` or `mcp` (how the agent speaks
+ * to the page), `agent` or `tab` (whose browser the page is open in).
+ *
+ * A demo listed here gets the grid in place of its bullet points, with its own
+ * cell lit and any earlier demo's cell marked as visited.
+ */
+export const DEMO_CALLS = {
+  "chatgpt-desktop": "native-agent",
+  "claude-desktop": "mcp-tab",
+};
+
+/**
  * Backup recordings for the live demos.
  *
  * The video button in the deck chrome reads the slide id and shows only when it
