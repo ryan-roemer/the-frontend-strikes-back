@@ -324,9 +324,8 @@
                 ${
                   `
                   * Thanks Andrew!
-                  * Andrew and the folks in the WebMCP and WebML groups
-                    are doing great work moving the standard forward, and really
-                    listening to the community along the way.
+                  * Big shout out to Andrew and the folks in the WebMCP and WebML
+                    groups that are doing great work moving the standard forward.
                   * OK, I'd like to invite folks to hit the QR code
                     and open up this presentation deck.
                   * It's got lots of demos that you can try yourself as we go!
@@ -394,7 +393,7 @@
               <${Markdown} className="notes">
                 ${`
                   * When most of us think "agents", we think of the backend, the cloud...
-                  * But I'm super interested in a different area, and a question:
+                  * But I'm super interested in a different area, and **a question**:
                       * Where does the browser fit in the AI ecosystem?
                   * ... and the answers might surprise you!
                   * At a high level, there are two things that stand out:
@@ -417,14 +416,15 @@
                   * So who needs to know about the browser in AI?
                       * I'd say two distinct groups of engineers.
 
-                  * <u>Frontend and full stack developers</u>:
+                  * <u>Frontend and full stack developers</u>: who are my frontenders out there?
                     * **Agents are increasingly your users** as a share of traffic.
-                    * Your frontend can do **AI things** only the _backend_ could before
+                    * Your frontend can do **AI things** only the _backend_ could before.
+                      * Fully in your frontend app, no backend.
 
                   * <u>Cloud architects and backend developers</u>:
-                    * A new **tool** for your agentic systems **to consume**.
+                    * A new **tool** for your agentic systems **to consume**: it's WebMCP.
                       And a better way, if your agents already drive browsers.
-                    * If you're ambitious: push some **AI compute** from the backend to your users' computers.
+                    * If you're ambitious: a **new compute platform**. It's your users' browsers.
                       New, free AI compute outside your own cloud.
 
                   * And **my goal** is to give all of you **something new** to play with after this talk!
@@ -472,7 +472,7 @@
               * Two APIs:
                 * Imperative JavaScript: the focus right now.
                 * Declarative, in the future: annotate your HTML forms, get tools.
-              * Already here:
+              * Already here, ready to use:
                 * Origin trial in Chrome and Edge
                 * Polyfills for other browsers.
               * Andrew covered the many places it's being adopted.
@@ -511,11 +511,11 @@
             notes=${`
               * **Agents today** use Playwright, CDP, screenscraping, clicking through **UIs built for humans**.
                 * WebMCP replaces that with a real agent interface.
-                * In a familiar form for Agents -- **MCP**.
+                * In a familiar shape and form.
 
-              * Auth and intranets
-                * Intranet-only resources and legacy auth make backend MCP servers tedious to build.
-                * If there's already a frontend that handles it, wiring up a WebMCP tool takes a few lines.
+              * Second point:
+                * Backend MCP servers can be rough for **legacy auth** systems, **intranets**, and other stuff like that.
+                * But if you have a **frontend app** that works, it's usually straightforward to add WebMCP tools.
 
               * **Standards and browsers lead the hard parts:**
                 * So much of backend agent work is solving problems around:
@@ -549,13 +549,13 @@
               * Before we get in to the geeky details, let's have some fun!
                 * Let's see WebMCP for real in the wild...
               ---
-              * Shopify ships WebMCP tools on every Liquid storefront. Reebok.com is one.
-              * ChatGPT desktop's built-in site tools talk WebMCP natively.
-              * Tools already listed: search catalog, etc.
-              * Video, sped up (it's slow live): a road running shoe in size 10.5, WebMCP
-                tools only. Drill into the tool calls.
-              * It found the Floatzig 2. Not my brand, but looks like a pretty good shoe.
-              * **Any WebMCP site, from ChatGPT desktop, for real, right now.**
+              * Shopify ships WebMCP tools on every Liquid storefront. <u>Reebok.com</u> is one.
+                * TOOL EXPLORER: all of Reebok's WebMCP tools. Search catalog, etc.
+              * <u>ChatGPT Desktop</u>'s built-in site tools talk WebMCP natively.
+              * DEMO: Put them together: ChatGPT desktop does useful stuff at Reebok.com.
+                * Video, sped up (it's slow live): Find me a running shoe.
+              * The **takeaway** here is the we can use WebMCP right now to have a **real agent**
+                interact with a **real web app**.
             `}
           />
           <${JsSlide} chapter=${1} title="The WebMCP API"
@@ -568,13 +568,14 @@
             notes=${`
               * OK, so how do I add WebMCP to my apps?
               ---
-              * Pretty simple: a \`modelContext\` object on \`document\`, three main
-                things.
+              * Pretty simple. Line 1: a \`modelContext\` object on \`document\`,
+                three main things.
               * Line 4, \`registerTool\`: the site offers a tool.
               * Line 7, \`getTools\`: an agent sees what's available, via whatever
                 bridge it has.
               * Line 8, \`executeTool\`: the agent runs one.
               * Line 11: There are other parts of the API too like listening, etc.
+                * But those three are the real crux of everything.
             `}
           />
           <${JsSlide} chapter=${1} title="One tool, up close"
@@ -593,22 +594,17 @@
               _Walkthrough_:
               * Lines 2-11 are the metadata info passed to agents for tool calling.
                 * ... Pretty much like normal MCP declarations
-                * Line 2: name.
-                * Lines 3–4: description
                 * Lines 5–11: input schema.
-              * Line 13: actually call frontend code. Most often, reuse your real app code.
+              * Line 13: actually call frontend code.
               ---
               * This is a simplification of a **real app** that I wrote.
               * PAGE: It's a **similarity search** on my company's **~950 blog posts**
-                * Not really an intranet app: they're public, so I can demo it here.
-              * I can do a <u>normal UI search</u>
+                * I can do a <u>normal UI search</u>
                 * QUERY: \`reducing bundle size with webpack\`
               * CODE: ... that corresponds to <u>this code</u>.
-                * Name, description, longer input schema, \`execute\` calls the same search.
               * TOOL: ... and that **same code** is hooked in to a <u>WebMCP tool</u>
                 * SAME QUERY: \`reducing bundle size with webpack\`
-              * A running website that works **via the UI or WebMCP**.
-              * Swap back to the deck.
+              * A running website that works **via the UI or WebMCP**. It really is that simple.
             `}
           />
           ${
@@ -644,24 +640,22 @@
             ]}
             notes=${`
               Now let's have a real agent call the search page via our tool!
-              * We've seen ChatGPT desktop call WebMCP natively via an _internal browser_.
-                * What about (1) **any** agent client, WebMCP-ready or not, and (2) my **actual** web browser
+              * We've seen <u>ChatGPT desktop</u> call WebMCP natively via an _internal browser_.
+                * What about (1) **any** agent client, WebMCP-ready or not, and (2) my **actual** <u>web browser</u>
 
-              * In our case here, let's hook it to **Claude Desktop**
+              * In our case here, let's hook it to **<u>Claude Desktop</u>**
                 * Which doesn't have native WebMCP support yet, but does have normal MCP.
 
               I utilize a <u>WebMCP bridge</u> from the **MCP-B** project (Alex Nahas) with **three steps**
               * First, I put a **embed code** in my Article Search page to connect to a WebSocket relay.
               * Second, I run the **WebMCP relay** on a local Node server.
-              * Third, I **configure Claude** to talk to the WebMCP relay like any other MCP server!
+              * Third, I **configure Claude** to talk to the WebMCP relay like a backend MCP server!
 
               ---
 
-              * **Claude Desktop**: the article search page's tools show up like any MCP server's
+              * CLAUDE: **Claude Desktop**: the article search page's tools show up like any MCP server's
                 * Claude is **directly interacting** with my open Article Search web page in Chrome!
               * QUERY: \`Front-end bundle size recommendations for webpack, with a citation list\`
-              * Allow each permission prompt: one per query, likely two.
-              * Answer: narrative, links at the end, only from the page's tools
               * **Really easy!**: that's mostly what it takes to hook <u>any frontend app</u> in a <u>user's browser</u> to any
                 <u>desktop agent</u> that supports normal MCP.
             `}
@@ -754,6 +748,7 @@
               * **Safety features.** Real functionality: on Reebok you
                 can get almost all the way to checkout. Hint the risk (read-only,
                 untrusted, consequential); share tools only with origins you trust.
+                Some of my demos do very unsafe things: learn how to do it right.
               * **Keep up.** I've changed this talk since last week for spec changes.
                 Chrome's best practices guide, the spec group, the early preview
                 program: links on the slide.
