@@ -1004,16 +1004,25 @@ body::after {
   justify-content: flex-start;
 }
 
-/* The write-up link under the table: text first, then the open-link icon. */
-#root .matrix__source {
-  align-self: flex-start;
+/* The links under the table: the write-up on the left, a demo on the right. */
+#root .matrix__links {
+  display: flex;
+  justify-content: space-between;
   margin-top: 28px;
+}
+
+/* Each link: text first, then the open-link icon. */
+#root .matrix__source {
   font-family: var(--sans);
   font-size: 24px;
   font-weight: 600;
   line-height: 1;
   color: var(--chapter-accent);
   text-decoration: none;
+}
+
+#root .matrix__demo {
+  margin-left: auto;
 }
 
 #root .matrix__source i {

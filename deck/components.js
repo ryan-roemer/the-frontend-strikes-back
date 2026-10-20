@@ -1393,7 +1393,9 @@ const MatrixCell = ({ cell }) => {
 /**
  * `source` is an optional `{ href, title, label }` for the write-up behind the
  * table, shown as a text link under it with the title as its tooltip. `label` is
- * the link text, "Read the details" by default. A bare icon in the heading row
+ * the link text, "Read the details" by default. `demo` takes the same shape for
+ * a live app to try, linked from the opposite corner, "Try the demo" by default.
+ * A bare icon in the heading row
  * read as decoration; words under the table say what the link is for.
  *
  * The table and its link sit in `.matrix__body`, top-justified under the
@@ -1410,8 +1412,18 @@ export const MatrixSlide = ({
   columns,
   rows = [],
   source,
+  demo,
   notes,
 }) => {
+  const link = (to, className, label) =>
+    to
+      ? html`<${Link}
+          className=${className}
+          href=${to.href}
+          target="_blank"
+          title=${to.title}
+        >${to.label ?? label}${" "}<${Icon} name="arrow-square-out" fill=${false} /></${Link}>`
+      : null;
   const width = rows[0]?.cells?.length ?? 1;
   return html`
     <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>
@@ -1449,13 +1461,11 @@ export const MatrixSlide = ({
         )}
       </${Grid}>
       ${
-        source
-          ? html`<${Link}
-              className="matrix__source"
-              href=${source.href}
-              target="_blank"
-              title=${source.title}
-            >${source.label ?? "Read the details"}${" "}<${Icon} name="arrow-square-out" fill=${false} /></${Link}>`
+        source || demo
+          ? html`<${Box} className="matrix__links">
+              ${link(source, "matrix__source", "Read the details")}
+              ${link(demo, "matrix__source matrix__demo", "Try the demo")}
+            <//>`
           : null
       }
       <//>

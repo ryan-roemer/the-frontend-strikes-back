@@ -147,6 +147,7 @@
       import { chapter, applyChapterStyles } from "./deck/chapters.js";
       import { AUDIENCES } from "./deck/takeaways.js";
       import { PIECES } from "./deck/pieces.js";
+      import { DEMO_LINKS } from "./deck/demos.js";
       import {
         icon,
         Icon,
@@ -426,16 +427,17 @@
                   * I think two groups of engineers should really be paying attention here...
 
                   * <u>Web application builders</u>:
-                    * **Agents are increasingly your users** as a share of your web app traffic. Your
-                      apps need to more to accomodate this growing user share.
+                    * **Agents are increasingly your users** as a share of your web app traffic. You
+                      need the tools and the interface to be right for them.
 
                   * <u>AI application and system builders</u>:
                     * You have a **new compute platform**, your users' browsers, on their own computers.
-                      * So many areas of the AI stack already work in the browser.
+                      * Parts of the AI stack, maybe all of it, now fit in the browser: embeddings,
+                        vector search, inference and more.
 
                   * **My goals**:
                     1. Give a very **high level** view of what's possible.
-                      * This is **not** a deep dive talk...
+                      * This is **not** a deep dive talk. It's a survey.
                     2. My hope is you find **something new** to play with after this talk.
 
                   ***
@@ -532,18 +534,17 @@
               },
             ]}
             notes=${`
-              1. Agents already use your site, just poorly: screen scraping **UIs meant for humans**.
+              1. Agents already use your site, just poorly: Playwright, CDP, screen scraping **UIs meant for humans**.
                 * WebMCP gives them an agent-first interface, close to the MCP they know.
 
-              2. In our second point, note that
-                * For agent tool calling you need: Authentication, Trust, Permissions, Code Execution, Isolation, UI, etc.
-                * Alex Nahas, a builder in this space who runs MCP-B, made the following observation...
-                  * there's a <u>battle-tested execution environment</u> for all these things already -- it's **A BROWSER**.
-                * So for WebMCP, the standards and browsers do so much of the heavy lift in the hard parts of agent tools
+              2. Agent tool calling needs authentication, trust, permissions, isolation.
+                * Alex Nahas, who runs MCP-B: there's already a <u>battle-tested execution environment</u> for all of that.
+                  It's **A BROWSER**. "A browser tab is the most well tested sandbox in existence."
+                * So the browser does the hard parts. You add tools to the app you already have.
 
               3. A good bet to start on now:
-                * WebMCP is becoming more popular.
-                * And it doesn't take too much to adapt your existing frontend code to be WebMCP tools!
+                * Your tools reuse the frontend code your UI already calls. You're hooked up quickly.
+                * More and more agents and websites support it. A good bandwagon to be on.
             `}
           />
           <${CallsSlide}
@@ -560,13 +561,14 @@
                   * We'll show how to bridge tools like Claude to any WebMCP browser page.
 
               * **Whose browser?**: (On the top of these tiles)
-                * Does the agent have it's **own browser** → ChatGPT Desktop _and most Agents_ these days
+                * Does the agent have its **own browser** → ChatGPT Desktop _and most desktop agents_ these days
                 * Or **your browser**? → This offers much more flexibility.
-                  * I'm in a Chrome tab right now. Can I use my own Chrome?
+                  * This presentation is in a Chrome tab. I like my browser. Can I use my own Chrome?
 
               ***
 
-              🔀 ... let's go tackle the scenario for <u>direct</u> WebMCP agent calling in an <u>embedded agent browser</u> for a <u>real life website</u>.
+              🔀 ... first, an agent that speaks WebMCP <u>natively</u>, in <u>its own browser</u>, on a <u>real website</u>:
+              ChatGPT Desktop, shopping Reebok.com.
             `}
           />
           <${DemoSlide}
@@ -588,9 +590,9 @@
               * VIDEO (slow live): tools listed, then a men's running shoe in size 10.5, only WebMCP tools.
                 * Tool calls under the hood, and they update the UI. Found the Floatzig 2.
                 * Click in to the JSON of the tool calls.
-              * TAKEAWAY: Real reebok.com, my real ChatGPT desktop: a **real agent** on a **real
-                web app**, right now.
-                * WebMCP is coming and it's getting bigger.
+              * TAKEAWAY: Real reebok.com, my real ChatGPT desktop, not tuned or configured: a
+                **real agent** on a **real web app**, right now.
+                * In that sense, WebMCP is already here. And it's getting bigger.
 
               ***
 
@@ -695,7 +697,8 @@
 
               In **three steps**, with the <u>WebMCP bridge</u> libraries from **MCP-B**, Alex Nahas' project:
               * First, an **embed** in the page you saw opens its tools to a WebSocket relay.
-                * PAGE: We'll use my actual running Chrome tab here!
+                * PAGE: We'll use my actual running Chrome tab here! Maybe I've logged in, maybe
+                  I've got all my customizations.
               * Second, the **WebMCP relay** on a local Node server.
               * Third, Claude consumes it like a normal MCP server, straight into my browser.
 
@@ -708,7 +711,7 @@
                 * Drill in: the same JSON dumps as before.
                 * Narrative answer, front-end tips, citations at the end. It all just works.
               * An arbitrary site, some WebMCP tools, and Claude Desktop calls them like a
-                normal MCP server.
+                normal MCP server. You can do it today, even in your favorite agent tool.
               * I'm hand-waving through some safety stuff here. We'll get to that in a moment.
 
               ***
@@ -777,8 +780,8 @@
               },
             ]}
             notes=${`
-              * **Consider the UI.** Reebok navigates the site as tools run: a mix of
-                human and agent interaction. My search doesn't need to: it's just
+              * **Consider the UI.** Reebok navigates the site as tools run, so a human
+                can flip back and forth. My search doesn't need to: it's just
                 information retrieval. What's the better experience for your agents
                 and your humans?
               * **Safety features.** Share tools only with origins you trust. The spec
@@ -797,6 +800,7 @@
               * It uses Spectacle, open source that Nearform maintains
               * Could I hook up navigating the deck, reading it, even changing slides,
                 as WebMCP tools? Yes I can, because I did.
+              * Got the deck open? Go use WebMCP to do deck stuff.
 
               ***
 
@@ -910,6 +914,8 @@
               * On GitHub, go try it. Precomputed embeddings for all ~950 posts plus the
                 content, one download: 200-800 ms. Big up front, then you're set, even offline.
               * Orama: vector here; lexical (BM25) or hybrid too, all in the browser.
+                * You can shove a lot of data down into your apps: instant access to what's
+                  key and topical.
 
               ***
 
@@ -948,6 +954,10 @@
               href: "https://nearform.com/digital-community/web-ai-runtimes-five-ways-to-run-a-language-model-in-the-browser",
               title:
                 "Web AI runtimes: five ways to run a language model in the browser",
+            }}
+            demo=${{
+              href: DEMO_LINKS["web-ai"],
+              title: "web-ai-demo: five browser AI runtimes in one chat app",
             }}
             rows=${[
               {
@@ -1015,9 +1025,17 @@
 
               ***
 
-              🔀 ... let's go try <u>all five</u> runtimes in one app.
+              * DEMO (the link, bottom right): all five in one app, inference and tool calling.
+                * Same question, "What is bikeshedding?", on wllama instead of the Prompt API.
+                * A similar answer. Go play with it yourself.
+
+              ***
+
+              🔀 ... OK, a few <u>tips</u> for web AI inference.
             `}
           />
+          ${
+            /* Folded into the link on "Five ways to run web AI inference".
           <${DemoSlide}
             chapter=${2}
             demo="web-ai"
@@ -1043,6 +1061,8 @@
               🔀 ... OK, a few <u>tips</u> for web AI inference.
             `}
           />
+          */ null
+          }
           <${TakeawaySlide}
             chapter=${2}
             title=${html`Tips for web <u>AI inference</u>`}
@@ -1076,19 +1096,25 @@
               2. **Context size.** Only use what you need: it costs memory, speed, and often quality.
               3. **Experiment a lot.** Runtimes, models, tuning, configuration. It's tight and
                 constrained, so spend the time up front.
+                * You won't know how well it works until you try it. Not like hooking up Opus
+                  and expecting everything to work.
               4. **High-powered evals.** The one place the browser's limits don't apply.
-                * Drive your web AI inference with automation: Playwright, CDP.
+                * Prompt to model to result: drive it with automation, Playwright, CDP, CI/CD.
                 * The judge can be a full-powered frontier model, covering every scenario
                   your app needs. Hook up Fable, Mythos. Go to town!
               * ... that's our basic web AI tour!
 
               ***
 
-              * OPTION: Deck chat demo (?)
+              DECK CHAT: next up is web agents, but staying on brand...
+              * My deck has local models, and the WebMCP tools it already has.
+              * Could I hook those local models to those tools?
+              * CHAT: \`Change the slide heading to On to Web Agents\`
+              * It called a tool, and the heading changed. Yay!
 
               ***
 
-              🔀 ... so can we put <u>all the pieces</u> together?
+              🔀 ... that's a pretty good segue: can we put <u>all the pieces</u> together?
             `}
           />
           ${"" /* --- 03 · Web agents --- */}
@@ -1164,13 +1190,15 @@
               },
             ]}
             notes=${`
+              * It's super early, so it's all rough and ready.
               * **Tools:** give your in-tab models the same WebMCP tools outside agents
-                use. Even if you don't expose WebMCP yet, follow that shape. A good base form.
+                use. Even if you don't expose WebMCP yet, follow that shape. A good standard
+                to bank on, even internally.
                 * Flexibility: web AI might not always work, so let a backend or a
                   frontend call it. WebMCP is the nexus for tool calling.
-              * **Trade time for context:** no huge frontier context here, but lots of
-                small agents on dedicated tasks, aggregated together, like the web agents
-                demo. A little slower, much more you can do.
+              * **Trade time for context:** no huge frontier context here. Break the task
+                into subtasks: lots of small agents on dedicated tasks, aggregated
+                together, like the web agents demo. A little slower, much more you can do.
               * **Specific models:** the models per agent don't have to be the same.
                 Fine-tune, post-train: the right model for every unit of useful work,
                 adding up to something pretty powerful.
@@ -1238,16 +1266,6 @@
                     organizers for putting together a wonderful event for us --
                     it's so much tireless work.
                   * Open for questions. Thank you so much.
-
-                  ***
-
-                  * OPTION: Deck chat (???)
-                    * "But wait, I have a little extra surprise." This deck is a
-                      frontend app (Spectacle, Nearform open source), so it has WebMCP
-                      tools.
-                    * "What if I hooked this deck to those very tools?"
-                    * Open the chat: "Replace the Thanks heading with Hello AGNTCon."
-                      The heading changes. And with that, we're done.
                 `}
               </${Markdown}>
             </${Notes}>
