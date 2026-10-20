@@ -655,6 +655,12 @@ body::after {
   color: var(--muted);
 }
 
+/* A source credit in a detail line: the browser default blue disappears on navy. */
+#root .takeaway__detail a {
+  color: var(--chapter-accent);
+  text-underline-offset: 0.15em;
+}
+
 /* An open-link icon after a takeaway's heading, like `.demo__open`. */
 #root .takeaway__link {
   margin-left: 0.3em;

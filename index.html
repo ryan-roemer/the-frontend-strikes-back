@@ -324,6 +324,10 @@
               <${Markdown} className="notes">
                 ${
                   `
+                  **SLOW DOWN**
+
+                  ***
+
                   * Thanks Andrew!
                   * Big shout out to Andrew and everyone in the WebMCP and WebML
                     community groups: great, fast and furious work on the standard.
@@ -486,27 +490,37 @@
                 detail:
                   "In a browser, just poorly: screen-scraping and clicking through UIs built for humans.",
               },
+              // 2. The browser already did the hard parts.
+              // - Alex Nahas, "The next steps on the Web and WebMCP"
+              //   (https://nekuda.substack.com/p/the-next-steps-on-the-web-and-webmcp),
+              //   under "Sandboxing": "A browser tab is the most well tested
+              //   sandbox in existence."
               {
                 n: 2,
                 text: "Standards and browsers lead the hard parts",
-                detail:
-                  "Agents get sandboxing, auth, and trust from the browser. You just write a function.",
+                detail: html`Your agents need: Authentication, Trust,
+                  Permissions, Code Execution, Isolation, UI, etc.<br />"A
+                  browser tab is the most well tested sandbox in existence."
+                  -${" "}<a
+                    href="https://nekuda.substack.com/p/the-next-steps-on-the-web-and-webmcp"
+                    >Alex Nahas</a
+                  >${" "}(<a href="https://mcp-b.ai">MCP-B</a>)`,
               },
               {
                 n: 3,
                 text: html`A good bet you can start on <u>now</u>`,
-                detail:
-                  "Tools reuse the code your UI already calls - auth, preferences, sessions, and all",
+                detail: "Tools reuse the code your UI already calls.",
               },
             ]}
             notes=${`
               1. Agents already use your site, just poorly: screen scraping **UIs meant for humans**.
                 * WebMCP gives them an agent-first interface, close to the MCP they know.
 
-              2. Agents need things like **auth**, **sandboxing**, **identity**, **trust** for secure tool calling.
-                * Want to know a battle-tested execution environment we already have? **A BROWSER**
-                * And the **standards** folks are building out the agentic **extras** for things WebMCP
-                  doesn't already have just from the browser.
+              2. Alex Nahas, a prolific builder in this space, made the following observation...
+                * Your agents need: Authentication, Trust, Permissions, Code Execution, Isolation, UI, etc.
+                * Know what has all of these features with decades of battle test experience? **A BROWSER**.
+                * And that's key -- you can take your app, add some WebMCP tool registration and the
+                  standards and browser folks take care of the hard parts.
 
               3. A good bet to start on now: a growing standard, and it reuses
                 your **existing frontend code**. It's already enabled in the wild...
