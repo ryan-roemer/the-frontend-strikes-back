@@ -479,11 +479,14 @@
             chapter=${1}
             title="Who calls, and from where?"
             notes=${`
-              * TODO(Ryan): notes. Two questions for any WebMCP call:
-                * **Who calls**: an agent that speaks WebMCP natively, or one that
-                  only speaks MCP and needs a bridge to the page.
-                * **From where**: the agent's own browser, or your normal tab.
-              * Today's two demos sit on the diagonal.
+              * There are **two** things to talk about when talking about WebMCP.
+              * **The agent**:
+                * Does it natively call WebMCP? → ChatGPT Desktop
+                * Or do you need to manually bridge it? → Claude Desktop
+              * **Who's browser?**:
+                * Is it the tools internal browser? → ChatGPT Desktop _and most Agents_
+                * Or **your browser**? → This offers much more flexibility.
+              * We're going to see these various situations in action soon.
             `}
           />
           <${TakeawaySlide}
@@ -642,11 +645,12 @@
               "Open a page with WebMCP tools and a relay <strong>embed</strong>.",
             ]}
             notes=${`
-              * Segue in one line: "ChatGPT desktop used its own internal browser. What
-                about **any** agent client, calling **my** browser, that window right there?"
-              * **<u>Claude Desktop</u>**: no native WebMCP yet, but normal MCP.
+              So ... <u>ChatGPT desktop</u> used its own <u>internal browser</u>.
+              * What if I want to use **any** agent client
+                * like **<u>Claude Desktop</u>** that doesn't yet have native WebMCP calling
+              * ... calling **my** Chrome browser, right here?
 
-              **Three steps**, with the <u>WebMCP bridge</u> from **MCP-B**, Alex Nahas' project:
+              We can do it! In **three steps**, with the <u>WebMCP bridge</u> from **MCP-B**, Alex Nahas' project:
               * First, an **embed** in the page you saw opens its tools to a WebSocket relay.
               * Second, the **WebMCP relay** on a local Node server.
               * Third, Claude consumes it like a normal MCP server, straight into my browser.
