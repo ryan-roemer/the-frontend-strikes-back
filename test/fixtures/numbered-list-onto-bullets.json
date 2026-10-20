@@ -2,19 +2,20 @@
   "meta": {
     "at": {
       "nodes": {
-        "bullet": 4
+        "bullet": 5
       }
     },
     "kind": "recorded",
     "about": "One `edit_text` whose `text` is a numbered list, aimed at a group with exactly that many nodes, rewrites each node to its own item -- and the target is written `N.bullets`, a slide number in id position.",
     "recorded-outcome": "on the Web AI demos slide, asked to \"replace bullets 1-4 with 1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!\", Gemma (LiteRT, native tools) sent edit_text({\"target\": \"18.bullets\", \"text\": \"1. Local model ..., 2. ..., 3. ..., 4. ...\"}). locate() read the 18 as an ordinal and refused with \"there are only 4 bullets on this slide\"; the model then claimed in prose that it had replaced them. Nothing changed.",
-    "guards": "two fixes, either alone fails this. Drop `SLIDE_PREFIX` from locate() and `{at}.bullets` refuses as \"only 4 bullets\" again -- no bullet lines match. Drop the `listItems` branch from edit_text and the group falls through to a single-node rewrite, which refuses the same way."
+    "guards": "two fixes, either alone fails this. Drop `SLIDE_PREFIX` from locate() and `{at}.bullets` refuses as \"only 4 bullets\" again -- no bullet lines match. Drop the `listItems` branch from edit_text and the group falls through to a single-node rewrite, which refuses the same way.",
+    "retargeted": "recorded as four items onto a four-bullet slide. The anchor is an exact five bullets now (\"Why web AI?\" gained Hardware & models), and `listItems` rewrites only a group the list matches in size, so the ask, reply and expectation gained a fifth item, \"No backend required\". The first four are as recorded."
   },
   "turns": [
     {
-      "ask": "Let's replace bullets 1-4 with 1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!",
+      "ask": "Let's replace bullets 1-5 with 1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!, 5. No backend required",
       "replies": [
-        "```tool edit_text\n{\"target\": \"{at}.bullets\", \"text\": \"1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!\"}\n```"
+        "```tool edit_text\n{\"target\": \"{at}.bullets\", \"text\": \"1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!, 5. No backend required\"}\n```"
       ],
       "expect": {
         "calls": [
@@ -22,7 +23,7 @@
             "name": "edit_text",
             "args": {
               "target": "{at}.bullets",
-              "text": "1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!"
+              "text": "1. Local model in the deck frontend app, 2. Context from entire deck and current slide, 3. All deck WebMCP tools available, 4. Let's see what we can get up to!, 5. No backend required"
             }
           }
         ],
@@ -33,6 +34,7 @@
             "bullet 2: Context from entire deck and current slide",
             "bullet 3: All deck WebMCP tools available",
             "bullet 4: Let's see what we can get up to!",
+            "bullet 5: No backend required",
             "..."
           ]
         }

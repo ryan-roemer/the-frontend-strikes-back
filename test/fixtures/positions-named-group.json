@@ -2,13 +2,13 @@
   "meta": {
     "at": {
       "nodes": {
-        "bullet": 4
+        "bullet": 5
       }
     },
     "kind": "recorded",
     "about": "A target naming SEVERAL positions of one role styles all of them. Asserted on the receipt, because a style changes no wording and the call is identical either way.",
     "recorded-outcome": "asked to make the takeaways yellow and bold, Gemma emitted style_node({\"target\": \"takeaway 1, takeaway 2, takeaway 3, takeaway 4, takeaway 5, takeaway 6\", ...}). `byOrdinal` read the first number in the phrase and nothing else, so ONE takeaway went yellow and the receipt reported success. Acting on a sixth of what was named, and saying it worked.",
-    "retargeted": "recorded on the six-takeaway recap slide, which the re-outline cut — the six takeaways are three verdicts now, one per chapter, so no slide anywhere carries more than one. Moved to the four bullets of \"... but then we hit the hard parts\", then cut in a later rewrite, so now on the four bullets of \"What is WebMCP?\". `byOrdinal` does not care which role it is counting, so the bug and its fix are the same; only the count changed, six to four. Then \"What is WebMCP?\" turned its bullets into takeaways, so the anchor is now the shape alone, an exact four bullets (\"Why web AI?\" today), with no text clause to go stale.",
+    "retargeted": "recorded on the six-takeaway recap slide, which the re-outline cut — the six takeaways are three verdicts now, one per chapter, so no slide anywhere carries more than one. Moved to the four bullets of \"... but then we hit the hard parts\", then cut in a later rewrite, so now on the four bullets of \"What is WebMCP?\". `byOrdinal` does not care which role it is counting, so the bug and its fix are the same; only the count changed, six to four. Then \"What is WebMCP?\" turned its bullets into takeaways, so the anchor is now the shape alone, an exact four bullets (\"Why web AI?\" today), with no text clause to go stale. Then \"Why web AI?\" gained a fifth bullet (Hardware & models), so the shape is an exact five bullets now.",
     "guards": "the receipt line. Revert `byOrdinal` to `words.match(/\\b(\\d{1,2})\\b/)` and the call is byte-identical — only the receipt changes, to \"color: yellow; font-weight: bold on slide {at}, bullet 1 — ...\". A fixture asserting on `calls` alone could not fail here, which is why `expect.receipt` exists."
   },
   "turns": [

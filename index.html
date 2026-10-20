@@ -334,7 +334,8 @@
                   * QR code: open the deck. Demos you can try in your browser as we go.
                   * ... and with that, let's talk about ...
                   * **The Frontend Strikes Back**: WebMCP and the agent-ready browser.
-                ` /*
+
+                  ` /*
                   * **Andrew's notes:**
                     * "The web developers who build the web, now get to shape how agents
                       use it."
@@ -395,13 +396,16 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * When we think of AI systems, we think of backends, the cloud...
+                  🔀 When we think of AI systems, we think of backends, the cloud...
                   * **The question**: where does the browser fit in the modern AI
                     ecosystem? I think it's fascinating.
-                  * Two things stand out:
-                    * **Interface:** with WebMCP, tools your agents call to do useful work.
-                    * **Runtime** in its own right: embeddings, vector search, inference.
-                      * Parts, maybe even all, of an agentic stack.
+
+                  ***
+
+                  **Two** things stand out:
+                  * **Interface:** with WebMCP, tools your agents call to do useful work.
+                  * **Runtime** in its own right: embeddings, vector search, inference.
+                    * Parts, maybe even all, of an agentic stack.
                 `}
               </${Markdown}>
             </${Notes}>
@@ -414,21 +418,28 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * Who should be paying attention? Two groups of engineers.
+                  🔀 ... so why does that matter to us?
 
-                  * <u>Frontend and full stack developers</u>:
-                    * **Agents are increasingly your users** as a share of traffic. Your
-                      apps should respond to that.
+                  ***
 
-                  * <u>Cloud architects and backend developers</u>:
-                    * Parts of your AI workload don't have to run in your cloud anymore: a
-                      **new compute platform**, your users' browsers. Talk to your frontend
-                      developer friends.
+                  * I think two groups of engineers should really be paying attention here...
+
+                  * <u>Web application builders</u>:
+                    * **Agents are increasingly your users** as a share of your web app traffic. Your
+                      apps need to more to accomodate this growing user share.
+
+                  * <u>AI application and system builders</u>:
+                    * You have a **new compute platform**, your users' browsers.
+                      * We'll see many areas of the AI stack that are ready in the browser.
 
                   * **My goals**:
                     1. Give a very **high level** view of what's possible.
                       * This is **not** a deep dive talk...
                     2. My hope is you find **something new** to play with after this talk.
+
+                  ***
+
+                  🔀 ... let's start with the browser as an <u>interface</u>.
                 `}
               </${Markdown}>
             </${Notes}>
@@ -439,6 +450,10 @@
             notes=${`
               * First up, the browser as an **interface**.
                 * Really, that's **WebMCP**.
+
+              ***
+
+              🔀 ... so what <u>is</u> WebMCP?
             `}
           />
           <${TakeawaySlide}
@@ -466,17 +481,20 @@
               },
             ]}
             notes=${`
-              * So what is **WebMCP**? An **emerging W3C standard**: tools served by
-                your web page that resemble **MCP**.
+              * So what is **WebMCP**?
+                * An **emerging W3C standard**: tools served by
+                  your web page that resemble **MCP**.
               * Two APIs:
                 * Imperative JavaScript: the focus right now, and today.
-                * Declarative HTML forms, a bit later.
+                * Declarative HTML forms, that's following on.
               * In browsers now: origin trial in Chrome and Edge. Go play with it on
                 your machine, right now.
-                * Polyfills for other browsers.
-                * A growing list of agent clients consume it. We'll try a couple shortly.
-              * Andrew covered where it's being adopted.
-              * Close in one line: "So why should you care about WebMCP?"
+              * Andrew already mentioned some places it's already being adopted, and
+                we'll try out some soon!
+
+              ***
+
+              🔀 ... so <u>why</u> should you care about WebMCP?
             `}
           />
           <${TakeawaySlide}
@@ -524,17 +542,15 @@
 
               3. A good bet to start on now: a growing standard, and it reuses
                 your **existing frontend code**. It's already enabled in the wild...
-
-              ***
-
-              🔀 ... OK, so how does it work with <u>agents</u> calling <u>web pages</u> as tools?
             `}
           />
           <${CallsSlide}
             chapter=${1}
             title="Who calls, and from where?"
             notes=${`
-              * There are **two** things to talk about in a WebMCP interaction: the agent <u>caller</u> and the <u>browser</u>
+              🔀 ... OK, let's get more specific about <u>agents</u> and <u>web pages</u> in the WebMCP world.
+
+              ***
 
               * **The agent**: (On the left of the tiles)
                 * Does it natively call WebMCP? → ChatGPT Desktop
@@ -547,7 +563,7 @@
 
               ***
 
-              🔀 ... let's go tackle the scenario for <u>direct</u> WebMCP agent calling for a <u>real life website</u>.
+              🔀 ... let's go tackle the scenario for <u>direct</u> WebMCP agent calling in an <u>embedded agent browser</u> for a <u>real life website</u>.
             `}
           />
           <${DemoSlide}
@@ -562,16 +578,22 @@
               "<strong>Shopify</strong> ships WebMCP tools on every Liquid storefront.",
             ]}
             notes=${`
-              * We'll use <u>ChatGPT Desktop</u>'s internal browser that can talk directly to WebMCP-enabled pages.
+              * We'll use <u>ChatGPT Desktop</u>'s internal browser that can talk <u>directly</u> to WebMCP-enabled pages.
               * And for our web page, we'll use <u>Reebok.com</u>
                 * ... which has WebMCP tools that every Shopify Liquid storefront has!
                 * TOOL EXPLORER (extension): a whole bunch of WebMCP tools.
               * VIDEO (slow live): tools listed, then "Find me a running shoe in my size."
                 * Tool calls under the hood, navigating pages. Found the Floatzig 2.
                 * Click in to the JSON of the tool calls.
-              * Real reebok.com, my real ChatGPT desktop: a **real agent** on a **real
+              * TAKEAWAY: Real reebok.com, my real ChatGPT desktop: a **real agent** on a **real
                 web app**, right now.
                 * WebMCP is coming and it's getting bigger.
+
+              ***
+
+              🔀 ... OK, so let's do it ourselves!
+
+              How do we hook WebMCP up to <u>our</u> apps? Let's look at the <u>API</u>.
             `}
           />
           <${JsSlide} chapter=${1} title="The WebMCP API"
@@ -582,8 +604,8 @@
               title: "Chrome's imperative API docs",
             }}
             notes=${`
-              * That's it in action. The nuts and bolts: how do we hook WebMCP up to
-                our apps?
+              * The WebMCP API is pretty straightforward
+
               ---
               * Line 1: a \`modelContext\` object on \`document\`.
               * Line 4, \`registerTool\`: wrap the tools you want to expose.
@@ -601,10 +623,13 @@
               title: "The real search tool in vector-search-web",
             }}
             notes=${`
-              ... so let's look at one tool up close ...
-              * Say we have an **intranet app with company knowledge**.
-                * ... really hard to expose via a backend MCP server
-                * ... what does it take to hook WebMCP up to the frontend we have?
+              🔀 ... so let's look at one tool up close ...
+
+              Pretend I have a legacy, intranet web app that does <u>knowledge searches</u>.
+              * ... really hard to expose via a backend MCP server
+              * ... what would it take to hook up WebMCP in the app?
+
+              ***
 
               _Walkthrough_:
               * Lines 2-11: metadata for the agent. Feels like normal MCP, a format
@@ -614,13 +639,17 @@
                 It's up to us.
               ---
               * A simplification of a **real app** that I wrote.
-              * PAGE: **article search**, vector similarity over my company's **~950
-                blog posts**. Not an intranet: public, so I can show it here.
-                * I've written a lot about Webpack. Part of my work is frontend.
-                * <u>Normal UI search</u>. QUERY: \`reducing bundle size with webpack\`
+              * PAGE: A public **article search**, over my company's **~950 blog posts**
+                * We've written a lot about the frontend, let's query it.
+                * QUERY: \`reducing bundle size with webpack\`
               * TOOL: that **same code**, now a <u>WebMCP tool</u>.
-                * SAME QUERY: \`reducing bundle size with webpack\`. Good JSON results.
+
               * A running website that works **via the UI or WebMCP**. It really is that simple.
+
+              ***
+
+              🔀 ... now let's say I want have my favorite agent, <u>Claude Desktop</u>, use that web app and in <u>my running Chrome tab</u>.
+              * How would I do that?
             `}
           />
           ${
@@ -655,13 +684,13 @@
               "Open a page with WebMCP tools and a relay <strong>embed</strong>.",
             ]}
             notes=${`
-              So ... <u>ChatGPT desktop</u> used its own <u>internal browser</u>.
-              * What if I want to use **any** agent client
-                * like **<u>Claude Desktop</u>** that doesn't yet have native WebMCP calling
-              * ... calling **my** Chrome browser, right here?
+              In this demo, we're going to allow **<u>Claude Desktop</u>** to call WebMCP despite lacking native functionality.
 
-              We can do it! In **three steps**, with the <u>WebMCP bridge</u> from **MCP-B**, Alex Nahas' project:
+              ***
+
+              In **three steps**, with the <u>WebMCP bridge</u> libraries from **MCP-B**, Alex Nahas' project:
               * First, an **embed** in the page you saw opens its tools to a WebSocket relay.
+                * PAGE: We'll use my actual running Chrome tab here!
               * Second, the **WebMCP relay** on a local Node server.
               * Third, Claude consumes it like a normal MCP server, straight into my browser.
 
@@ -674,6 +703,10 @@
               * An arbitrary site, some WebMCP tools, and Claude Desktop calls them like a
                 normal MCP server.
               * I'm hand-waving through some safety stuff here. We'll get to that in a moment.
+
+              ***
+
+              🔀 ... OK now that we've seen various ways to do WebMCP, some give you some <u>tips</u>
             `}
           />
           <${TakeawaySlide}
@@ -737,7 +770,6 @@
               },
             ]}
             notes=${`
-              * My tips, after that whirlwind tour:
               * **Consider the UI.** Reebok navigates the site as tools run: a mix of
                 human and agent interaction. My search doesn't. What's the better
                 experience for your agents and your humans?
@@ -756,15 +788,22 @@
               * ... I'll note that this presentation is itself a frontend app
               * It uses the Spectacle presentation framework that's part of Nearform's open source
               * ... so of course I added WebMCP tools to it.
-              * Let's use the tools to navigate to the next slide!
+
+              ***
+
+              🔀 ... next up, the browser as an AI <u>runtime</u>.
           `}
           />
           ${"" /* --- 02 · Runtime: AI in the browser --- */}
           <${TopicSlide}
             chapter=${chapter(2)}
             notes=${`
-              * That was the browser as an interface. Take a breath: the browser as an
-                **AI runtime**, all the cool AI we can do in the browser.
+              * That was the browser as an interface.
+              * Now we'll do the browser as an **AI runtime**.
+
+              ***
+
+              🔀 ... so why run AI in the <u>browser</u> at all?
             `}
           />
           <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 2 })}>
@@ -776,10 +815,10 @@
               * **Offline**: works with no network, after the download.
               * **Latency**: no round trip to a server.
               * **Cost**: the user's GPU, not your inference bill.
+              * **Hardware & models**: WebGPU and smaller, better models
 
               Notes: \
-                That's the browser as an interface. Now the browser as a runtime: \
-                running AI in the browser.
+                🔀 ... so what pieces do we have to work with?
             `}
           </${MarkdownSlideSet}>
           ${
@@ -834,6 +873,10 @@
                 * Deciders (the new hot thing), tool calling, language models,
                   fine-tuned models: emerging.
               * Solid is here now, dashed is emerging, the play icon is in a demo.
+
+              ***
+
+              🔀 ... let's see <u>embeddings</u> and <u>vector search</u> in action.
             `}
           />
           <${DemoSlide}
@@ -845,10 +888,12 @@
             points=${[
               "Precomputed <strong>embeddings</strong> (2-5 MB) and <strong>content</strong> (3 MB), one download.",
               "Data download in 200-800 ms, then ~25 ms to embed and ~5 ms to search.",
-              "<strong>Vector search here.</strong> Lexical or hybrid is a config change.",
+              "<strong>Vector search here.</strong> Lexical or hybrid is a config change. (<a href='https://docs.orama.com/docs/orama-js'>Orama</a>)",
             ]}
             notes=${`
-              * Back to the article search. The spoiler: **frontend only, no backend.**
+              * Back to the article search.
+                * This probably isn't a shocking surprise, but it's an entirely frontend app
+                * That does query embeddings _and_ vector search in the browser using the <u>Orama</u> search library.
                 * Precomputed embeddings and all the content, one download: 200-800 ms.
                 * Then I can go offline and still search.
               * OPEN THE TIMINGS (same search as before): ~25 ms to embed the query,
@@ -856,6 +901,10 @@
                 holds up.
               * Orama: vector here; lexical (BM25) or hybrid too, all in the browser.
               * All ~950 posts: a reasonable download, not obscene.
+
+              ***
+
+              🔀 ... embeddings are easy -- let's go bigger: <u>AI inference</u> in the browser.
             `}
           />
           <${JsSlide} chapter=${2} title=${html`The simplest way to try web <u>AI inference</u>`}
@@ -869,20 +918,17 @@
               icon: "book-open",
             }}
             notes=${`
-              * Even bigger: AI inference in the browser. The simplest, fastest way:
-                Chrome's Prompt API. In Chrome a while; coming fast in Edge (a preview
-                behind a flag).
-                * You may need to enable it in browser settings, depending on version.
-                * If asked: Chrome 148+ desktop, 22 GB free disk, a 4 GB+ GPU (or 16 GB
-                  RAM, 4 cores). Not running? \`chrome://settings/ai\`.
+              * The simplest, fastest way: The <u>Prompt API</u>.
+                * It's already in Chrome and rising quickly in Edge.
+                * NOTE: For those trying this in the audience with those browsers -- you may need some flags. Come chat me up if you can't get it running...
               * Three lines: create the language model, \`prompt\`, ask a question.
-              * Hit Run: "What is bikeshedding?" A pretty reasonable answer. No context,
-                nothing fancy: AI running in my browser. One question, then close.
-              * If it errors, read Chrome's real answer: "Bikeshedding is debating
-                trivial details that don't significantly impact the overall outcome or
-                decision."
-              * Close in one line: "That's it, AI in the browser in three lines. But
-                that's one browser's model. What are the other ways?"
+              * QUERY: "What is bikeshedding?"
+              * A pretty reasonable answer. No context,
+                nothing fancy: AI running in my browser.
+
+              ***
+
+              🔀 ... that's one browser's model. What are the <u>other</u> ways?
             `}
           />
           <${MatrixSlide}
@@ -942,20 +988,25 @@
               },
             ]}
             notes=${`
-              * The five best ways to run web AI right now. The details are in my
-                recent article: the link at the bottom.
+              * The five best ways to run web AI inference right now.
+                * The details are in my recent article: the link at the bottom.
+
+              ***
+
               * Prompt API: built into Chrome, the one we just saw.
               * WebLLM: great for small models, fits on a phone.
               * wllama: llama.cpp in WebAssembly. GGUFs off Hugging Face, my go-to
                 for on-device models.
               * Transformers.js: the port of the Python Transformers library. PyTorch
                 models, converted to ONNX.
-              * LiteRT-LM.js ("Lite R T"): new from Google. Efficient, high-context
+              * LiteRT-LM.js: new from Google. Efficient, high-context
                 models, mostly Gemma.
               * Columns, in one breath: tool calling, runs on my aging phone (hold it
                 up), context.
-                * If asked: "garbled past 32K" is the larger Gemma 4 builds (12B and
-                  up). Gemma 4 E2B held its full 128K in our tests.
+
+              ***
+
+              🔀 ... let's go try <u>all five</u> runtimes in one app.
             `}
           />
           <${DemoSlide}
@@ -976,6 +1027,10 @@
               * Same question: "What is bikeshedding?"
               * Tons of controls, info, and comparisons to play with yourself. Any of
                 the five are pretty usable right now.
+
+              ***
+
+              🔀 ... OK, a few <u>tips</u> for web AI inference.
             `}
           />
           <${TakeawaySlide}
@@ -1020,7 +1075,13 @@
                 * Hook up Fable, Mythos. Go to town!
               * ... that's our basic web AI tour!
 
-              * TODO(RYAN): DO OPTION FOR DECK CHAT DEMO HERE (???)
+              ***
+
+              * OPTION: Deck chat demo (?)
+
+              ***
+
+              🔀 ... so can we put <u>all the pieces</u> together?
             `}
           />
           ${"" /* --- 03 · Web agents --- */}
@@ -1030,6 +1091,10 @@
               * We've talked about all the pieces. Can we put them together in one
                 full-blown app?
               * Agents actually in the browser, not just agents calling the browser.
+
+              ***
+
+              🔀 ... let's go see a team of <u>agents</u>, all in a browser tab.
             `}
           />
           <${DemoSlide}
@@ -1046,22 +1111,18 @@
             notes=${`
               * Four pieces in one app: embeddings, vector search, tool calling,
                 inference.
+              * Our app populates a **research notepad** for giving **domain-specific answers**.
               * Three agents on a research task:
                 * Coordinator: decides what to do, gives the answer.
                 * Researcher: researches when it's needed.
                 * Writer: condenses the research into notes.
-              * They search the same vector search app over an iframe bridge: WebMCP as
+              * They search the same vector search app over an <u>iframe bridge</u>: WebMCP as
                 the bridge.
-              * Ask: "What is AI native engineering?"
-              * Activity tab, middle column: coordinator says it needs research, the
-                researcher calls the WebMCP tools, the writer writes the notepad. That
-                short context goes back to the coordinator. ~24 seconds.
-              * Lower bar: each agent's context and history. The tools are exposed too.
-              * Follow-up: "What does SDG stand for?" It skips research: it already
-                knows from the notes. Quick answer.
-              * If asked: a branch (\`experiment/chrome-decider\`, Chrome Canary) adds a
-                decider. Quality wasn't there in time for today.
               * A pure client-side app on GitHub Pages, no backend.
+
+              ***
+
+              🔀 ... a few <u>tips</u> for building web agents.
             `}
           />
           <${TakeawaySlide}
@@ -1099,6 +1160,10 @@
               * **Specific models:** fine-tune, post-train. The smallest thing that gets
                 a unit of useful work done, chained together.
               * Web agents are early, but really fun to play with.
+
+              ***
+
+              🔀 ... so, <u>what now</u>?
             `}
           />
           <${DeckSlide}>
@@ -1119,6 +1184,14 @@
                       and save a round trip.
                   * We covered a whirlwind. I hope there's a piece you didn't know about,
                     or want to try now.
+
+                  ***
+
+                  * OPTION: Deck chat demo (?)
+
+                  ***
+
+                  🔀 ... and with that, <u>thanks</u>!
                 `}
               </${Markdown}>
             </${Notes}>
@@ -1153,7 +1226,10 @@
                     organizers for putting together a wonderful event for us --
                     it's so much tireless work.
                   * Open for questions. Thank you so much.
-                  * **Bonus, only if there's time and it didn't run earlier:**
+
+                  ***
+
+                  * OPTION: Deck chat (???)
                     * "But wait, I have a little extra surprise." This deck is a
                       frontend app (Spectacle, Nearform open source), so it has WebMCP
                       tools.
@@ -1164,37 +1240,6 @@
               </${Markdown}>
             </${Notes}>
           </${DeckSlide}>
-          ${
-            "" /*
-          // TODO: REMOVE? The old links slide. The deck links now live on "Thanks!".
-          <${MarkdownSlideSet} ...${mdSlideProps()}>
-            ${`
-              --- { "layout": "columns" }
-
-              ::section
-
-              # Links
-
-              ${icon("browser")} [ryan-roemer.github.io/the-frontend-strikes-back](https://ryan-roemer.github.io/the-frontend-strikes-back/)
-              ${icon("github-logo")} [github.com/ryan-roemer/the-frontend-strikes-back](https://github.com/ryan-roemer/the-frontend-strikes-back)
-
-              ***
-
-              ${icon("magnifying-glass")} [nearform.github.io/vector-search-web](https://nearform.github.io/vector-search-web/)
-              ${icon("cpu")} [nearform.github.io/web-ai-demo](https://nearform.github.io/web-ai-demo/)
-              ${icon("users-three")} [nearform.github.io/web-agents](https://nearform.github.io/web-agents/)
-
-              ::section
-
-              ${qrCodeImg}
-
-              Notes: \
-                All three demo apps are public and run entirely in the tab, so anyone \
-                can open them on the wifi here.
-            `}
-          </${MarkdownSlideSet}>
-          */
-          }
         </${Deck}>
       `;
 

@@ -2,13 +2,14 @@
   "meta": {
     "at": {
       "nodes": {
-        "bullet": 4
+        "bullet": 5
       }
     },
     "kind": "recorded",
     "about": "A word where a CSS declaration goes. The refusal spells out the shape, names `display: none` for the hide case, and the retry lands it.",
     "recorded-outcome": "asked to hide the last bullet — after style_node's description was widened so the model stopped reaching for edit_text — Gemma emitted style_node({\"target\": \"the bullets\", \"style\": \"remove\"}). Right tool, right target, and a word instead of a declaration. The refusal explained the shape and then ended the turn, because `setStyles` set no `retry` and `style_node` would have dropped it anyway.",
-    "guards": "two replies for one ask, and it needs BOTH halves: `retry: true` on `setStyles`'s unreadable-style refusal, and `style_node` passing it through instead of rebuilding the result with `{ applied: false }`. Revert either and this consumes one reply."
+    "guards": "two replies for one ask, and it needs BOTH halves: `retry: true` on `setStyles`'s unreadable-style refusal, and `style_node` passing it through instead of rebuilding the result with `{ applied: false }`. Revert either and this consumes one reply.",
+    "retargeted": "recorded against a four-bullet slide, where \"the last bullet\" was bullet 4. The anchor is an exact five bullets now (\"Why web AI?\" gained Hardware & models), so the last bullet, and the receipt, is bullet 5."
   },
   "turns": [
     {
@@ -34,7 +35,7 @@
             }
           }
         ],
-        "receipt": ["display: none on slide {at}, bullet 4"]
+        "receipt": ["display: none on slide {at}, bullet 5"]
       }
     }
   ]

@@ -2,19 +2,20 @@
   "meta": {
     "at": {
       "nodes": {
-        "bullet": 4
+        "bullet": 5
       }
     },
     "kind": "recorded",
     "about": "A one-item-per-line `- ` list in `text`, aimed at a group of the same size, rewrites each node to its own line. The newline sibling of numbered-list-onto-bullets.",
     "recorded-outcome": "on the Web AI demos slide, the user typed the new bullets as a markdown list and Gemma (LiteRT, native tools) passed it through: edit_text({\"target\": \"18.bullets\", \"text\": \"- A chat in this deck\\n- Context ...\\n- ...\"}). `listItems` only knew the inline \"1. A, 2. B\" form, so the call fell through to a one-node rewrite and was refused with \"matches 4 nodes. Call again with one of these ids\"; the model then asked the user which bullets they meant. Nothing changed.",
-    "guards": "the line-split branch at the top of `listItems` in edit_text. Remove it and this refuses -- no bullet lines match."
+    "guards": "the line-split branch at the top of `listItems` in edit_text. Remove it and this refuses -- no bullet lines match.",
+    "retargeted": "recorded as four items onto a four-bullet slide. The anchor is an exact five bullets now (\"Why web AI?\" gained Hardware & models), and `listItems` rewrites only a group the list matches in size, so the ask, reply and expectation gained a fifth item, \"No backend required\". The first four are as recorded."
   },
   "turns": [
     {
-      "ask": "Ok, let's change the bullet point text to the following:\n- A chat in this deck\n- Context from entire deck and current slide\n- Access to all deck WebMCP tools\n- ... let's see what we can get up to!",
+      "ask": "Ok, let's change the bullet point text to the following:\n- A chat in this deck\n- Context from entire deck and current slide\n- Access to all deck WebMCP tools\n- ... let's see what we can get up to!\n- No backend required",
       "replies": [
-        "```tool edit_text\n{\"target\": \"{at}.bullets\", \"text\": \"- A chat in this deck\\n- Context from entire deck and current slide\\n- Access to all deck WebMCP tools\\n- ... let's see what we can get up to!\"}\n```"
+        "```tool edit_text\n{\"target\": \"{at}.bullets\", \"text\": \"- A chat in this deck\\n- Context from entire deck and current slide\\n- Access to all deck WebMCP tools\\n- ... let's see what we can get up to!\\n- No backend required\"}\n```"
       ],
       "expect": {
         "calls": [
@@ -22,7 +23,7 @@
             "name": "edit_text",
             "args": {
               "target": "{at}.bullets",
-              "text": "- A chat in this deck\n- Context from entire deck and current slide\n- Access to all deck WebMCP tools\n- ... let's see what we can get up to!"
+              "text": "- A chat in this deck\n- Context from entire deck and current slide\n- Access to all deck WebMCP tools\n- ... let's see what we can get up to!\n- No backend required"
             }
           }
         ],
@@ -33,6 +34,7 @@
             "bullet 2: Context from entire deck and current slide",
             "bullet 3: Access to all deck WebMCP tools",
             "bullet 4: ... let's see what we can get up to!",
+            "bullet 5: No backend required",
             "..."
           ]
         }

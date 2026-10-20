@@ -2,13 +2,14 @@
   "meta": {
     "at": {
       "nodes": {
-        "bullet": 4
+        "bullet": 5
       }
     },
     "kind": "authored",
     "about": "`target` + an empty `text`. The refusal already named both working alternatives; `mutate` was dropping the `retry` that let the model act on one.",
     "recorded-outcome": "not seen in a transcript — reached by hand while triaging the `hide the last bullet` failure alongside it. `setText`'s empty-text refusal reads \"To delete words, pass `find` with an empty `text`; to hide the whole thing, style it `display: none`\", and nothing asked the model again, because `mutate` rebuilt the refusal with `fail(result.message)` and threw the flag away.",
-    "guards": "revert `mutate` to `fail(result.message)` and this consumes one reply. It is the only fixture covering that passthrough — the two address-as-`find` fixtures beside it never enter `mutate`, because a `find` sends edit_text down the `replaceText` path instead."
+    "guards": "revert `mutate` to `fail(result.message)` and this consumes one reply. It is the only fixture covering that passthrough — the two address-as-`find` fixtures beside it never enter `mutate`, because a `find` sends edit_text down the `replaceText` path instead.",
+    "retargeted": "recorded against a four-bullet slide, where \"the last bullet\" was bullet 4. The anchor is an exact five bullets now (\"Why web AI?\" gained Hardware & models), so the last bullet, and the receipt, is bullet 5."
   },
   "turns": [
     {
@@ -34,7 +35,7 @@
             }
           }
         ],
-        "receipt": ["display: none on slide {at}, bullet 4"]
+        "receipt": ["display: none on slide {at}, bullet 5"]
       }
     }
   ]
