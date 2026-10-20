@@ -1148,10 +1148,17 @@ const CALL_ROWS = [
 
 const demoCells = new Set(Object.values(DEMO_CALLS));
 
-const CallGrid = ({ lit, litText, visited = [] }) => html`
+/*
+ * On the overview, an empty `1fr` column mirrors the row heads' column, so the
+ * tiles -- the focus -- center on the slide and the heads hang off their left.
+ */
+const CallGrid = ({ lit, litText, visited = [] }) => {
+  const spacer = lit ? null : html`<${Box} />`;
+
+  return html`
   <${Grid}
     className=${`call-grid${lit ? " call-grid--demo" : ""}`}
-    gridTemplateColumns=${lit ? "auto 180px 180px" : "auto 330px 330px"}
+    gridTemplateColumns=${lit ? "auto 180px 180px" : "1fr 330px 330px 1fr"}
     justifyContent="center"
     alignItems="stretch"
   >
@@ -1160,26 +1167,38 @@ const CallGrid = ({ lit, litText, visited = [] }) => html`
       (col) => html`
         <${FlexBox} key=${col.id} className="call-grid__head" justifyContent="center">
           <${Icon} name=${col.icon} className="call-grid__head-icon" />
-          <${Text} fontSize=${lit ? "20px" : "22px"} margin="0px" className="call-grid__label">
+          <${Text} fontSize=${lit ? "20px" : "26px"} margin="0px" className="call-grid__label">
             ${lit ? col.short : col.title}
           </${Text}>
         <//>
       `,
     )}
+    ${spacer}
     ${CALL_ROWS.map(
       (row) => html`
         <${Fragment} key=${row.id}>
-        <${FlexBox} className="call-grid__head call-grid__head--row" justifyContent="start">
-          <${Icon} name=${row.icon} className="call-grid__head-icon" />
+        <${FlexBox}
+          className="call-grid__head call-grid__head--row"
+          justifyContent="start"
+          justifySelf=${lit ? "start" : "end"}
+        >
+          ${lit ? html`<${Icon} name=${row.icon} className="call-grid__head-icon" />` : null}
           <${Box}>
-            <${Text} className="call-grid__label call-grid__head-title" fontSize="22px" margin="0px" lineHeight="1.3">
-              ${row.title}
+            <${Text} className="call-grid__label call-grid__head-title" fontSize=${lit ? "22px" : "26px"} margin="0px" lineHeight="1.3">
+              ${
+                lit
+                  ? row.title
+                  : html`<${Icon}
+                        name=${row.icon}
+                        className="call-grid__head-icon"
+                      />${" "}${row.title}`
+              }
             </${Text}>
             ${
               lit
                 ? null
                 : html`<${Box} className="call-grid__rule" />
-                    <${Text} className="call-grid__label" fontSize="20px" margin="0px" lineHeight="1.3">${row.detail}</${Text}>`
+                    <${Text} className="call-grid__label" fontSize="22px" margin="0px" lineHeight="1.3">${row.detail}</${Text}>`
             }
           <//>
         <//>
@@ -1228,11 +1247,13 @@ const CallGrid = ({ lit, litText, visited = [] }) => html`
             <//>
           `;
         })}
+        ${spacer}
         <//>
       `,
     )}
   </${Grid}>
 `;
+};
 
 export const CallsSlide = ({ chapter, title, notes }) => html`
   <${DeckSlide} className=${chapter ? chapterClass(chapter) : ""}>

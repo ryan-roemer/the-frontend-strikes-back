@@ -1064,11 +1064,14 @@ body::after {
  * sits under the URL, a little smaller, and the cells it isn't about fade out
  * the way the piece strip's do.
  */
-/* Content-sized and centered, so the row heads stay beside the tiles. */
 .call-grid {
   gap: 18px 22px;
-  width: fit-content;
-  margin: 0 auto;
+  width: 100%;
+}
+
+/* Air between the overview's title and the grid. */
+.call-grid:not(.call-grid--demo) {
+  margin-top: 36px;
 }
 
 .call-grid--demo {
@@ -1086,8 +1089,29 @@ body::after {
   padding-right: 8px;
 }
 
+/*
+ * Overview row heads read into their row: title, bar and detail flush right
+ * against the tiles, the icon inline before the title.
+ */
+#root .call-grid:not(.call-grid--demo) .call-grid__head--row {
+  padding-right: 0;
+}
+
+#root .call-grid:not(.call-grid--demo) .call-grid__head--row .call-grid__label {
+  text-align: right;
+}
+
+#root .call-grid__head-title .call-grid__head-icon {
+  margin-right: 4px;
+  vertical-align: -3px;
+}
+
+#root .call-grid:not(.call-grid--demo) .call-grid__rule {
+  margin-left: auto;
+}
+
 #root .call-grid__head-icon {
-  font-size: 26px;
+  font-size: 30px;
   color: var(--chapter-accent);
 }
 
