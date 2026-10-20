@@ -397,7 +397,7 @@
                   * Two things stand out:
                     * **Interface:** with WebMCP, tools your agents call to do useful work.
                     * **Runtime** in its own right: embeddings, vector search, inference.
-                      Parts, maybe even all, of an agentic stack.
+                      * Parts, maybe even all, of an agentic stack.
                 `}
               </${Markdown}>
             </${Notes}>
@@ -415,16 +415,16 @@
                   * <u>Frontend and full stack developers</u>:
                     * **Agents are increasingly your users** as a share of traffic. Your
                       apps should respond to that.
-                    * The fun stuff: **AI in your frontend app**, not just proxied from the
-                      backend. Worth getting in on the action.
 
                   * <u>Cloud architects and backend developers</u>:
-                    * A new **tool** for your agentic systems **to consume**: WebMCP.
                     * Parts of your AI workload don't have to run in your cloud anymore: a
                       **new compute platform**, your users' browsers. Talk to your frontend
                       developer friends.
 
-                  * **My goal**: give you **something new** to play with after this talk.
+                  * **My goals**:
+                    1. Give a very **high level** view of what's possible.
+                      * This is **not** a deep dive talk...
+                    2. My hope is you find **something new** to play with after this talk.
                 `}
               </${Markdown}>
             </${Notes}>
@@ -475,20 +475,6 @@
               * Close in one line: "So why should you care about WebMCP?"
             `}
           />
-          <${CallsSlide}
-            chapter=${1}
-            title="Who calls, and from where?"
-            notes=${`
-              * There are **two** things to talk about when talking about WebMCP.
-              * **The agent**:
-                * Does it natively call WebMCP? → ChatGPT Desktop
-                * Or do you need to manually bridge it? → Claude Desktop
-              * **Who's browser?**:
-                * Is it the tools internal browser? → ChatGPT Desktop _and most Agents_
-                * Or **your browser**? → This offers much more flexibility.
-              * We're going to see these various situations in action soon.
-            `}
-          />
           <${TakeawaySlide}
             chapter=${1}
             title="Why WebMCP?"
@@ -502,40 +488,52 @@
               },
               {
                 n: 2,
-                text: "Great for auth and intranets",
-                detail:
-                  "Tools run in the user's logged-in session. The agent never sees the credentials.",
-              },
-              {
-                n: 3,
                 text: "Standards and browsers lead the hard parts",
                 detail:
                   "Agents get sandboxing, auth, and trust from the browser. You just write a function.",
               },
               {
-                n: 4,
+                n: 3,
                 text: html`A good bet you can start on <u>now</u>`,
-                detail: "Tools reuse the code your UI already calls.",
+                detail:
+                  "Tools reuse the code your UI already calls - auth, preferences, sessions, and all",
               },
             ]}
             notes=${`
-              * **1. Agents already use your site**, just poorly: screen scraping
-                **UIs meant for humans**.
+              1. Agents already use your site, just poorly: screen scraping **UIs meant for humans**.
                 * WebMCP gives them an agent-first interface, close to the MCP they know.
 
-              * **2. Auth and intranets**: painful to put a backend MCP server on.
-                * Got a **frontend app** there? A WebMCP tool is often not much work.
+              2. Agents need things like **auth**, **sandboxing**, **identity**, **trust** for secure tool calling.
+                * Want to know a battle-tested execution environment we already have? **A BROWSER**
+                * And the **standards** folks are building out the agentic **extras** for things WebMCP
+                  doesn't already have just from the browser.
 
-              * **3. Standards and browsers lead the hard parts.** Alex Nahas, who runs
-                MCP-B, made the point: what agents need (**auth**, **sandboxing**,
-                **identity**, **trust**) is already solved in an execution environment
-                called **the browser**.
-                * Battle tested for decades, and WebMCP goes further to keep it safe.
-                * We just write the function.
-                * If asked: his piece is "The next steps on the Web and WebMCP."
-
-              * **4. A good bet to start on now**: a growing standard, and it reuses
+              3. A good bet to start on now: a growing standard, and it reuses
                 your **existing frontend code**. It's already enabled in the wild...
+
+              ***
+
+              🔀 ... OK, so how does it work with <u>agents</u> calling <u>web pages</u> as tools?
+            `}
+          />
+          <${CallsSlide}
+            chapter=${1}
+            title="Who calls, and from where?"
+            notes=${`
+              * There are **two** things to talk about in a WebMCP interaction: the agent <u>caller</u> and the <u>browser</u>
+
+              * **The agent**: (On the left of the tiles)
+                * Does it natively call WebMCP? → ChatGPT Desktop
+                * Or do you have to configure it yourself? → Claude Desktop
+                  * We'll show how to bridge tools like Claude to any WebMCP browser page.
+
+              * **Whose browser?**: (On the top of these tiles)
+                * Does the agent have it's **own browser** → ChatGPT Desktop _and most Agents_ these days
+                * Or **your browser**? → This offers much more flexibility.
+
+              ***
+
+              🔀 ... let's go tackle the scenario for <u>direct</u> WebMCP agent calling for a <u>real life website</u>.
             `}
           />
           <${DemoSlide}
@@ -546,22 +544,20 @@
             url="reebok.com"
             call="ChatGPT + agent tab"
             points=${[
+              "<strong>ChatGPT desktop</strong>'s built-in browser calls WebMCP tools in pages",
               "<strong>Shopify</strong> ships WebMCP tools on every Liquid storefront.",
-              '<strong>ChatGPT desktop</strong>\'s built-in browser calls WebMCP "site tools."',
             ]}
             notes=${`
-              * Before the geeky details, let's see WebMCP for real in the wild...
-              ---
-              * Shopify ships WebMCP tools on every Liquid storefront.
-              * <u>Reebok.com</u> is one of these.
+              * We'll use <u>ChatGPT Desktop</u>'s internal browser that can talk directly to WebMCP-enabled pages.
+              * And for our web page, we'll use <u>Reebok.com</u>
+                * ... which has WebMCP tools that every Shopify Liquid storefront has!
                 * TOOL EXPLORER (extension): a whole bunch of WebMCP tools.
-              * <u>ChatGPT Desktop</u>'s internal browser talks WebMCP natively: "Site Tools."
               * VIDEO (slow live): tools listed, then "Find me a running shoe in my size."
                 * Tool calls under the hood, navigating pages. Found the Floatzig 2.
                 * Click in to the JSON of the tool calls.
               * Real reebok.com, my real ChatGPT desktop: a **real agent** on a **real
                 web app**, right now.
-                * We just don't notice it yet, but it's coming and it's getting bigger.
+                * WebMCP is coming and it's getting bigger.
             `}
           />
           <${JsSlide} chapter=${1} title="The WebMCP API"
@@ -671,27 +667,6 @@
             title="Tips for WebMCP"
             compact=${true}
             items=${[
-              /* Cut 2026-10-16.
-              // 1. Validate in code, return mistakes as sentences.
-              // - Chrome, "WebMCP best practices"
-              //   (https://developer.chrome.com/docs/ai/webmcp/best-practices):
-              //   "Validate strictly in code, loosely in schema. ... While schema
-              //   constraints can be helpful, they're not guaranteed. Add descriptive
-              //   errors to your function code to allow the model to self-correct and
-              //   retry with new, valid parameters."
-              // - Tejas Kumar (https://tej.as/blog/what-is-webmcp): "A model is a
-              //   sloppy caller though, so the validator forgives the mistakes with
-              //   one obvious meaning and refuses the rest" and "If a tool's execute
-              //   rejects, the model gets a bare UnknownError and no idea what went
-              //   wrong."
-              {
-                n: 1,
-                text: "Validate strictly in code, loosely in schema",
-                detail: html`Schemas aren't guaranteed. Check in
-                ${" "}<code>execute</code>, and return mistakes as sentences the
-                model can fix.`,
-              },
-              */
               // 1. The UI after a tool runs.
               // - Chrome, "WebMCP best practices"
               //   (https://developer.chrome.com/docs/ai/webmcp/best-practices):
@@ -759,7 +734,16 @@
                 did this talk. Chrome's best practices guide, the early preview
                 program, the community group: links on the slide.
               * And that's WebMCP.
-            `}
+
+              ***
+
+              OPTION: Show Deck WebMCP Tools
+              * And as a parting gift as we wrap up WebMCP
+              * ... I'll note that this presentation is itself a frontend app
+              * It uses the Spectacle presentation framework that's part of Nearform's open source
+              * ... so of course I added WebMCP tools to it.
+              * Let's use the tools to navigate to the next slide!
+          `}
           />
           ${"" /* --- 02 · Runtime: AI in the browser --- */}
           <${TopicSlide}
@@ -1021,6 +1005,8 @@
                   model, covering every scenario your app needs.
                 * Hook up Fable, Mythos. Go to town!
               * ... that's our basic web AI tour!
+
+              * TODO(RYAN): DO OPTION FOR DECK CHAT DEMO HERE (???)
             `}
           />
           ${"" /* --- 03 · Web agents --- */}
