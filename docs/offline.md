@@ -40,9 +40,11 @@ After `talk:open`. It does the demo-tab items itself, last, and prints `ready` o
 
 **Claude Desktop** (by hand):
 
+- [ ] FIRST PROMPT: OK, first list out all the available webmcp tools you find.
 - [ ] It sees **one** vector-search-web tab ([Check it before the talk](#check-it-before-the-talk)).
-
-**The demo tabs** (`talk:open` / `talk:ready`):
+- [ ] PROMPT: Front-end bundle size recommendations for webpack, with a citation list
+      Hello hello hello hello, hello hello
+      **The demo tabs** (`talk:open` / `talk:ready`):
 
 - [ ] vector-search-web (`?present=true&banner=false`): `reducing bundle size with webpack`
       typed in the query box, not searched.

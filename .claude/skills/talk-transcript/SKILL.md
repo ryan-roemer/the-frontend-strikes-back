@@ -73,13 +73,14 @@ loud. Not a script.
   the action items in `docs/transcripts.md`, and prep goes to `docs/offline.md` or the
   offline-prep skill. A fix lands in the notes as the better line to say (a typo'd demo
   input becomes the input, spelled right; a stumble becomes the one-line close)
-- Write each bullet as words he can say to the room, or a short stage cue for a demo
-  step ("Hit Run", "Open the timings"). An aside to himself ("speed-run this table")
-  belongs only if it changes what he does live
+- Write each bullet as words he can say to the room. The only instructions are his
+  all-caps stage cues for a demo step (QUERY, TOOL, PAGE, VIDEO, OPEN THE TIMINGS) in
+  that form. No delivery advice to himself: not "close in one line", "one line per
+  card", "in one breath", "read it off the panel"
 - Resolve a `**TODO:**` in the notes if this run settled it. If it didn't, keep it, and
   put what each run said in the outline, not the notes
-- A note to Ryan becomes a cue on that slide's notes, written as the line to say or the
-  step to take ("Close in one line: …"), never as what happened
+- A note to Ryan becomes the better talking point on that slide (the line itself,
+  rewritten), never an instruction about how to say it, and never what happened
 
 Where notes live, by slide type:
 
