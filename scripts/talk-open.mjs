@@ -24,6 +24,9 @@
 // the talk profile; when that doesn't reach the running talk Chrome (on 2026-10-16 it
 // didn't), it says to restart it. Everything else is plain CDP HTTP (`/json/*`), plus
 // one browser-level call to see which window a deck tab is in.
+//
+// LAST, IT READIES THE DEMOS (`talk-ready.mjs`, also `npm run talk:ready` on its own):
+// the search query typed, Gemma loaded with the prompt in, the agents chat cleared.
 
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
@@ -39,6 +42,7 @@ import {
   isOfflineDeck,
   pages,
 } from "./talk-deck.mjs";
+import { ready } from "./talk-ready.mjs";
 
 // The `--user-data-dir` from `cdp:talk` in package.json. Keep the two in step.
 const PROFILE =
@@ -148,6 +152,10 @@ for (const target of decks) {
     : "no ?offline";
   console.log(`closed   ${target.url} (${why})`);
 }
+
+// Then the demos themselves: query typed, model loaded, chat cleared. See `talk-ready.mjs`.
+// Its misses are printed, and still leave the deck in front.
+await ready();
 
 await fetch(`${ENDPOINT}/json/activate/${deck.id}`);
 process.exit(0);

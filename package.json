@@ -21,6 +21,7 @@
     "offline:check": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_talk_port} node scripts/offline-check.mjs",
     "video:add": "node scripts/video-add.mjs",
     "talk:open": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_talk_port} node scripts/talk-open.mjs",
+    "talk:ready": "CDP_URL=${CDP_URL:-http://127.0.0.1:$npm_package_config_cdp_talk_port} node scripts/talk-ready.mjs",
     "lint": "eslint . --fix",
     "pretty": "prettier . --write",
     "format": "npm run lint && npm run pretty",

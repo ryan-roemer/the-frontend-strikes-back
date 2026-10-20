@@ -18,17 +18,43 @@ npm run cdp:talk     # 3: the talk Chrome, CDP on :1981, deck in an app window
 npm run talk:open    # 3: the demos in a second window, deck to the front
 ```
 
-Then:
-
-1. Open Claude Desktop and check it sees the page ([The relay](#the-relay-claude-desktop-demo)).
-2. Walk the deck once. The assistant's status should read "on disk".
-3. Click through each demo tab once, so it's loaded before you need it.
+Then work through [Ready to present](#ready-to-present).
 
 Start `demo:relay` **before** `talk:open`. The Claude Desktop tab looks for the relay once,
 when it loads. If the relay came up later, reload that tab.
 
 With no wifi: everything above still works for the deck, but the demo tabs and Claude
 Desktop won't load. Use the backup recordings. See [At the venue](#at-the-venue).
+
+## Ready to present
+
+After `talk:open`. It does the demo-tab items itself, last, and prints `ready` or
+`NOT READY` for each. Re-ready them between run-throughs with `npm run talk:ready`.
+
+**The deck** (by hand, in the app window):
+
+- [ ] Walk the deck once. The assistant's status should read "on disk".
+- [ ] The Prompt API code slide: hit Run once, so Chrome's model is warm. Then clear it.
+- [ ] Deck chat: one question on LiteRT, so Gemma is loaded. Then clear the chat.
+- [ ] Back to the title slide.
+
+**Claude Desktop** (by hand):
+
+- [ ] It sees **one** vector-search-web tab ([Check it before the talk](#check-it-before-the-talk)).
+
+**The demo tabs** (`talk:open` / `talk:ready`):
+
+- [ ] vector-search-web (`?present=true&banner=false`): `reducing bundle size with webpack`
+      typed in the query box, not searched.
+- [ ] web-ai-demo (`?runtime=wllama&banner=false&model=…gemma-4-E2B-it-Q4_0.gguf`): Gemma
+      **loaded**, a new chat, `In one sentence, what is bikeshedding?` in the prompt. Its
+      `ready` line names the runtime the page selected, which should say `wllama`.
+- [ ] web-agents (`?relay=false&banner=false&present=true`): chat cleared (the suggestion
+      chips showing), notepad empty, input empty.
+
+Loading Gemma from the cache took ~75 seconds on 2026-10-20, so `talk:open` waits up to three
+minutes for it. Each tab gets 30 seconds to show its controls. With no network, every demo
+item reports `NOT READY` and the deck still comes to the front.
 
 ## The demos
 
@@ -306,6 +332,7 @@ as planned. A demo without its file shows "No recording yet" instead.
 | `npm run dev`              | always                  | Serves the deck on :3000                                        |
 | `npm run cdp:talk`         | always                  | The talk Chrome, persistent profile, CDP on :1981               |
 | `npm run talk:open`        | talk day                | Deck with `?offline` in an app window, demos in a second window |
+| `npm run talk:ready`       | between run-throughs    | Readies the demo tabs: query typed, Gemma loaded, chat cleared  |
 | `npm run demo:relay`       | talk day, online        | WebMCP relay on :9333 for Claude Desktop                        |
 | `npm run demo:relay:ps`    | relay trouble           | What's on :9333                                                 |
 | `npm run demo:relay:stop`  | relay trouble           | Stops the relay listening on :9333                              |
