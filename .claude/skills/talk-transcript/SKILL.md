@@ -1,6 +1,6 @@
 ---
 name: talk-transcript
-description: Turn a pasted run-through transcript of this talk into a per-slide outline in docs/transcripts.md, update the speaker notes on every slide to match what was said, call out each "note to Ryan / note to self", and finish with an action item list. Use when the user pastes a talk transcript, says "here's another run-through", or asks to format a transcript into sections or update notes from one.
+description: Turn a pasted run-through transcript of this talk into a per-slide outline in docs/transcripts.md, update the speaker notes on every slide to match what was said, call out each "note to Ryan / note to self", and finish with an action item list. With a timestamped transcript (SRT) or an audio file, it can also time every slide. Use when the user pastes a talk transcript, hands over a run-through recording, says "here's another run-through", or asks to format a transcript into sections or update notes from one.
 ---
 
 # Talk transcript → outline, notes, action items
@@ -22,6 +22,16 @@ of the section under `Raw:`. Never edit the raw text.
 
 Speech-to-text repeats phrases and garbles names ("LIDAR TLM" for LiteRT-LM, "Arama" for
 Orama, "W-Llama" for wllama). Fix these in the outline, not in the raw text.
+
+**Given an audio file instead** (Apple's recorder saved the `.m4a` but no text):
+transcribe it to SRT with Whisper, which brings timestamps with it (see
+[Timestamps](#timestamps-option)). In a venv in the scratchpad,
+`pip install mlx-whisper`, then
+`mlx_whisper <file> --model mlx-community/whisper-large-v3-turbo --language en -f srt -o <dir>`.
+A 22-minute run takes about 15 seconds after the model download. The sandbox blocks
+reading `~/Desktop`, so copy the file out first, and its proxy fails pip's SSL check, so
+run the install and the first model download outside it. Check the SRT for coverage (the
+last cue near the recording's length) and for repeated-line loops before using it.
 
 ## 2. Map the transcript to the slides
 
@@ -54,6 +64,29 @@ Use the same shape as the previous run:
   ```
 
 - Then `---` and `Raw:` with the transcript
+
+### Timestamps (option)
+
+On when the transcript carries timestamps (an SRT, or one transcribed from audio) or when
+Ryan asks for them. Without timestamps, leave it off. Never estimate times from word
+counts.
+
+- Read the SRT through a compact `m:ss text` view, not cue by cue:
+
+  ```sh
+  awk '/-->/{split($1,a,/[:,]/); t=sprintf("%d:%02d",a[1]*60+a[2],a[3]); next} /^[0-9]+$/||NF==0{next} {print t, $0}' run.srt
+  ```
+
+- A slide starts at its first cue and ends where the next slide starts. Put
+  `· start–end (time)` on every slide heading and every part heading:
+  `### 1.1 What is WebMCP? · 2:23–2:49 (0:26)`. Check that the slides add up to their
+  part, and the parts to the whole run
+- A demo or aside inside a slide gets its own range in its bullet: `Demo (16:24–16:50): …`
+- Under the header: one line saying times are recording time, with the lead-in before
+  "Thanks Andrew" (the talk time is the recording minus that), then a table of the
+  parts (Start, Time, Share), then a "Longest slides" line with the top five
+- Times go in the outline only, never in the speaker notes (no history in the notes)
+- The SRT is the raw text: keep it verbatim under `Raw:`
 
 ## 4. Update the speaker notes on every slide
 
