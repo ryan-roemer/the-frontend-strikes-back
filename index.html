@@ -512,42 +512,41 @@
                 detail:
                   "In a browser, just poorly: screen-scraping and clicking through UIs built for humans.",
               },
-              // 2. The browser already did the hard parts.
-              // - Alex Nahas, "The next steps on the Web and WebMCP"
-              //   (https://nekuda.substack.com/p/the-next-steps-on-the-web-and-webmcp),
-              //   under "Sandboxing": "A browser tab is the most well tested
-              //   sandbox in existence."
+              // 2. Per the WebMCP explainer, backend integrations make developers
+              //   "replicate the user's state, active context, and authentication
+              //   credentials on a separate server." Per-call user confirmation is
+              //   still under exploration (issues #165, #50), so don't claim it.
               {
                 n: 2,
-                text: "Standards and browsers lead the hard parts",
-                detail: html`Your agents need: Authentication, Trust,
-                  Permissions, Code Execution, Isolation, UI, etc.<br />"A
-                  browser tab is the most well tested sandbox in existence."
-                  -${" "}<a
-                    href="https://nekuda.substack.com/p/the-next-steps-on-the-web-and-webmcp"
-                    >Alex Nahas</a
-                  >${" "}(<a href="https://mcp-b.ai">MCP-B</a>)`,
+                text: "Your users are already logged in",
+                detail: html`Tools run in their tab, with the
+                  <strong>session</strong> they already have. Browser takes care
+                  of the hard parts: <strong>sandboxing</strong>,
+                  <strong>isolation</strong>, <strong>permissions</strong>, etc.`,
               },
               {
                 n: 3,
-                text: html`A good bet you can start on <u>now</u>`,
-                detail: "Tools reuse the code your UI already calls.",
+                text: html`A good bet to start on <u>now</u>`,
+                detail:
+                  "Tools are the functions your UI already calls. No new server.",
               },
             ]}
             notes=${`
               1. Agents already use your site, just poorly: Playwright, CDP, screen scraping **UIs meant for humans**.
                 * WebMCP gives them an agent-first interface, close to the MCP they know.
 
-              <!-- TODO: HERE -- REWORK BULLETS 2 & 3 -->
+              2. **Your users are already logged in.**
+                * A WebMCP tool runs in their tab, on your site, with the session they already have.
+                * Moreover, the browser _natively_ provides a lot of advantages for tool execution: **sandboxing**, **isolation**, **permissions**, and more!
 
-              2. Agent tool calling needs authentication, trust, permissions, isolation.
-                * Alex Nahas, who runs MCP-B: there's already a <u>battle-tested execution environment</u> for all of that.
-                  It's **A BROWSER**. "A browser tab is the most well tested sandbox in existence."
-                * So the browser does the hard parts. You add tools to the app you already have.
+              3. **And it's a good bet to start on now.**
+                * You can get started easily.
+                * Your tools are the functions your UI already calls, so there's no new server to stand up.
+                * WebMCP is rising and gaining momentum with agents and with browser support.
 
-              3. A good bet to start on now:
-                * Your tools reuse the frontend code your UI already calls. You're hooked up quickly.
-                * More and more agents and websites support it. A good bandwagon to be on.
+              ***
+
+              🔀 ... so who calls these tools, and from where?
             `}
           />
           <${CallsSlide}
@@ -702,6 +701,8 @@
               ***
 
               In **three steps**, with the <u>WebMCP bridge</u> libraries from **MCP-B**, Alex Nahas' project:
+              <!-- Source: https://nekuda.substack.com/p/the-next-steps-on-the-web-and-webmcp, under "Sandboxing" -->
+              * As Alex puts it, "A browser tab is the most well tested sandbox in existence."
               * First, an **embed** in the page you saw opens its tools to a WebSocket relay.
                 * PAGE: We'll use my actual running Chrome tab here! Maybe I've logged in, maybe
                   I've got all my customizations.
@@ -826,7 +827,7 @@
               🔀 ... so why run AI in the <u>browser</u> at all?
             `}
           />
-          <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 2 })}>
+          <${MarkdownSlideSet} ...${mdSlideProps({ chapter: 2, animateListItems: true })}>
             ${`
               ---
               # Why web AI?
@@ -835,7 +836,7 @@
               * **Offline**: works with no network, after the download.
               * **Latency**: no round trip to a server.
               * **Cost**: the user's GPU, not your inference bill.
-              * **Hardware & models**: WebGPU and smaller, better models
+              * **It's the future**: WebGPU and smaller, better models
 
               Notes: \
                 🔀 ... so what pieces do we have to work with?
