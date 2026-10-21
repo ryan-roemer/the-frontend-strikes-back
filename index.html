@@ -434,6 +434,7 @@
                     * You have a **new compute platform**, your users' browsers, on their own computers.
                       * Parts of the AI stack, maybe all of it, now fit in the browser: embeddings,
                         vector search, inference and more.
+                      * Offload it from your backend, for speed, latency, privacy.
 
                   * **My goals**:
                     1. Give a very **high level** view of what's possible.
@@ -537,6 +538,8 @@
               1. Agents already use your site, just poorly: Playwright, CDP, screen scraping **UIs meant for humans**.
                 * WebMCP gives them an agent-first interface, close to the MCP they know.
 
+              <!-- TODO: HERE -- REWORK BULLETS 2 & 3 -->
+
               2. Agent tool calling needs authentication, trust, permissions, isolation.
                 * Alex Nahas, who runs MCP-B: there's already a <u>battle-tested execution environment</u> for all of that.
                   It's **A BROWSER**. "A browser tab is the most well tested sandbox in existence."
@@ -562,13 +565,14 @@
 
               * **Whose browser?**: (On the top of these tiles)
                 * Does the agent have its **own browser** → ChatGPT Desktop _and most desktop agents_ these days
+                  * Easier, but less flexible.
                 * Or **your browser**? → This offers much more flexibility.
                   * This presentation is in a Chrome tab. I like my browser. Can I use my own Chrome?
+                  * All your preferences, and you're already logged in.
 
               ***
 
-              🔀 ... first, an agent that speaks WebMCP <u>natively</u>, in <u>its own browser</u>, on a <u>real website</u>:
-              ChatGPT Desktop, shopping Reebok.com.
+              🔀 ... first, an agent that speaks WebMCP <u>natively</u>, in <u>its own browser</u>, on a <u>real website</u>
             `}
           />
           <${DemoSlide}
@@ -583,9 +587,8 @@
               "<strong>Shopify</strong> ships WebMCP tools on every Liquid storefront.",
             ]}
             notes=${`
-              * We'll use <u>ChatGPT Desktop</u>'s internal browser that can talk <u>directly</u> to WebMCP-enabled pages.
-              * And for our web page, we'll use <u>Reebok.com</u>
-                * ... which has WebMCP tools that every Shopify Liquid storefront has!
+              * <u>ChatGPT Desktop</u> has its own browser, and it calls WebMCP tools <u>directly</u>.
+              * <u>Reebok.com</u> is a Shopify Liquid storefront, and every one of those ships WebMCP tools.
                 * TOOL EXPLORER (extension): a whole bunch of WebMCP tools.
               * VIDEO (slow live): tools listed, then a men's running shoe in size 10.5, only WebMCP tools.
                 * Tool calls under the hood, and they update the UI. Found the Floatzig 2.
@@ -596,7 +599,7 @@
 
               ***
 
-              🔀 ... OK, so let's do it ourselves!
+              🔀 ... so that's somebody else's work.
 
               How do we hook WebMCP up to <u>our</u> apps? Let's look at the <u>API</u>.
             `}
@@ -712,7 +715,8 @@
                 * Narrative answer, front-end tips, citations at the end. It all just works.
               * An arbitrary site, some WebMCP tools, and Claude Desktop calls them like a
                 normal MCP server. You can do it today, even in your favorite agent tool.
-              * I'm hand-waving through some safety stuff here. We'll get to that in a moment.
+              * There's some security stuff I'm hand-waving through here. Doing this for real,
+                you'd want to pay attention to it.
 
               ***
 
@@ -788,6 +792,8 @@
                 has hints for how a tool can be used safely: read-only, untrusted,
                 consequential. A consequential action? Flag it to the agent. Some of
                 my demos do very unsafe things.
+                * What you expose gives a lot of power to agents. That's good, but
+                  potentially dangerous.
               * **Keep up: it moves wildly fast.** The spec changed direction last week,
                 and so did this talk. It's a whirlwind. Chrome's best practices guide,
                 the early preview program, the community group: links on the slide.
@@ -800,7 +806,8 @@
               * It uses Spectacle, open source that Nearform maintains
               * Could I hook up navigating the deck, reading it, even changing slides,
                 as WebMCP tools? Yes I can, because I did.
-              * Got the deck open? Go use WebMCP to do deck stuff.
+              * Got the deck open? Go use WebMCP to do deck stuff, like getting a slide's
+                contents as JSON.
 
               ***
 
@@ -1009,6 +1016,8 @@
             notes=${`
               * My five favorite web AI inference runtimes right now, each with its own flair.
                 * The details are in my write-up from two weeks ago: the link under the table.
+                * And the demo link: any of the five, with lots of controls, tunings, and
+                  models to pick from. Try it after the talk.
 
               ***
 
@@ -1022,12 +1031,7 @@
                 models, mostly Gemma.
               * Columns: some call tools natively, some run on my aging
                 phone (hold it up), varying context. Most of it pretty small.
-
-              ***
-
-              * DEMO (the link, bottom right): all five in one app, inference and tool calling.
-                * Same question, "What is bikeshedding?", on wllama instead of the Prompt API.
-                * A similar answer. Go play with it yourself.
+                * Over time, I'd expect every phone to run web inference. Mine's not quite there.
 
               ***
 
@@ -1098,10 +1102,12 @@
                 constrained, so spend the time up front.
                 * You won't know how well it works until you try it. Not like hooking up Opus
                   and expecting everything to work.
+                * Do the work, and you can often solve a real business problem purely with web AI.
               4. **High-powered evals.** The one place the browser's limits don't apply.
                 * Prompt to model to result: drive it with automation, Playwright, CDP, CI/CD.
-                * The judge can be a full-powered frontier model, covering every scenario
-                  your app needs. Hook up Fable, Mythos. Go to town!
+                * The escape valve: real cloud models. The judge can be a full-powered frontier
+                  model, covering every scenario your app needs. Hook up Fable, Mythos. Go to town!
+                * The one time you don't have to be in the web.
               * ... that's our basic web AI tour!
 
               ***
