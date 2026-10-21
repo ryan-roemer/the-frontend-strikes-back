@@ -1102,6 +1102,41 @@ const EDIT_TOOLS = [
           node.text.toLowerCase().includes(needle.toLowerCase()),
         );
 
+        // THE WORDING IT USED TO HAVE. Every slide header and the outline keep a slide's
+        // AUTHORED title, so after "Replace this heading with …" landed, the model was
+        // still being shown `title="The simplest way to try web AI inference"` -- and asked
+        // to replace the heading again, it quoted that, and got `Nothing in range contains
+        // …`, a refusal naming no way forward about a heading it could see. A `find` that is
+        // exactly the authored wording of ONE node in range that has since been edited can
+        // only mean that node. With new text, rewrite it, as the `whole` branch above does;
+        // with none, say what it reads now and how to address it.
+        if (!elsewhere.length) {
+          const quoted = needle.replace(/\s+/g, " ").trim().toLowerCase();
+          const edited = new Set(
+            currentNodes()
+              .filter((node) => node.edited)
+              .map((node) => node.id),
+          );
+          const renamed = nodeIndex().filter(
+            (node) =>
+              ids.includes(node.id) &&
+              edited.has(node.id) &&
+              node.text.replace(/\s+/g, " ").trim().toLowerCase() === quoted,
+          );
+          if (renamed.length === 1) {
+            const [node] = currentNodes().filter(
+              (each) => each.id === renamed[0].id,
+            );
+            if (value.trim()) {
+              return applyTo(node, (each) => setText(each.id, value));
+            }
+            return fail(
+              `"${needle}" was already changed by an earlier edit, and is now ${echo(node.id)}. To change it again, call edit_text with target: "${node.id}"; to take it off the slide, style it \`display: none\`.`,
+              { applied: false, retry: true },
+            );
+          }
+        }
+
         // SCOPED TOO NARROWLY. The phrase is on the deck, just not inside the node the
         // call named. `edit_text({ target: "code", find: "JavaScript" })` on slide 11 is
         // the recorded case: `target` resolved -- to the code pane, whose node text is the

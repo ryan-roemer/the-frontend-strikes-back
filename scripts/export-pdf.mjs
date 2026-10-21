@@ -45,6 +45,25 @@ const MEASURE = `(async () => {
   };
 })()`;
 
+// Chrome rounds the paper width up to its own grid: a 1366px slide asks for 1024.5pt
+// and gets a 1025.04pt page, with the slide clipped to its 1024.5pt and the rest left
+// unpainted, a white line down every right edge. (Heights come out exact, 768px being a
+// whole 8in.) No CSS reaches that strip, and a narrower paper makes Chrome shrink the
+// slide to fit instead, so each page's MediaBox is cut back to the slide's width here.
+// The replacement is padded to the same byte length, which keeps the xref offsets right.
+const trimPages = (pdf, widthPt) => {
+  const text = pdf.toString("latin1");
+  const trimmed = text.replace(
+    /\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/g,
+    (box, width, height) => {
+      if (Number(width) <= widthPt) return box;
+      const fixed = `/MediaBox [0 0 ${widthPt} ${height}]`;
+      return fixed.length <= box.length ? fixed.padEnd(box.length, " ") : box;
+    },
+  );
+  return Buffer.from(trimmed, "latin1");
+};
+
 const waitForSlides = async (session) => {
   const deadline = Date.now() + READY_MS;
   let last = null;
@@ -111,7 +130,10 @@ try {
       },
       PRINT_MS,
     );
-    await writeFile(OUT, Buffer.from(data, "base64"));
+    await writeFile(
+      OUT,
+      trimPages(Buffer.from(data, "base64"), (slides.width * 72) / 96),
+    );
     console.log(
       `wrote ${OUT.pathname} (${slides.count} slides, ${slides.width}x${slides.height}) from ${deck.href}`,
     );

@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "at": "The simplest way to try web AI inference",
+    "kind": "recorded",
+    "about": "A `find` that quotes a node's AUTHORED wording after an earlier edit replaced it. The slide header and the outline keep the authored title, so that is the wording the model has to quote; it can only mean the one node that used to say it, so with new text it rewrites that node.",
+    "recorded-outcome": "On \"The simplest way to try web AI inference\" (heading `The simplest way to try web <u>AI inference</u>`), asked to \"Replace this heading with \\\"Actually, the DECK has a chat too!\\\" with an emoji or two\", Gemma's whole-heading `find` worked. Then, asked to \"Replace the heading now with \\\"MORE AI RUNTIMES\\\"\", it sent the same `find` again: the slide block it was shown still read `title=\"The simplest way to try web AI inference\"` over `subtitle: Actually, the DECK has a chat too! 💬`. The deck answered `Nothing in range contains …`, a refusal naming no way forward, and the model told the user it could not find the heading. Both replies replayed without `slide`, which a bare `{at}` cannot express inside a reply; the wording is on no other slide, so the deck-wide find lands on the same node.",
+    "guards": "the `renamed` branch in edit_text's not-found path (`chat/mcp/tools.js`). Drop it and turn 1 is refused with `Nothing in range contains`, and the slide is left reading the turn-0 wording. Turn 0 is guarded by `whole-styled-heading-by-find.json`; its receipt line here also pins that the turn-1 receipt does not repeat \"styling is gone\" (`mixed` in `setText` counting only runs that still hold text)."
+  },
+  "turns": [
+    {
+      "ask": "Replace this heading with \"Actually, the DECK has a chat too!\" with an emoji or two",
+      "replies": [
+        "```tool edit_text\n{\"find\":\"The simplest way to try web AI inference\",\"text\":\"Actually, the DECK has a chat too! 💬\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "find": "The simplest way to try web AI inference",
+              "text": "Actually, the DECK has a chat too! 💬"
+            }
+          }
+        ],
+        "slides": {
+          "{at}": [
+            "...",
+            "subtitle: Actually, the DECK has a chat too! 💬",
+            "..."
+          ]
+        }
+      }
+    },
+    {
+      "ask": "Replace the heading now with \"MORE AI RUNTIMES\"",
+      "replies": [
+        "```tool edit_text\n{\"find\":\"The simplest way to try web AI inference\",\"text\":\"MORE AI RUNTIMES\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "find": "The simplest way to try web AI inference",
+              "text": "MORE AI RUNTIMES"
+            }
+          }
+        ],
+        "receipt": [
+          "\"Actually, the DECK has a chat too! 💬\" → \"MORE AI RUNTIMES\"",
+          "!styling is gone"
+        ],
+        "slides": {
+          "{at}": ["...", "subtitle: MORE AI RUNTIMES", "..."]
+        }
+      }
+    }
+  ]
+}

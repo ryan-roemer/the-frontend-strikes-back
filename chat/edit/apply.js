@@ -209,7 +209,10 @@ const planText = (id, text) => {
   if (!runs.length) return fail(`${id} has no editable text run.`);
 
   const mainIndex = mainTextValue(found.el)?.index ?? runs[0].index;
-  const mixed = runs.length > 1;
+  // RUNS THAT STILL SAY SOMETHING. A rewrite blanks every run but one, so a node already
+  // rewritten once still has its old styled runs, empty -- counting those told the second
+  // rename that styling "is gone now", which the first one had already said and done.
+  const mixed = runs.filter((run) => run.value.trim()).length > 1;
 
   // The baseline is each TEXT NODE's own value, not the harvested node text -- they
   // differ wherever there is inline markup.
