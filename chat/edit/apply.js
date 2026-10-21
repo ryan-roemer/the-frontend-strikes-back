@@ -438,15 +438,25 @@ export const replaceText = (
     // -- so the line quoted back exactly as `get_slide` printed it matched nothing here and
     // got `Nothing in range contains …`, the refusal that names no way forward.
     const quoted = normalize(needle);
-    const spanning = ids.find((id) => {
+    const fold = (text) => (matchCase ? text : text.toLowerCase());
+    const wording = (id) => {
       const found = target(id);
-      if (found.error) return false;
-      const whole = normalize(found.el.textContent ?? "");
-      return matchCase
-        ? whole.includes(quoted)
-        : whole.toLowerCase().includes(quoted.toLowerCase());
-    });
+      return found.error ? null : normalize(found.el.textContent ?? "");
+    };
+    const spanning = ids.find((id) =>
+      fold(wording(id) ?? "").includes(fold(quoted)),
+    );
     if (spanning) {
+      // THE PHRASE IS THE WHOLE NODE, so there is nothing to keep around it. Asked to
+      // change the heading `Tips for web <u>AI inference</u>` to "🚀 TIME FOR AGENTS",
+      // the model quoted the whole heading as `find` -- three times across three turns,
+      // with this refusal's `target: "19.1"` advice and a `retry` in between each. A
+      // replace that covers every character of a node IS a whole-node rewrite, so the
+      // caller is told which node and does that instead. Only when exactly one node
+      // matches whole: two would be a choice this layer should not make.
+      const whole = quoted
+        ? ids.filter((id) => fold(wording(id) ?? "") === fold(quoted))
+        : [];
       return {
         ...fail(
           `"${needle}" is on the slide but spans several separately-styled pieces of text, so it cannot be replaced in one go. ` +
@@ -456,6 +466,7 @@ export const replaceText = (
         retry: true,
         // Found, not missing -- so callers must not offer "it is elsewhere" advice.
         reason: "refused",
+        ...(whole.length === 1 && { whole: whole[0] }),
       };
     }
 

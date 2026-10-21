@@ -1073,6 +1073,17 @@ const EDIT_TOOLS = [
       // can offer a reliable fix for -- a phrase spanning several styled runs, where a
       // single identifier does work -- and only that layer knows which refusal that is.
       if (!result.ok) {
+        // THE PHRASE WAS A WHOLE NODE'S WORDING, spread over several styled runs -- the
+        // heading `Tips for web <u>AI inference</u>`, quoted entire. `replaceText` cannot
+        // do that run by run, but the call can only mean "say this instead", so do the
+        // rewrite rather than refuse it: the same reasoning as the address-as-`find`
+        // rewrite below. Not with empty text, which still gets the refusal -- blanking a
+        // heading is not what "remove it" meant.
+        if (result.whole && value.trim()) {
+          const node = currentNodes().find((each) => each.id === result.whole);
+          if (node) return applyTo(node, (each) => setText(each.id, value));
+        }
+
         // BOTH DIAGNOSES BELOW ASSUME THE PHRASE WAS NOT FOUND, so neither may run when
         // `replaceText` found it and refused the replacement -- a too-long result, or one
         // spanning several styled runs. Telling the model `"One API" is not in slide 9,

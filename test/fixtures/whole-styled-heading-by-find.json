@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "at": "Tips for web AI inference",
+    "kind": "recorded",
+    "about": "A `find` that quotes a node's ENTIRE wording, where that wording spans several styled runs (the heading `Tips for web <u>AI inference</u>`), with new text. It can only mean \"say this instead\", so it rewrites the node in one call rather than refusing.",
+    "recorded-outcome": "Asked to \"Change the slide heading to \\\"TIME FOR AGENTS\\\" with a rocket emoji\", Gemma sent edit_text({find: \"Tips for web AI inference\", slide: 19, text: \"🚀 TIME FOR AGENTS\"}). `replaceText` refused it as spanning several separately-styled pieces, naming `target: \"19.1\" and no find` with `retry: true`; the model resent the identical call, then told the user it couldn't. Asked to \"put both parts together in a single string\" it sent the same call a third time, and asked \"can you do it a different way?\" it asked the user what to replace. The refusal held the answer the whole time; the model never took it. Replayed without `slide`, which a bare `{at}` cannot express inside a reply and which changes nothing here: the heading wording is on no other slide, so the deck-wide find matches the same one node.",
+    "guards": "two things. (1) `whole` in `replaceText`'s spanning branch (`chat/edit/apply.js`): drop it and the call is refused, the title is unchanged, and the turn reports no line matching `title: 🚀 TIME FOR AGENTS`. (2) the `result.whole` branch at the top of edit_text's refusal handling (`chat/mcp/tools.js`): drop it and the same. A partial phrase across runs (`web AI`) is still refused; that is unchanged. If slide {at} ever loses its `<u>`, this passes for the plain reason and stops guarding anything."
+  },
+  "turns": [
+    {
+      "ask": "Change the slide heading to \"TIME FOR AGENTS\" with a rocket emoji",
+      "replies": [
+        "```tool edit_text\n{\"find\":\"Tips for web AI inference\",\"text\":\"🚀 TIME FOR AGENTS\"}\n```"
+      ],
+      "expect": {
+        "calls": [
+          {
+            "name": "edit_text",
+            "args": {
+              "find": "Tips for web AI inference",
+              "text": "🚀 TIME FOR AGENTS"
+            }
+          }
+        ],
+        "receipt": ["styling is gone now that the whole line was replaced"],
+        "slides": {
+          "{at}": ["...", "title: 🚀 TIME FOR AGENTS", "..."]
+        }
+      }
+    }
+  ]
+}

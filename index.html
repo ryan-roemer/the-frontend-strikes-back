@@ -468,7 +468,7 @@
               {
                 n: 1,
                 text: "MCP tools, served by your web page",
-                detail: "An emerging W3C Community Group standard.",
+                detail: "A proposed W3C standard.",
               },
               {
                 n: 2,
@@ -519,9 +519,9 @@
               {
                 n: 2,
                 text: "Your users are already logged in",
-                detail: html`Tools run in their tab, with the
+                detail: html`Tools run in their tab, with the${" "}
                   <strong>session</strong> they already have. Browser takes care
-                  of the hard parts: <strong>sandboxing</strong>,
+                  of the hard parts: <strong>sandboxing</strong>,${" "}
                   <strong>isolation</strong>, <strong>permissions</strong>, etc.`,
               },
               {
@@ -535,14 +535,15 @@
               1. Agents already use your site, just poorly: Playwright, CDP, screen scraping **UIs meant for humans**.
                 * WebMCP gives them an agent-first interface, close to the MCP they know.
 
-              2. **Your users are already logged in.**
+              2. For complicated **authentication** or **application state** agent interactions, your users are already **logged in**.
                 * A WebMCP tool runs in their tab, on your site, with the session they already have.
                 * Moreover, the browser _natively_ provides a lot of advantages for tool execution: **sandboxing**, **isolation**, **permissions**, and more!
+                * The browser is a great place to run tools!
 
               3. **And it's a good bet to start on now.**
                 * You can get started easily.
                 * Your tools are the functions your UI already calls, so there's no new server to stand up.
-                * WebMCP is rising and gaining momentum with agents and with browser support.
+                * WebMCP is rising and gaining momentum in the ecosystem.
 
               ***
 
@@ -557,17 +558,17 @@
 
               ***
 
-              * **The agent**: (On the left of the tiles)
-                * Does it natively call WebMCP? → ChatGPT Desktop
-                * Or do you have to configure it yourself? → Claude Desktop
-                  * We'll show how to bridge tools like Claude to any WebMCP browser page.
+              **The agent**: (On the left of the tiles)
+              * Does it natively call WebMCP? → ChatGPT Desktop
+              * Or do you have to configure it yourself? → Claude Desktop
+                * We'll show how to bridge tools like Claude to any WebMCP browser page.
 
-              * **Whose browser?**: (On the top of these tiles)
-                * Does the agent have its **own browser** → ChatGPT Desktop _and most desktop agents_ these days
-                  * Easier, but less flexible.
-                * Or **your browser**? → This offers much more flexibility.
-                  * This presentation is in a Chrome tab. I like my browser. Can I use my own Chrome?
-                  * All your preferences, and you're already logged in.
+              **Whose browser?**: (On the top of these tiles)
+              * Does the agent have its **own browser** → ChatGPT Desktop _and most desktop agents_ these days
+                * Easier, but less flexible.
+              * Or **your browser**? → This offers much more flexibility.
+                * This presentation is in a Chrome tab. I like my browser. Can I use my own Chrome?
+                * All your preferences, and you're already logged in.
 
               ***
 
