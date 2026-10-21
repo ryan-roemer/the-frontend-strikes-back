@@ -1161,11 +1161,18 @@ body::after {
   max-width: 54%;
 }
 
+/*
+ * Centered by stretching top to bottom, not `top: 50%` and a -50% translate:
+ * printing paginates the untransformed box, which then starts mid-slide and
+ * runs past the page break, so the grid's lower row splits onto the next page.
+ */
 #root .demo__calls {
   position: absolute;
-  top: 50%;
+  top: 0;
+  bottom: 0;
   right: 40px;
-  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
 }
 
 /* The heads are one line each, short on a demo slide so they fit a square column. */
@@ -1820,6 +1827,8 @@ body::after {
   #root .piece-map,
   #root .call-grid,
   #root .demo__calls,
+  #root .demo__calls-text,
+  #root .demo__calls-text > *,
   #root .takeaway-grid,
   #root .takeaway__body,
   #root .matrix,
