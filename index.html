@@ -587,6 +587,8 @@
               "<strong>Shopify</strong> ships WebMCP tools on every Liquid storefront.",
             ]}
             notes=${`
+              NOTE - REFER TO TILES (Agent native WebMCP, Agent's Browser)
+
               * <u>ChatGPT Desktop</u> has its own browser, and it calls WebMCP tools <u>directly</u>.
               * <u>Reebok.com</u> is a Shopify Liquid storefront, and every one of those ships WebMCP tools.
                 * TOOL EXPLORER (extension): a whole bunch of WebMCP tools.
@@ -690,8 +692,9 @@
             url="nearform.github.io/vector-search-web"
             call="Claude + my Chrome"
             points=${[
-              "Claude connects to a WebMCP <strong>relay server</strong> (<a href='https://docs.mcp-b.ai/packages/webmcp-local-relay/reference'><code>@mcp-b/webmcp-local-relay</code></a>).",
-              "Open a page with WebMCP tools and a relay <strong>embed</strong>.",
+              "<a href='https://docs.mcp-b.ai/packages/webmcp-local-relay/reference'><code>@mcp-b/webmcp-local-relay</code></a>",
+              "<u>My page</u>: WebMCP tools + a <strong>relay <u>embed</u></strong>.",
+              "<u>Claude</u>: MCP connection to <strong>relay <u>server</u></strong>.",
             ]}
             notes=${`
               In this demo, we're going to allow **<u>Claude Desktop</u>** to call WebMCP despite lacking native functionality.
@@ -709,13 +712,10 @@
 
               * CLAUDE DESKTOP: tools already listed: the article search page's, like any MCP server's.
               * QUERY: \`Front-end bundle size recommendations for webpack, with a citation list\`
-                * Same knowledge search, and Opus wraps it all up in a narrative.
-                * It asks permission for each tool call, as it should. Allow, twice. WebMCP calls into my Chrome.
-                * Drill in: the same JSON dumps as before.
-                * Narrative answer, front-end tips, citations at the end. It all just works.
-              * An arbitrary site, some WebMCP tools, and Claude Desktop calls them like a
-                normal MCP server. You can do it today, even in your favorite agent tool.
-              * There's some security stuff I'm hand-waving through here. Doing this for real,
+              * TAKEAWAY:
+                * We have an agent tool calling normal MCP and bridging to WebMCP in an app in <u>my Chrome browser</u.
+                * That means we can have agents try WebMCP right now, even before native support!
+              * There's some **security stuff** I'm hand-waving through here. Doing this for real,
                 you'd want to pay attention to it.
 
               ***
@@ -1090,9 +1090,9 @@
               },
               {
                 n: 4,
-                text: "High-powered evals",
+                text: "Don't forget evals",
                 detail:
-                  "Frontier model as the judge. Tune prompts for your domain. Run in a real browser over Playwright or CDP.",
+                  "Run app AI workflows in a real browser over Playwright or CDP. Test comprehensively.",
               },
             ]}
             notes=${`
@@ -1103,11 +1103,10 @@
                 * You won't know how well it works until you try it. Not like hooking up Opus
                   and expecting everything to work.
                 * Do the work, and you can often solve a real business problem purely with web AI.
-              4. **High-powered evals.** The one place the browser's limits don't apply.
-                * Prompt to model to result: drive it with automation, Playwright, CDP, CI/CD.
-                * The escape valve: real cloud models. The judge can be a full-powered frontier
-                  model, covering every scenario your app needs. Hook up Fable, Mythos. Go to town!
-                * The one time you don't have to be in the web.
+              4. **Don't forget evals.**
+                * The constraints of running quality web AI means you need **real, comprehensive eval suites**.
+                * Bridge a **normal cloud-based evals framework** to your browser prompt-to-inference app pipeline using browser automation.
+                * And you can finally use big frontier models as the evaluators. Go to town!
               * ... that's our basic web AI tour!
 
               ***

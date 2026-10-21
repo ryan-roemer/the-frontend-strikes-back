@@ -108,7 +108,7 @@ export const AUDIENCES = [
     key: "frontend",
     icon: "browser",
     who: "If you build frontends",
-    claim: "Agents are increasingly your users.",
+    claim: "Agents are increasingly your web app users.",
     action: "Register a tool on an existing app and consume it.",
     rollUp: [1],
   },
@@ -116,7 +116,7 @@ export const AUDIENCES = [
     key: "ai",
     icon: "brain",
     who: "If you build AI systems",
-    claim: "An agent, or parts of one, now fits in a tab.",
+    claim: "You can offload AI work to your user's browser",
     action:
       "Move one AI piece into the tab: a classifier, decider, vector search, or a small model.",
     rollUp: [2, 3],

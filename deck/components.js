@@ -967,6 +967,10 @@ export const TakeawayCard = ({
  * them. Nothing in the deck does at the moment -- the roadmap and the recap that
  * needed it are gone -- but the prop stays because the closing audience slides
  * still roll several claims together and a future summary slide is one line away.
+ *
+ * `appear` steps each card in on its own click, like `AudienceCards`. The
+ * `Appear` wrapper becomes the grid item; `?animate=false` and reduced motion
+ * still turn it off deck-wide through `AppearComponent`.
  */
 export const TakeawayList = ({
   items = [],
@@ -974,6 +978,7 @@ export const TakeawayList = ({
   columns = 1,
   compact = false,
   solo = false,
+  appear = false,
 }) => html`
   <${Grid}
     className="takeaway-grid"
@@ -982,13 +987,14 @@ export const TakeawayList = ({
   >
     ${items.map(
       (item) =>
-        html`<${TakeawayCard}
-          key=${item.n}
-          takeaway=${item}
-          detail=${detail}
-          compact=${compact}
-          solo=${solo}
-        />`,
+        html`<${appear ? AppearComponent : Fragment} key=${item.n}>
+          <${TakeawayCard}
+            takeaway=${item}
+            detail=${detail}
+            compact=${compact}
+            solo=${solo}
+          />
+        <//>`,
     )}
   </${Grid}>
 `;
@@ -1004,6 +1010,9 @@ export const TakeawayList = ({
  * short strip glued below the title with 400px of empty slide beneath it -- the
  * layout reads as a list that lost its other rows, which is precisely the
  * impression a verdict slide must not give.
+ *
+ * The cards step in one per click by default, so each tip lands before the next
+ * is on screen. Pass `appear=${false}` to show them all at once.
  */
 export const TakeawaySlide = ({
   chapter,
@@ -1012,6 +1021,7 @@ export const TakeawaySlide = ({
   detail = true,
   columns = 1,
   compact = false,
+  appear = true,
   notes,
 }) => {
   const solo = items.length === 1 && !compact;
@@ -1022,6 +1032,7 @@ export const TakeawaySlide = ({
     columns=${columns}
     compact=${compact}
     solo=${solo}
+    appear=${appear}
   />`;
 
   return html`
