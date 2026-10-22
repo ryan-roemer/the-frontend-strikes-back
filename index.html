@@ -406,7 +406,8 @@
 
                   **Two** things stand out:
                   * **Interface:** with WebMCP, tools your agents call to do useful work.
-                  * **Runtime** in its own right: embeddings, vector search, inference.
+                  * **Runtime** in its own right: the browser has evolved into a full-bore AI
+                    runtime. Embeddings, vector search, inference.
                     * Parts, maybe even all, of an agentic stack.
                 `}
               </${Markdown}>
@@ -432,13 +433,17 @@
 
                   * <u>AI application and system builders</u>:
                     * You have a **new compute platform**, your users' browsers, on their own computers.
+                      * An enormous amount of GPUs, for free, out there in the wild.
                       * Parts of the AI stack, maybe all of it, now fit in the browser: embeddings,
                         vector search, inference and more.
                       * Offload it from your backend, for speed, latency, privacy.
+                      * And browsers are great because you can just ship it. No other downloads.
 
                   * **My goals**:
                     1. Give a very **high level** view of what's possible.
                       * This is **not** a deep dive talk. It's a survey.
+                      * There are more details in the demos and their repositories I've linked in this presentation.
+                      * ...and please find me in the hall to talk any more details too!
                     2. My hope is you find **something new** to play with after this talk.
 
                   ***
@@ -493,6 +498,7 @@
                 * Declarative HTML forms: also in the works.
               * In browsers now: origin trial in Chrome and Edge. Go play with it on
                 your machine, right now, maybe with some flags.
+                * Plus a growing list of agent clients. We'll try two of them shortly.
               * Andrew already mentioned some places it's already being adopted, and
                 we'll try out some soon!
 
@@ -538,9 +544,11 @@
               2. For complicated **authentication** or **application state** agent interactions, your users are already **logged in**.
                 * A WebMCP tool runs in their tab, on your site, with the session they already have.
                 * Moreover, the browser _natively_ provides a lot of advantages for tool execution: **sandboxing**, **isolation**, **permissions**, and more!
-                * The browser is a great place to run tools!
+                * The browser is a great place to run tools! A well-known, battle-tested execution
+                  environment for agents.
 
               3. **And it's a good bet to start on now.**
+                * Websites, as well as agents, are getting more WebMCP support.
                 * You can get started easily.
                 * Your tools are the functions your UI already calls, so there's no new server to stand up.
                 * WebMCP is rising and gaining momentum in the ecosystem.
@@ -561,6 +569,7 @@
               **The agent**: (On the left of the tiles)
               * Does it natively call WebMCP? → ChatGPT Desktop
               * Or do you have to configure it yourself? → Claude Desktop, for now
+                * I love it, but it doesn't natively support WebMCP.
                 * We'll show how to bridge tools like Claude to any WebMCP browser page.
 
               **Whose browser?**: (On the top of these tiles)
@@ -572,7 +581,7 @@
 
               ***
 
-              🔀 ... first, an agent that speaks WebMCP <u>natively</u>, in <u>its own browser</u>, on a <u>real website</u>
+              🔀 ... first demo, the upper left-hand corner of the tiles: an agent that speaks WebMCP <u>natively</u>, in <u>its own browser</u>, on a <u>real website</u>
             `}
           />
           <${DemoSlide}
@@ -599,10 +608,11 @@
                 **real agent** on a **real web app**, right now.
                 * I could make commerce decisions through an agent instead of me.
                 * In that sense, WebMCP is already here. And it's getting bigger.
+                * You just might not be noticing it, or using an agent that's ready for it yet.
 
               ***
 
-              🔀 ... so that's somebody else's work.
+              🔀 ... so that's somebody else's work. Not every site is on Shopify and gets it for free.
 
               How do we hook WebMCP up to <u>our</u> apps? Let's look at the <u>API</u>.
             `}
@@ -654,7 +664,7 @@
               * PAGE: A public **article search** (not an intranet one), over my company's **~950 blog posts**
                 * I've written a lot on bundle sizes and webpack. Too much. Let's query it.
                 * QUERY: \`reducing bundle size with webpack\`
-              * TOOL: that **same code**, now a <u>WebMCP tool</u>.
+              * TOOL: that **same code**, now a <u>WebMCP tool</u>, in a little modal so you can see it.
                 * A few more parameters than the example. Same query, execute: structured
                   results, more or less what the UI showed.
 
@@ -703,7 +713,8 @@
 
               ***
 
-              In **three steps**, with the <u>WebMCP bridge</u> libraries from **MCP-B**, Alex Nahas' project:
+              In **three steps**, with the <u>WebMCP bridge</u> libraries from **MCP-B**, Alex Nahas' project.
+              He's one of the original big builders in this space.
               <!-- Source: https://nekuda.substack.com/p/the-next-steps-on-the-web-and-webmcp, under "Sandboxing" -->
               * As Alex puts it, "A browser tab is the most well tested sandbox in existence."
               * First, an **embed** in the page you saw opens its tools to a WebSocket relay.
@@ -714,15 +725,17 @@
 
               ---
 
-              * CLAUDE DESKTOP: tools already listed: the article search page's, like any MCP server's.
+              * VIDEO (for speed): tools already listed: the article search page's, like any MCP server's.
+                Same knowledge search as the modal we just saw.
               * QUERY: \`Front-end bundle size recommendations for webpack, with a citation list\`
-              * It asks permission. Good: we want permission gating on potentially
-                destructive actions. This one's read-only.
-              * Opus turns the results into a guide, with citations.
+              * It asks permission, as it should when invoking an untrusted MCP source. We want
+                permission gating on potentially destructive actions. This one's read-only.
+              * Opus goes to town: the results become a guide, with citations.
               * TAKEAWAY:
                 * We have an agent tool calling normal MCP and bridging to WebMCP in an app in <u>my Chrome browser</u.
                 * That means we can have agents try WebMCP right now, even before native support!
-                * Claude Desktop, or any agent client that handles local MCP servers. That's a lot of them.
+                * Any agent that speaks normal MCP, any browser that can talk WebSockets: a wide
+                  world, with a little bit of effort.
               * There's some **security stuff** I'm hand-waving through here. Doing this for real,
                 you'd want to pay attention to it.
 
@@ -799,7 +812,8 @@
               * **Safety features.** You saw those permissions popping up? That's a good
                 thing. Share tools only with origins you trust. The spec
                 has hints for how a tool can be used safely: read-only, untrusted,
-                consequential. A consequential action? Flag it to the agent. Some of
+                consequential. Consequential is the most important one: a tool can do
+                big, bad, good, whatever things. Flag it to the agent. Some of
                 my demos do very unsafe things.
                 * What you expose gives a lot of power to agents. That's good, but
                   potentially dangerous.
@@ -817,6 +831,7 @@
                 as WebMCP tools? Yes I can, because I did.
               * Got the deck open? Go use WebMCP to do deck stuff, like getting a slide's
                 contents as JSON.
+              * The deck is kind of the meta version of this talk.
 
               ***
 
@@ -901,6 +916,7 @@
                 * Embeddings, and vector search using them. Classifiers: here now.
                 * Deciders (the new hot thing), tool calling, language models,
                   fine-tuned models: emerging.
+                * The models for classifiers and deciders are usually pretty small: they fit in a browser.
               * Solid is here now, dashed is emerging, the play icon is in a demo.
                 I'll only demo some today.
 
@@ -925,8 +941,8 @@
                 * This probably isn't a shocking surprise, but it's an entirely frontend app
                 * That does query embeddings _and_ vector search in the browser using the <u>Orama</u> search library.
               * OPEN THE TIMINGS (same search as before):
-                ~25 ms to embed the query, ~5 ms to search. You only get that client side:
-                faster than any network round trip.
+                ~25 ms to embed the query, ~5 ms to search. A ~30 ms similarity search.
+                You only get that client side: go over the network and you blow way past 30 ms.
               * On GitHub, go try it. Precomputed embeddings for all ~950 posts plus the
                 content, one download: 200-800 ms. Big up front, then you're set, even offline.
                 * Not all for free, but for many use cases, especially public data, pretty neat.
@@ -952,6 +968,7 @@
             notes=${`
               * The simplest, fastest way: The <u>Prompt API</u>.
                 * It's already in Chrome and rising quickly in Edge.
+                * An in-browser model that persists: download it once.
                 * NOTE: For those trying this in the audience with those browsers -- you may need some flags. Come chat me up if you can't get it running...
               * Three lines: create the language model, \`prompt\`, ask a question.
               * RUN. QUERY: "What is bikeshedding?" We all know the answer; let's see if the model does.
@@ -1036,12 +1053,20 @@
               * wllama: llama.cpp in WebAssembly. GGUFs off Hugging Face, my go-to
                 for on-device models.
               * Transformers.js: the port of the Python Transformers library. PyTorch
-                models, converted to ONNX.
-              * LiteRT-LM.js: new from Google. Efficient, high-context
+                models, converted to ONNX. Hey, we dovetail with the PyTorch conference.
+              * LiteRT-LM.js: new from Google. Very performant, very fast. Efficient, high-context
                 models, especially Gemma 4.
               * Columns: some call tools natively, some run on my aging
                 phone (hold it up), varying context. Most of it pretty small.
                 * Over time, I'd expect every phone to run web inference. Mine's not quite there.
+
+              ***
+
+              DECK CHAT: I hooked up WebMCP tools to this deck...
+              * Did I also hook up a chat to this deck that can call those tools? Of course I did.
+              * CHAT: \`Change the heading to Deck Inference\`
+              * It called the WebMCP tool in my deck, via Gemma 4 on LiteRT-LM, that last one,
+                and mutated my deck. A live demo of the deck itself!
 
               ***
 
@@ -1107,8 +1132,10 @@
             ]}
             notes=${`
               1. **Model size.** The smallest model that works: faster to download, faster to run.
-              2. **Context size.** Only use what you need: it costs memory, speed, and often quality.
-              3. **Experiment a lot.** Runtimes, models, tuning, configuration. It's tight and
+              2. **Context size.** Only use what you need. Even on models that allow bigger context,
+                it costs memory, speed, and often quality.
+              3. **Experiment a lot.** Five runtimes there, my five favorites, and even more out there.
+                Runtimes, models, tuning, configuration: mix and match. It's tight and
                 constrained, so spend the time up front.
                 * You won't know how well it works until you try it. Not like hooking up Opus
                   and expecting everything to work.
@@ -1117,21 +1144,16 @@
                 * The constraints of running quality web AI means you need **real, comprehensive eval suites**.
                 * Bridge a **normal cloud-based evals framework** to your browser prompt-to-inference app pipeline using browser automation.
                 * Eval the heck out of it: plug one hole, and another one opens up.
+                  Run evals over the whole thing, so when you change something, you don't
+                  break something else.
                 * And you can finally use big frontier models as the evaluators: Fable,
                   Opus, whatever. Unconstrained. Go to town!
+                * You've got to put in the work, far more than with big models.
               * ... that's our basic web AI tour!
 
               ***
 
-              DECK CHAT: next up is web agents, but staying on brand...
-              * My deck has local models, and the WebMCP tools it already has.
-              * Could I hook those local models to those tools?
-              * CHAT: \`Change the slide heading to On to Web Agents\`
-              * It called a tool, and the heading changed. Yay!
-
-              ***
-
-              🔀 ... that's a pretty good segue: can we put <u>all the pieces</u> together?
+              🔀 ... so can we put <u>all the pieces</u> together?
             `}
           />
           ${"" /* --- 03 · Web agents --- */}
@@ -1139,8 +1161,9 @@
             chapter=${chapter(3)}
             notes=${`
               * We've talked about all the pieces. Can we put them together in one
-                full-blown app?
+                full-blown app? A full agentic app, no backend at all.
               * Agents actually in the browser, not just agents calling the browser.
+              * Our third and final section today.
 
               ***
 
@@ -1162,21 +1185,23 @@
               * Four pieces in one app: embeddings, vector search, tool calling,
                 inference.
               * Our app populates a **research notepad** for giving **domain-specific answers**.
+                * The notepad is the context and memory for the agentic app.
               * Three agents on a research task:
                 * Coordinator: decides what to do, gives the answer.
                 * Researcher: researches when it's needed.
                 * Writer: condenses the research into notes.
               * They search the same vector search app over an <u>iframe bridge</u>: WebMCP as
-                the bridge.
+                the bridge. A totally insecure one, but we have it.
               * DEMO: the canned AI native engineering question.
                 * The coordinator kicks off: we need research. A research thread starts:
                   prompts, responses.
                 * Tool calls: the bridged article search over WebMCP, plus local WebMCP tools.
                 * An AI native engineering research summary, then the answer from it.
               * FOLLOW-UP: \`What is SDD?\` What is SDD? Spec-driven development.
-                * The coordinator: no more research needed. Answers from the notepad.
-              * Not the biggest agentic system, but an agentic system making its own
-                decisions: what to hand off, what to answer itself.
+                * The coordinator: enough research already on the notepad, in its memory. No
+                  need to re-invoke anything. Answers from the notepad.
+              * Not the biggest agentic system, but a real one: three agents making decisions
+                in a loop, what to hand off, what to answer itself. Four pieces of AI.
               * Three agents, all in one single, frontend-only app: GitHub Pages, no backend.
 
               ***
@@ -1209,7 +1234,8 @@
               },
             ]}
             notes=${`
-              * It's super early, so it's all rough and ready. Make it up as you go along.
+              * If I'm honest, this is super advanced, and super early. Rough and ready, kind of
+                wonky. Make it up as you go along.
               * **Tools:** give your in-tab models the same WebMCP tools outside agents
                 use. Even if you don't expose WebMCP yet, follow that shape. A good standard
                 to bank on, even internally.
@@ -1218,6 +1244,8 @@
               * **Trade time for context:** no huge frontier context here. Break the task
                 into subtasks: lots of small agents on dedicated tasks, aggregated
                 together, like the web agents demo. A little slower, much more you can do.
+                * Everything in that app, a frontier model could probably do in one shot with a
+                  tool call. Less to play with here, but you can take more steps.
               * **Specific models:** the models per agent don't have to be the same.
                 Fine-tune, post-train: the right model for every unit of useful work,
                 adding up to something pretty powerful.
@@ -1239,12 +1267,14 @@
                   * A long tour, a lot of demos, perhaps too many. Takeaways:
                   * **If you build frontends:** agents are increasingly your users. Get going
                     on WebMCP. Register a single tool on an existing app, consume it, and
-                    see how it goes.
+                    see how hard it actually is.
                   * **If you build AI systems:** a whole new runtime, the browser. If your
-                    team has web apps, move one AI piece into a tab:
+                    team has web apps, move one AI piece into a tab: a small decision point,
+                    or an extra network round trip.
                     * A classifier or decider.
                     * Or just compute the embedding in the frontend (EmbeddingGemma, GTE
                       Small) and save a round trip.
+                    * Go experiment: a whole new playground for cool AI stuff.
                   * We covered a whirlwind. I hope there's a piece you didn't know about,
                     or want to try now.
 
@@ -1281,11 +1311,12 @@
                   * The QR code again: slides, follow-ups, my socials, the demo URLs and source.
                   * Find me in the hall! I've got some t-shirts. Come talk about what you're
                     doing with open source or web AI.
-                  * Thanks again to Andrew for the intro.
-                    * He'll be doing a talk tomorrow at 3:30 on "The Agentic Web for Industry Verticals"
-                  * And a big shout out to the Agentic AI Foundation and AGNTCon
-                    organizers for putting together a wonderful event for us --
-                    it's so much tireless work.
+                  * Thanks again to Andrew for the intro, and all the WebMCP and WebML standards folks.
+                    * He'll be doing a talk tomorrow at 3:30 on "The Agentic Web for Industry Verticals".
+                      Definitely go see it.
+                  * And a big shout out to the Agentic AI Foundation, the AGNTCon
+                    organizers, volunteers and wranglers, for putting together a wonderful
+                    event for us -- it's so much tireless work.
                   * Open for questions. Thank you so much.
                 `}
               </${Markdown}>
