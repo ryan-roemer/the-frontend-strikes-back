@@ -492,7 +492,7 @@
                 * Imperative JavaScript: the focus right now, and today.
                 * Declarative HTML forms: also in the works.
               * In browsers now: origin trial in Chrome and Edge. Go play with it on
-                your machine, right now.
+                your machine, right now, maybe with some flags.
               * Andrew already mentioned some places it's already being adopted, and
                 we'll try out some soon!
 
@@ -560,7 +560,7 @@
 
               **The agent**: (On the left of the tiles)
               * Does it natively call WebMCP? → ChatGPT Desktop
-              * Or do you have to configure it yourself? → Claude Desktop
+              * Or do you have to configure it yourself? → Claude Desktop, for now
                 * We'll show how to bridge tools like Claude to any WebMCP browser page.
 
               **Whose browser?**: (On the top of these tiles)
@@ -597,6 +597,7 @@
                 * Click in to the JSON of the tool calls.
               * TAKEAWAY: Real reebok.com, my real ChatGPT desktop, not tuned or configured: a
                 **real agent** on a **real web app**, right now.
+                * I could make commerce decisions through an agent instead of me.
                 * In that sense, WebMCP is already here. And it's getting bigger.
 
               ***
@@ -645,8 +646,9 @@
               * Lines 2-11: metadata for the agent. Feels like normal MCP, a format
                 agents already know.
                 * Line 2: the name. Lines 3-4: the description. Lines 5–11: input schema.
-              * Line 13: whatever existing or new frontend code we want. Make the app do
-                something, or return information. It's up to us.
+              * Line 13: where the rubber meets the road. Whatever existing or new frontend
+                code we want. Make the app do something, or return information.
+                * As the developer, I decide how much or how little to expose.
               ---
               * A simplification of a **real app** that I wrote.
               * PAGE: A public **article search** (not an intranet one), over my company's **~950 blog posts**
@@ -714,9 +716,13 @@
 
               * CLAUDE DESKTOP: tools already listed: the article search page's, like any MCP server's.
               * QUERY: \`Front-end bundle size recommendations for webpack, with a citation list\`
+              * It asks permission. Good: we want permission gating on potentially
+                destructive actions. This one's read-only.
+              * Opus turns the results into a guide, with citations.
               * TAKEAWAY:
                 * We have an agent tool calling normal MCP and bridging to WebMCP in an app in <u>my Chrome browser</u.
                 * That means we can have agents try WebMCP right now, even before native support!
+                * Claude Desktop, or any agent client that handles local MCP servers. That's a lot of them.
               * There's some **security stuff** I'm hand-waving through here. Doing this for real,
                 you'd want to pay attention to it.
 
@@ -790,7 +796,8 @@
                 can flip back and forth. My search doesn't need to: it's just
                 information retrieval. What's the better experience for your agents
                 and your humans?
-              * **Safety features.** Share tools only with origins you trust. The spec
+              * **Safety features.** You saw those permissions popping up? That's a good
+                thing. Share tools only with origins you trust. The spec
                 has hints for how a tool can be used safely: read-only, untrusted,
                 consequential. A consequential action? Flag it to the agent. Some of
                 my demos do very unsafe things.
@@ -922,6 +929,7 @@
                 faster than any network round trip.
               * On GitHub, go try it. Precomputed embeddings for all ~950 posts plus the
                 content, one download: 200-800 ms. Big up front, then you're set, even offline.
+                * Not all for free, but for many use cases, especially public data, pretty neat.
               * Orama: vector here; lexical (BM25) or hybrid too, all in the browser.
                 * You can shove a lot of data down into your apps: instant access to what's
                   key and topical.
@@ -1030,7 +1038,7 @@
               * Transformers.js: the port of the Python Transformers library. PyTorch
                 models, converted to ONNX.
               * LiteRT-LM.js: new from Google. Efficient, high-context
-                models, mostly Gemma.
+                models, especially Gemma 4.
               * Columns: some call tools natively, some run on my aging
                 phone (hold it up), varying context. Most of it pretty small.
                 * Over time, I'd expect every phone to run web inference. Mine's not quite there.
@@ -1108,7 +1116,9 @@
               4. **Don't forget evals.**
                 * The constraints of running quality web AI means you need **real, comprehensive eval suites**.
                 * Bridge a **normal cloud-based evals framework** to your browser prompt-to-inference app pipeline using browser automation.
-                * And you can finally use big frontier models as the evaluators. Go to town!
+                * Eval the heck out of it: plug one hole, and another one opens up.
+                * And you can finally use big frontier models as the evaluators: Fable,
+                  Opus, whatever. Unconstrained. Go to town!
               * ... that's our basic web AI tour!
 
               ***
@@ -1163,8 +1173,10 @@
                   prompts, responses.
                 * Tool calls: the bridged article search over WebMCP, plus local WebMCP tools.
                 * An AI native engineering research summary, then the answer from it.
-              * FOLLOW-UP: \`What is SDD?\` (spec-driven development)
+              * FOLLOW-UP: \`What is SDD?\` What is SDD? Spec-driven development.
                 * The coordinator: no more research needed. Answers from the notepad.
+              * Not the biggest agentic system, but an agentic system making its own
+                decisions: what to hand off, what to answer itself.
               * Three agents, all in one single, frontend-only app: GitHub Pages, no backend.
 
               ***
@@ -1197,7 +1209,7 @@
               },
             ]}
             notes=${`
-              * It's super early, so it's all rough and ready.
+              * It's super early, so it's all rough and ready. Make it up as you go along.
               * **Tools:** give your in-tab models the same WebMCP tools outside agents
                 use. Even if you don't expose WebMCP yet, follow that shape. A good standard
                 to bank on, even internally.
@@ -1224,7 +1236,7 @@
             <${Notes}>
               <${Markdown} className="notes">
                 ${`
-                  * A long tour, a lot of demos. Takeaways:
+                  * A long tour, a lot of demos, perhaps too many. Takeaways:
                   * **If you build frontends:** agents are increasingly your users. Get going
                     on WebMCP. Register a single tool on an existing app, consume it, and
                     see how it goes.
@@ -1267,8 +1279,10 @@
               <${Markdown} className="notes">
                 ${`
                   * The QR code again: slides, follow-ups, my socials, the demo URLs and source.
-                  * Find me in the hall! Stickers and t-shirts.
+                  * Find me in the hall! I've got some t-shirts. Come talk about what you're
+                    doing with open source or web AI.
                   * Thanks again to Andrew for the intro.
+                    * He'll be doing a talk tomorrow at 3:30 on "The Agentic Web for Industry Verticals"
                   * And a big shout out to the Agentic AI Foundation and AGNTCon
                     organizers for putting together a wonderful event for us --
                     it's so much tireless work.
