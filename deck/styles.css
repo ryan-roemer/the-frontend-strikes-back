@@ -433,7 +433,7 @@ body::after {
   color: var(--muted);
 }
 
-/* "Our question": the last step, an aside under the subtitle. */
+/* "Why do we care?": the last step, an aside under the audience cards. */
 #root .question-aside {
   color: var(--muted);
   font-style: italic;
@@ -889,6 +889,9 @@ body::after {
 /* --- The two halves of the room ------------------------------------------ */
 
 .audience {
+  /* `height: 100%` fills the grid row; border-box keeps the padding inside it, or
+     the cards spill over whatever follows (the aside on "Why do we care?"). */
+  box-sizing: border-box;
   padding: 30px 32px;
 }
 
