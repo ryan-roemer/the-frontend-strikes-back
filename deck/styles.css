@@ -433,6 +433,12 @@ body::after {
   color: var(--muted);
 }
 
+/* "Our question": the last step, an aside under the subtitle. */
+#root .question-aside {
+  color: var(--muted);
+  font-style: italic;
+}
+
 #root .speaker * {
   white-space: nowrap;
 }
