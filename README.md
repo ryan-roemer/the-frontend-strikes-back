@@ -36,7 +36,7 @@ To present with no network, follow [docs/offline.md](docs/offline.md).
 | Parameter             | Effect                                                        |
 | --------------------- | ------------------------------------------------------------- |
 | `?animate=false`      | Disable `Appear` step animations and slide transitions        |
-| `?presenterMode=true` | Presenter view with speaker notes                             |
+| `?presenterMode=true` | Presenter view                                                |
 | `?slideIndex=N`       | Jump directly to a slide                                      |
 | `?exportMode=true`    | All slides stacked, deck styling intact — print this to PDF   |
 | `?printMode=true`     | All slides stacked, light ink-saving theme for paper handouts |
@@ -94,11 +94,6 @@ first, then the model diagnostics), so it can be tucked into a corner without co
 The crosshair button puts it back. Position and size persist and are re-clamped to the viewport on
 load, so geometry saved on a laptop cannot strand the panel offscreen on a projector.
 
-> **Before presenting:** fetch the Gemma model on a connection you trust and ask one question on
-> each provider. See the pre-flight in [docs/handoffs/chat-handoff.md](docs/handoffs/chat-handoff.md), which is also
-> the record of what each provider can and cannot do, and the measured numbers behind those
-> choices.
-
 ### The deck as Markdown
 
 [`chat/harvest/`](chat/harvest/) reads the running deck — every heading, bullet, code block and
@@ -111,8 +106,8 @@ no lists to nest, and code panes only as Prism spans. The fiber tree has the com
 panes' original source, the markdown slides' original markdown, and the speaker notes — which are
 in no DOM at all, because `Notes` renders `null` outside presenter mode.
 
-Speaker notes are fenced in `<speaker-notes>` tags so a consumer can drop them wholesale; they
-carry TODOs and presenter-private asides.
+Speaker notes, where a slide has any, are fenced in `<speaker-notes>` tags so a consumer can drop
+them wholesale.
 
 ### Addressing what is on a slide
 
@@ -143,8 +138,7 @@ deckDump.describe("9.3"); // 'slide 9, bullet 2 — "One API: document.modelCont
 `locate()` tries content before position, because a quoted phrase either matches exactly one node or
 none, while "the second bullet" is never _absent_ — only possibly the wrong one. Content matching is
 a substring test in both directions, so it wants words that are actually on the slide rather than a
-description of them. When several nodes match it returns all of them rather than guessing; slide 31
-says "TODO" four times, so that case is real. Sub-bullets are counted within their own list, so "the
+description of them. When several nodes match it returns all of them rather than guessing. Sub-bullets are counted within their own list, so "the
 fourth bullet" on slide 9 is the fourth bullet a presenter sees and not the first nested one.
 
 There are also **sized views**, because context is the scarce resource on a 2B model with an 8k
@@ -163,8 +157,7 @@ Navigation needs no slide content at all, which is why the default is ~80 tokens
 The assistant reads both halves of this. `chat/agent/prompt.js` puts the outline and the talk's
 argument in the system prompt once, and `chat/agent/deck-context.js` pins the full text of a slide
 the first time a question is asked from it — once per slide, never re-sent, so context grows with
-slides asked about rather than with turns. The design, the measurements and what is still deferred
-are in [docs/handoffs/deck-context-handoff.md](docs/handoffs/deck-context-handoff.md).
+slides asked about rather than with turns.
 
 ### The deck is a WebMCP server
 
@@ -223,6 +216,3 @@ end of the protocol.
 It calls the **registered** functions, not a parallel implementation that agrees with them today,
 so pressing Execute does what happens when an agent calls the tool. `?tool=find_nodes` opens it on
 one tool, which makes any single tool a link worth bookmarking before a talk.
-
-Details, and the six things this turned up along the way, are in
-[docs/handoffs/webmcp-handoff.md](docs/handoffs/webmcp-handoff.md).

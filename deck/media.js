@@ -52,7 +52,6 @@ const UNSPLASH_QUERY = "q=80&w=1024&auto=format&fit=crop";
 
 export const backgrounds = {
   // Current: used by the deck's topic slides.
-  // TODO: Replace with an AgntCon / MCPCon venue image.
   venue: `https://images.unsplash.com/photo-1745816731674-d9c33eaa4f3a?${UNSPLASH_QUERY}`,
   city: `https://images.unsplash.com/photo-1449157291145-7efd050a4d0e?${UNSPLASH_QUERY}`,
   blueWires: `https://images.unsplash.com/photo-1683322499436-f4383dd59f5a?${UNSPLASH_QUERY}`,

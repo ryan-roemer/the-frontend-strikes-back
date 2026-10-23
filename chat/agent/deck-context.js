@@ -9,7 +9,7 @@
  * That is a repetition constraint, not a window one. Re-sending overlapping views of the
  * same few slides every turn took answers from 5-of-5 usable to 2-of-5 while context
  * climbed to only 4,338 of 8,192 tokens -- half a window, and the model was already
- * answering the pile instead of the question (`chat-handoff.md` §6).
+ * answering the pile instead of the question.
  *
  * BOUNDED BY THE DECK, not by a cap: one block per slide is a hard ceiling whatever
  * anyone types, and a real talk asks about five to a dozen (~325-780 tokens). Eviction is

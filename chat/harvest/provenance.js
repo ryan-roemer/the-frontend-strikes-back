@@ -29,7 +29,7 @@ import { PIECES } from "../../deck/pieces.js";
 /**
  * Shorter than this and a string match means nothing.
  *
- * "Notes", "Deck", "TODO" and the like occur everywhere; handoff §3 counted 27
+ * "Notes", "Deck", "TODO" and the like occur everywhere; the deck had 27
  * nodes under this bar. They still get an address and a kind -- only the search
  * tier is withheld.
  */
@@ -80,8 +80,8 @@ let source = null;
 /**
  * The deck's own source, for counting literals in.
  *
- * Fetches `/`, not `/index.html`: the dev server redirects `/foo.html` to `/foo`
- * (handoff §8), and a redirect that drops the path is a 404 you find out about
+ * Fetches `/`, not `/index.html`: the dev server redirects `/foo.html` to `/foo`,
+ * and a redirect that drops the path is a 404 you find out about
  * at the wrong moment.
  *
  * The EMPTY STRING on failure rather than throwing. Provenance is a convenience on

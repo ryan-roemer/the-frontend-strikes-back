@@ -6,7 +6,7 @@ description: Get the deck ready to present with no network — runs offline:fetc
 # Offline prep
 
 A thin wrapper. The logic lives in the scripts; this skill runs them in order and reads the
-report. Presenter doc: `docs/offline.md`. Build notes: `docs/handoffs/offline-handoff.md`.
+report. Presenter doc: `docs/offline.md`.
 Don't re-implement a check here. If a script is wrong, fix the script.
 
 ## 0. What the user has to start
@@ -54,8 +54,8 @@ to run that command themselves and paste the whole output.
 | `service worker not in control`       | First `?offline` load on the profile. Reload once. Otherwise `/?offline=false`, then `/?offline`.                                                                                                                                                                  |
 | Gemma `error` or `timed out`          | No GPU, or the model file is missing. `-- --no-gemma` gets the rest of the report.                                                                                                                                                                                 |
 | `no CDP at …:1981`                    | The talk Chrome isn't running, or was started before it moved off :1980 (it still listens there). Ask the user to quit it and run `npm run cdp:talk`.                                                                                                              |
-| `backup videos: … missing: N`         | A demo in `deck/demos.js` has no `media/videos/<id>.mp4` (gitignored, so a fresh clone has none). Not a URL problem. The user records it and runs `npm run video:add -- <file.mov> <id>` from a normal terminal: see `docs/offline.md`, "Add a recording".         |
-| console errors                        | Not a URL, but still a failure. `deck/code-editor.js`'s sourcemap-codec error is known and unrelated (handoff, phase 1).                                                                                                                                           |
+| `backup videos: … missing: N`         | A demo in `deck/demos.js` has no `media/videos/<id>.mp4` (gitignored, so a fresh clone has none). Not a URL problem. The user records it and runs `npm run video:add -- <file.mov> <id>` from a normal terminal: see `docs/offline.md`, "Backup recordings".       |
+| console errors                        | Not a URL, but still a failure. `deck/code-editor.js`'s sourcemap-codec error is known and unrelated.                                                                                                                                                              |
 
 `NOTE: the model was already cached` is not a failure. It means the check didn't exercise
 `offline/models/`. Say so, and only suggest a wiped profile if the user wants that tested.

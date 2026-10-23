@@ -63,7 +63,7 @@ export const DEMO_CALLS = {
  *
  * The files live in `media/videos/`, which is gitignored. A listed id whose file
  * is missing still gets its button; the overlay then says which file to add. See
- * docs/offline.md, "When a live demo fails".
+ * docs/offline.md, "Backup recordings".
  */
 export const DEMO_VIDEOS = {
   "chatgpt-desktop": "ChatGPT shops reebok.com with its site tools",

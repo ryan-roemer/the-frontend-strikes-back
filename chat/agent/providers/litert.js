@@ -104,8 +104,7 @@ const EXPECTED_BYTES = 2008432640;
  *
  * The deck cannot fill this: `MAX_HISTORY_TURNS` caps the transcript at three exchanges and
  * `deck-context.js` offers each slide once, so the ceiling is a conversation that asks about
- * every slide, measured at 5,239 tokens. A real talk sits at 2,000-2,700. See
- * `chat-handoff.md` §8.
+ * every slide, measured at 5,239 tokens. A real talk sits at 2,000-2,700.
  *
  * DO NOT TUNE THIS TO FIX A SESSION THAT HAS GONE SOFT: a long conversation does not
  * degrade. The same question at turns 1, 7, 12, 17 and 22 returns byte-identical output.

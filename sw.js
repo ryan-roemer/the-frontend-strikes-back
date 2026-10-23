@@ -8,8 +8,7 @@
  * exactly as it would with no worker at all. `?offline=false` unregisters it. GitHub
  * Pages publishes this file, but nothing registers it there.
  *
- * See `docs/offline.md` for the commands and `docs/handoffs/offline-handoff.md` §2 for
- * why this is a service worker and not a second import map.
+ * See `docs/offline.md` for the commands.
  *
  * `offline/manifest.json` maps each URL to a file under `offline/files/`. It is written by
  * `npm run offline:fetch` and is gitignored. `offline/models.json` has the same shape and

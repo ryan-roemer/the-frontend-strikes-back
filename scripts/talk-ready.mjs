@@ -9,7 +9,7 @@
 // than reaching into its state, so what it leaves is what a click would have.
 //
 // It only touches the demo tabs. The deck's own warm-ups (the Prompt API slide, one deck
-// chat on LiteRT) are by hand: see "Ready to present" in docs/offline.md.
+// chat on LiteRT) are by hand.
 //
 // The demos load from their live sites, so with no network every step times out and
 // says so. Nothing here fails `talk:open`: the deck still comes to the front.

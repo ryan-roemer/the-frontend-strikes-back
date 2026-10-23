@@ -35,7 +35,7 @@ last cue near the recording's length) and for repeated-line loops before using i
 
 ## 2. Map the transcript to the slides
 
-Read the deck in `index.html` from top to bottom (`docs/slide-types.md` explains each
+Read the deck in `index.html` from top to bottom (`deck/components.js` defines each
 component). Split the transcript at each slide change. These phrases usually mark one:
 "let's go to the next slide", "so let's talk about", "all right", or the next slide's
 title said out loud.
